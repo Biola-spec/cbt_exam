@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Zip files and archives
+*.zip
+cbt.zip
+
+# Large executable binaries and build outputs
+*.exe
+offline-desktop/release*/
+offline-desktop/*/win-unpacked/
+offline-desktop/dist/
+desktop-bundle/
+
+# Logs
+logs/*.log
+
+# Tool state & scratch
+.agents/
+.qoder/
+.qodo/
+scratch/

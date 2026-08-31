@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CKEditor Diagnostic</title>
+    <script src="assets/js/ckeditor.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            console.log('=== CKEditor Diagnostic ===');
+            console.log('Page loaded');
+            console.log('ClassicEditor defined:', typeof ClassicEditor !== 'undefined');
+            if (typeof ClassicEditor === 'undefined') {
+                console.error('CKEditor NOT loaded from: assets/js/ckeditor.js');
+                console.error('File should be at: c:\\xampp\\htdocs\\cbt_exam\\assets\\js\\ckeditor.js');
+            } else {
+                console.log('CKEditor loaded successfully!');
+            }
+        });
+    </script>
+</head>
+<body>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { padding: 10px; margin: 10px 0; border-left: 4px solid #ccc; }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        .info { border-color: #17a2b8; background: #d1ecf1; }
+        pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>CKEditor 5 Diagnostic Test</h1>
+    
+    <h2>Step 1: Checking if CKEditor loaded</h2>
+    <div id="check1" class="test info">Checking...</div>
+    
+    <h2>Step 2: Initializing CKEditor</h2>
+    <div id="check2" class="test info">Waiting...</div>
+    
+    <h2>Step 3: Testing Upload Endpoint</h2>
+    <div id="check3" class="test info">Waiting...</div>
+    
+    <h2>CKEditor Instance:</h2>
+    <textarea id="passage_content" rows="10" cols="80">
+Test passage content here. Try uploading an image using the toolbar button above!
+    </textarea>
+    
+    <script>
+        // Step 1: Check if ClassicEditor is loaded
+        const check1 = document.getElementById('check1');
+        if (typeof ClassicEditor === 'undefined') {
+            check1.className = 'test error';
+            check1.innerHTML = '<strong>FAILED:</strong> ClassicEditor is NOT loaded!<br><br>' +
+                'Possible causes:<br>' +
+                '1. Local file not found: assets/js/ckeditor.js<br>' +
+                '2. File path is incorrect<br>' +
+                '3. File is corrupted<br><br>' +
+                'Check browser console (F12) for 404 errors';
+            console.error('ClassicEditor is not defined');
+        } else {
+            check1.className = 'test success';
+            check1.innerHTML = '<strong>SUCCESS:</strong> ClassicEditor is loaded!';
+            
+            // Step 2: Initialize CKEditor
+            const check2 = document.getElementById('check2');
+            
+            ClassicEditor
+                .create(document.querySelector('#passage_content'), {
+                    simpleUpload: {
+                        uploadUrl: 'teacher/upload_image.php'
+                    },
+                    toolbar: [
+                        'heading', '|',
+                        'bold', 'italic', 'link',
+                        'bulletedList', 'numberedList',
+                        '|',
+                        'insertTable', 'uploadImage',
+                        '|',
+                        'undo', 'redo'
+                    ]
+                })
+                .then(editor => {
+                    window.editor = editor;
+                    check2.className = 'test success';
+                    check2.innerHTML = '<strong>SUCCESS:</strong> CKEditor initialized!<br>' +
+                        'You should see the editor above with toolbar buttons.';
+                    console.log('CKEditor initialized:', editor);
+                    
+                    // Step 3: Test upload endpoint
+                    const check3 = document.getElementById('check3');
+                    fetch('teacher/upload_image.php', {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            check3.className = 'test success';
+                            check3.innerHTML = '<strong>SUCCESS:</strong> Upload endpoint is accessible!<br>' +
+                                'Response: ' + JSON.stringify(data);
+                        } else {
+                            check3.className = 'test info';
+                            check3.innerHTML = '<strong>INFO:</strong> Upload endpoint responded: ' + JSON.stringify(data);
+                        }
+                    })
+                    .catch(error => {
+                        check3.className = 'test error';
+                        check3.innerHTML = '<strong>ERROR:</strong> Cannot reach upload endpoint!<br>' +
+                            'Error: ' + error.message;
+                    });
+                })
+                .catch(error => {
+                    check2.className = 'test error';
+                    check2.innerHTML = '<strong>FAILED:</strong> CKEditor initialization error!<br><br>' +
+                        'Error: ' + error.message + '<br><br>' +
+                        'Check browser console (F12) for details.';
+                    console.error('CKEditor error:', error);
+                });
+        }
+    </script>
+    
+    <hr>
+    <h2>Instructions:</h2>
+    <ol>
+        <li>If Step 1 failed: Check that <code>assets/js/ckeditor.js</code> exists</li>
+        <li>If Step 2 failed: Check browser console for error details</li>
+        <li>If editor shows: Try clicking the upload image button in toolbar</li>
+        <li>If upload fails: Check Network tab in browser console (F12)</li>
+    </ol>
+</body>
+</html>

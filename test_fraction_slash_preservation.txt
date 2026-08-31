@@ -1,0 +1,44 @@
+1. What is 1/2 + 1/4?
+
+A. 3/4
+B. 2/6
+C. 1/8
+D. 2/4
+
+ANSWER: A
+
+2. Solve for x: 3x + 5/2 = 11/4
+
+A. x = (11/4 - 5/2) / 3
+B. x = 11/4 - 5/2 × 3
+C. x = 11/4 ÷ 3 - 5/2
+D. x = 3 × 11/4 - 5/2
+
+ANSWER: A
+
+3. What is 2 1/2 as an improper fraction?
+
+A. 5/2
+B. 3/2
+C. 4/2
+D. 6/2
+
+ANSWER: A
+
+4. Simplify: (2/3) × (3/4)
+
+A. 6/12
+B. 1/2
+C. 5/7
+D. 9/8
+
+ANSWER: B
+
+5. Calculate: 123456/789012 + 456789/123456
+
+A. The original slashes should be preserved in this complex fraction
+B. This should not be converted to MathML
+C. The long numbers should prevent MathML conversion
+D. All of the above
+
+ANSWER: D

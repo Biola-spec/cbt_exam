@@ -1,0 +1,43 @@
+1. Solve for x in the quadratic equation:
+ax² + bx + c = 0
+where a=1, b=5, c=6
+
+A. x = (-b ± √(b²-4ac)) / (2a)
+   x = (-5 ± √(25-24)) / (2)
+   x = (-5 ± 1) / 2
+   x = -2 or x = -3
+
+B. x = (-b ± √(b²-4ac)) / (2a)
+   x = (-5 ± √(25-24)) / (2)
+   x = (-5 ± 1) / 2
+   x = -3 or x = -2
+
+C. x = (-b ± √(b²-4ac)) / (2a)
+   x = (5 ± √(25-24)) / (2)
+   x = (5 ± 1) / 2
+   x = 3 or x = 2
+
+D. x = (b ± √(b²-4ac)) / (2a)
+   x = (5 ± √(25-24)) / (2)
+   x = (5 ± 1) / 2
+   x = 3 or x = 2
+
+ANSWER: B
+
+2. Calculate the derivative of f(x) = 3x⁴ - 2x³ + 5x - 7
+
+A. f'(x) = 12x³ - 6x² + 5
+B. f'(x) = 12x³ - 6x² + 5x
+C. f'(x) = 12x³ - 6x² - 5
+D. f'(x) = 12x³ + 6x² + 5
+
+ANSWER: A
+
+3. Evaluate the integral: ∫(2x + 3) dx from x=0 to x=2
+
+A. [x² + 3x] from 0 to 2 = (4 + 6) - (0 + 0) = 10
+B. [x² + 3x] from 0 to 2 = (4 + 6) - (0 + 0) = 12
+C. [2x² + 3x] from 0 to 2 = (8 + 6) - (0 + 0) = 14
+D. [x² + 3x] from 0 to 2 = (2 + 3) - (0 + 0) = 5
+
+ANSWER: A

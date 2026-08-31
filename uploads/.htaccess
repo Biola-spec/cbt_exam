@@ -1,0 +1,20 @@
+# Block PHP execution in uploads folder
+<FilesMatch "\.(php|php5|phtml)$">
+    Deny from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+
+# Set proper MIME types
+<IfModule mod_mime.c>
+    AddType image/jpeg jpeg jpg
+    AddType image/png png
+    AddType image/gif gif
+    AddType image/webp webp
+</IfModule>
+
+# Enable CORS for images (optional)
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+</IfModule>

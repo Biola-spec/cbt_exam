@@ -1,0 +1,263 @@
+<?php
+require_once '../config/database.php';
+require_once '../config/session.php';
+
+// Check if user is logged in and is a student
+requireLogin();
+if (getUserRole() !== 'student') {
+    header('Location: ../login.php');
+    exit();
+}
+
+$attempt_id = isset($_GET['attempt_id']) ? (int)$_GET['attempt_id'] : 0;
+$time_up = isset($_GET['time_up']) ? (int)$_GET['time_up'] : 0;
+
+if (!$attempt_id) {
+    header('Location: dashboard.php');
+    exit();
+}
+
+try {
+    $mysqli = getDBConnection();
+    ensureTheoryExamSchema($mysqli);
+    
+    // Get exam attempt details with class information
+    $stmt = $mysqli->prepare("SELECT ea.*, e.title as exam_title, c.name as class_name, s.name as subject_name, c.marks_per_question
+                          FROM exam_attempts ea
+                          JOIN exams e ON ea.exam_id = e.id
+                          JOIN exam_subjects es ON ea.exam_subject_id = es.id
+                          JOIN classes c ON es.class_id = c.id
+                          JOIN subjects s ON es.subject_id = s.id
+                          WHERE ea.id = ? AND ea.student_id = ?");
+    $stmt->bind_param("ii", $attempt_id, $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $attempt = $result->fetch_assoc();
+
+    if (!$attempt) {
+        header('Location: dashboard.php');
+        exit();
+    }
+
+    // Get the actual number of questions and marks in this exam
+    $stmt = $mysqli->prepare("SELECT COUNT(*) as total,
+                          SUM(CASE WHEN COALESCE(question_type, 'objective') = 'objective' THEN 1 ELSE 0 END) as objective_total,
+                          COALESCE(SUM(CASE WHEN question_type = 'theory' THEN theory_marks ELSE 0 END), 0) as theory_total_marks
+                          FROM questions WHERE exam_subject_id = ?");
+    $stmt->bind_param("i", $attempt['exam_subject_id']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $question_stats = $result->fetch_assoc();
+    $total_questions = $question_stats['total'];
+    $objective_questions = (int)($question_stats['objective_total'] ?? $total_questions);
+    $theory_total_marks = (float)($question_stats['theory_total_marks'] ?? 0);
+
+    // Get student answer statistics
+    $stmt = $mysqli->prepare("SELECT COUNT(*) as answered,
+                          SUM(CASE WHEN is_correct = 1 THEN 1 ELSE 0 END) as correct,
+                          SUM(CASE WHEN q.question_type = 'theory' AND COALESCE(sa.answer_text, '') <> '' AND sa.marked_at IS NULL THEN 1 ELSE 0 END) as pending_theory
+                          FROM student_answers sa
+                          JOIN questions q ON sa.question_id = q.id
+                          WHERE sa.attempt_id = ?");
+    $stmt->bind_param("i", $attempt_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $answer_stats = $result->fetch_assoc();
+    $answered_questions = $answer_stats['answered'] ?? 0;
+    $correct_answers = $answer_stats['correct'] ?? 0;
+    $pending_theory = (int)($answer_stats['pending_theory'] ?? 0);
+
+    // Get marks per question for this class
+    $marks_per_question = (float)$attempt['marks_per_question'];
+
+    // Calculate score based on objective class marks plus teacher-awarded theory marks.
+    $total_score = (float)$attempt['score'];
+    $max_possible_score = ($objective_questions * $marks_per_question) + $theory_total_marks;
+
+    // Calculate percentage based on total questions (not just answered)
+    $percentage = 0;
+    $percentage_of_total = 0;
+    if ($max_possible_score > 0) {
+        $percentage_of_total = ($total_score / $max_possible_score) * 100;
+    }
+    // Keep percentage for backward compatibility but use percentage_of_total for display
+    $percentage = $percentage_of_total;
+
+    // Determine if student passed (assuming 50% is passing)
+    $passed = $pending_theory === 0 && $percentage_of_total >= 50;
+
+    // Get school name and logo
+    $school_name = getSchoolName();
+    $school_logo = null;
+    $stmt = $mysqli->prepare("SELECT logo_path FROM school_config LIMIT 1");
+    if ($stmt) {
+        $stmt->execute();
+        $result = $stmt->get_result();
+        if ($row = $result->fetch_assoc()) {
+            $school_logo = $row['logo_path'];
+        }
+        $stmt->close();
+    }
+    
+    $student_name = getUserName();
+    
+    // Get student passport
+    $student_passport = null;
+    $stmt = $mysqli->prepare("SELECT passport FROM users WHERE id = ?");
+    if ($stmt) {
+        $stmt->bind_param("i", $_SESSION['user_id']);
+        $stmt->execute();
+        $passport_result = $stmt->get_result();
+        if ($row = $passport_result->fetch_assoc()) {
+            $student_passport = $row['passport'];
+        }
+        $stmt->close();
+    }
+} catch (Exception $e) {
+    header('Location: dashboard.php');
+    exit();
+}
+?>
+
+<?php include '../includes/header.php'; ?>
+
+<script>
+    // Prevent going back to the exam after completion
+    if (window.history.replaceState) {
+        window.history.replaceState(null, null, window.location.href);
+    }
+    
+    // Add a dummy entry to history to "trap" the back button
+    window.history.pushState(null, null, window.location.href);
+    window.onpopstate = function() {
+        window.history.pushState(null, null, window.location.href);
+    };
+
+    // Specifically block Backspace from acting as a back button
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace') {
+            var activeElement = document.activeElement;
+            var isInput = (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable);
+            if (!isInput) {
+                e.preventDefault();
+            }
+        }
+    });
+</script>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0">
+                <div class="card-body text-center p-5">
+                    <?php if ($passed): ?>
+                        <!-- Success Animation -->
+                        <div class="mb-4">
+                            <div class="success-animation">
+                                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                                    <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                                </svg>
+                            </div>
+                        </div>
+                        
+                        <h1 class="display-4 text-success fw-bold mb-3">Congratulations!</h1>
+                        <p class="lead mb-4">You have successfully completed the exam.</p>
+                        
+                        <!-- Jumping Student Animation -->
+                        <div class="mb-4">
+                            <div class="jumping-student">😊</div>
+                        </div>
+                    <?php else: ?>
+                        <!-- Sad Student Animation -->
+                        <div class="mb-4">
+                            <div class="sad-student">😢</div>
+                        </div>
+                        
+                        <h1 class="display-4 text-primary fw-bold mb-3">Exam Completed</h1>
+                        <p class="lead mb-4">You have finished the exam. Better luck next time!</p>
+                    <?php endif; ?>
+                    
+                    <div class="row justify-content-center mt-4">
+                        <div class="col-md-10">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <div class="text-center mb-3">
+                                        <?php if (!empty($school_logo) && file_exists($school_logo)): ?>
+                                            <img src="<?php echo htmlspecialchars($school_logo); ?>" alt="School Logo" style="height: 50px; margin-bottom: 10px;">
+                                        <?php endif; ?>
+                                        <h4><?php echo htmlspecialchars($school_name); ?></h4>
+                                    </div>
+                                    
+                                    <h4 class="card-title text-center"><?php echo htmlspecialchars($attempt['exam_title']); ?></h4>
+                                    <p class="card-text text-center">
+                                        <strong><?php echo htmlspecialchars($attempt['class_name']); ?> - <?php echo htmlspecialchars($attempt['subject_name']); ?></strong>
+                                    </p>
+                                    
+                                    <hr>
+                                    
+                                    <div class="row text-center">
+                                        <div class="col-md-4 mb-3">
+                                            <h5 class="text-primary"><?php echo number_format($total_score, 2); ?> / <?php echo number_format($max_possible_score, 2); ?></h5>
+                                            <p class="mb-0">Score (Correct Answers)</p>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <h5 class="text-primary"><?php echo $answered_questions; ?> / <?php echo $total_questions; ?></h5>
+                                            <p class="mb-0">Answered / Total Questions</p>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <h5 class="<?php echo $passed ? 'text-success' : 'text-danger'; ?>">
+                                                <?php echo round($percentage_of_total, 2); ?>%
+                                            </h5>
+                                            <p class="mb-0">Percentage</p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <div class="text-center mb-3">
+                                            <?php 
+                                            $passport_img = !empty($student_passport) ? '../' . $student_passport : '../assets/img/default-avatar.png'; 
+                                            ?>
+                                            <img src="<?php echo htmlspecialchars($passport_img); ?>" alt="Student Passport" 
+                                                 style="width: 100px; height: 130px; object-fit: cover; border-radius: 50%; border: 3px solid #007bff; margin-bottom: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                                        </div>
+                                        <p class="mb-1"><strong>Student:</strong> <?php echo htmlspecialchars($student_name); ?></p>
+                                        <p class="mb-1"><strong>School:</strong> <?php echo htmlspecialchars($school_name); ?></p>
+                                        <p class="mb-0"><strong>Submitted:</strong> <?php echo date('M j, Y g:i A', strtotime($attempt['submitted_at'])); ?></p>
+                                    </div>
+                                    
+                                    <?php if ($answered_questions < $total_questions): ?>
+                                    <div class="alert alert-warning mt-3 mb-0">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <strong>Note:</strong> You answered <?php echo $answered_questions; ?> out of <?php echo $total_questions; ?> questions. 
+                                        Unanswered questions were scored as incorrect.
+                                    </div>
+                                    <?php endif; ?>
+                                    <?php if ($pending_theory > 0): ?>
+                                    <div class="alert alert-info mt-3 mb-0">
+                                        <i class="fas fa-pen me-2"></i>
+                                        <strong>Theory Pending:</strong> <?php echo $pending_theory; ?> theory answer<?php echo $pending_theory === 1 ? '' : 's'; ?> will be marked by your teacher before the final score is complete.
+                                    </div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="dashboard.php?tab=history" class="btn btn-primary btn-lg">
+                            <i class="fas fa-history me-2"></i>View Exam History
+                        </a>
+                        <button class="btn btn-outline-primary btn-lg ms-2" onclick="window.print()">
+                            <i class="fas fa-print me-2"></i>Print Results
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link href="../css/exam_completion.css" rel="stylesheet">
+
+<?php include '../includes/footer.php'; ?>

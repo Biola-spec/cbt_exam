@@ -1,0 +1,20 @@
+1. A matrix is best defined as a ______ arrangement of numbers in rows and columns.  
+   A) random  
+   B) rectangular  
+   C) circular  
+   D) triangular  
+   Answer: B  
+
+2. The order of a matrix with 3 rows and 2 columns is written as:  
+   A) 2 × 3  
+   B) 3 × 2  
+   C) 3 + 2  
+   D) 6  
+   Answer: B  
+
+3. A matrix in which all elements are zero is called a:  
+   A) unit matrix  
+   B) identity matrix  
+   C) null matrix  
+   D) scalar matrix  
+   Answer: C

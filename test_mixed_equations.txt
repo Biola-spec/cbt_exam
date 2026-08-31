@@ -1,0 +1,57 @@
+1. What is 1/2 + 1/3?
+
+A. 5/6
+B. 2/5
+C. 3/4
+D. 1/6
+
+ANSWER: A
+
+2. Solve the equation:
+2x + 3/4 = 5/2
+
+A. x = (5/2 - 3/4) / 2
+   x = (10/4 - 3/4) / 2
+   x = 7/4 / 2
+   x = 7/8
+
+B. x = (5/2 - 3/4) / 2
+   x = (10/4 - 3/4) / 2
+   x = 7/4 ÷ 2
+   x = 7/8
+
+C. x = (5/2 + 3/4) / 2
+   x = (10/4 + 3/4) / 2
+   x = 13/4 / 2
+   x = 13/8
+
+D. x = (5/2 - 3/4) × 2
+   x = (10/4 - 3/4) × 2
+   x = 7/4 × 2
+   x = 7/2
+
+ANSWER: B
+
+3. Find the area of a triangle with base 3 1/2 cm and height 4 2/3 cm.
+
+A. Area = 1/2 × base × height
+   Area = 1/2 × 3 1/2 × 4 2/3
+   Area = 1/2 × 7/2 × 14/3
+   Area = 98/12 = 49/6 cm²
+
+B. Area = 1/2 × base × height
+   Area = 1/2 × 3 1/2 × 4 2/3
+   Area = 1/2 × 7/2 × 14/3
+   Area = 98/12 = 8 1/6 cm²
+
+C. Area = base × height
+   Area = 3 1/2 × 4 2/3
+   Area = 7/2 × 14/3
+   Area = 98/6 = 16 1/3 cm²
+
+D. Area = 1/2 × base × height
+   Area = 1/2 × 3.5 × 4.67
+   Area = 8.17 cm²
+
+ANSWER: B
+

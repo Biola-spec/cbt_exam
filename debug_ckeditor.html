@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CKEditor Debug Check</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
+        .status { padding: 15px; margin: 15px 0; border-radius: 5px; border-left: 4px solid; }
+        .success { background: #d4edda; border-color: #28a745; color: #155724; }
+        .error { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .warning { background: #fff3cd; border-color: #ffc107; color: #856404; }
+        .info { background: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+        pre { background: #f4f4f4; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+        .btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background: #f8f9fa; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 CKEditor Debug Diagnostic</h1>
+        
+        <?php
+        echo "<h2>Step-by-Step Checks</h2>";
+        
+        // Check 1: CDN Accessibility
+        echo "<div class='status info'>";
+        echo "<strong>1. Testing CKEditor CDN...</strong><br>";
+        $cdnUrl = 'https://cdn.ckeditor.com/ckeditor5/41.0.1/classic/ckeditor.js';
+        echo "CDN URL: <code>" . htmlspecialchars($cdnUrl) . "</code><br>";
+        echo "Testing connection... ";
+        
+        $ch = curl_init($cdnUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_NOBODY, true);
+        $result = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode === 200) {
+            echo "<span style='color:green;'>✅ CDN is accessible (HTTP {$httpCode})</span>";
+        } else {
+            echo "<span style='color:red;'>❌ CDN not accessible (HTTP {$httpCode})</span><br>";
+            echo "<strong>Action:</strong> Check internet connection or firewall settings.";
+        }
+        echo "</div>";
+        
+        // Check 2: Upload Script
+        echo "<div class='status info'>";
+        echo "<strong>2. Checking Upload Script...</strong><br>";
+        $uploadScript = __DIR__ . '/teacher/upload_image.php';
+        if (file_exists($uploadScript)) {
+            echo "<span style='color:green;'>✅ Upload script exists</span><br>";
+            echo "Path: <code>" . htmlspecialchars($uploadScript) . "</code>";
+        } else {
+            echo "<span style='color:red;'>❌ Upload script NOT found!</span><br>";
+            echo "<strong>Action:</strong> Create teacher/upload_image.php";
+        }
+        echo "</div>";
+        
+        // Check 3: Uploads Directory
+        echo "<div class='status info'>";
+        echo "<strong>3. Checking Uploads Directory...</strong><br>";
+        $uploadsDir = __DIR__ . '/uploads';
+        if (is_dir($uploadsDir)) {
+            echo "<span style='color:green;'>✅ Directory exists</span><br>";
+            
+            if (is_writable($uploadsDir)) {
+                echo "<span style='color:green;'>✅ Directory is writable</span>";
+            } else {
+                echo "<span style='color:red;'>❌ Directory is NOT writable</span><br>";
+                echo "<strong>Action:</strong> Fix permissions:<br>";
+                echo "<code>icacls \"" . $uploadsDir . "\" /grant Users:F /T</code>";
+            }
+        } else {
+            echo "<span style='color:red;'>❌ Directory does NOT exist</span><br>";
+            echo "<strong>Action:</strong> Create uploads folder in project root";
+        }
+        echo "</div>";
+        
+        // Check 4: GD Library
+        echo "<div class='status info'>";
+        echo "<strong>4. Checking GD Library...</strong><br>";
+        if (extension_loaded('gd')) {
+            echo "<span style='color:green;'>✅ GD library is enabled</span>";
+        } else {
+            echo "<span style='color:red;'>❌ GD library is NOT enabled</span><br>";
+            echo "<strong>Action:</strong> Enable GD in php.ini and restart Apache";
+        }
+        echo "</div>";
+        
+        // Check 5: PHP Configuration
+        echo "<div class='status info'>";
+        echo "<strong>5. PHP Configuration...</strong><br>";
+        echo "Upload Max Filesize: <code>" . ini_get('upload_max_filesize') . "</code><br>";
+        echo "Post Max Size: <code>" . ini_get('post_max_size') . "</code><br>";
+        echo "Max Execution Time: <code>" . ini_get('max_execution_time') . "s</code><br>";
+        echo "Memory Limit: <code>" . ini_get('memory_limit') . "</code>";
+        echo "</div>";
+        ?>
+        
+        <h2>Interactive Tests</h2>
+        
+        <div class="status warning">
+            <strong>⚠️ IMPORTANT:</strong> Open browser console (Press F12) to see detailed logs!
+        </div>
+        
+        <div id="test-results"></div>
+        
+        <button class="btn" onclick="runTests()">Run All Tests</button>
+        <button class="btn" onclick="loadCKEditor()">Load CKEditor</button>
+        
+        <hr style="margin: 30px 0;">
+        
+        <h2>Manual CKEditor Test</h2>
+        <textarea id="manual_editor" rows="6" style="width: 100%;"></textarea>
+        
+        <div style="margin-top: 20px;">
+            <button class="btn" onclick="getContent()">Get Content</button>
+            <button class="btn" onclick="setContent()">Set Content with Image</button>
+        </div>
+        
+        <pre id="output" style="min-height: 100px; margin-top: 20px;"></pre>
+    </div>
+    
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : (type === 'success' ? '✅' : 'ℹ️');
+            output.innerHTML += `[${timestamp}] ${icon} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function runTests() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<div class="status info"><strong>Running tests...</strong></div>';
+            
+            // Test 1: Check if ClassicEditor loaded
+            setTimeout(() => {
+                if (typeof ClassicEditor !== 'undefined') {
+                    resultsDiv.innerHTML += '<div class="status success"><strong>✅ Test 1 PASSED:</strong> CKEditor library loaded successfully</div>';
+                    log('ClassicEditor is available', 'success');
+                } else {
+                    resultsDiv.innerHTML += '<div class="status error"><strong>❌ Test 1 FAILED:</strong> CKEditor library NOT loaded</div>';
+                    log('ClassicEditor is undefined - CDN failed to load', 'error');
+                }
+            }, 100);
+            
+            // Test 2: Check DOM element
+            setTimeout(() => {
+                const textarea = document.querySelector('#manual_editor');
+                if (textarea) {
+                    resultsDiv.innerHTML += '<div class="status success"><strong>✅ Test 2 PASSED:</strong> Textarea element found</div>';
+                    log('Textarea element exists', 'success');
+                } else {
+                    resultsDiv.innerHTML += '<div class="status error"><strong>❌ Test 2 FAILED:</strong> Textarea element NOT found</div>';
+                    log('Textarea element missing from DOM', 'error');
+                }
+            }, 200);
+            
+            // Test 3: Try initialization
+            setTimeout(() => {
+                if (typeof ClassicEditor !== 'undefined') {
+                    ClassicEditor.create(document.querySelector('#manual_editor'), {
+                        toolbar: ['bold', 'italic', 'imageUpload']
+                    })
+                    .then(editor => {
+                        resultsDiv.innerHTML += '<div class="status success"><strong>✅ Test 3 PASSED:</strong> Editor initialized successfully</div>';
+                        log('CKEditor created successfully!', 'success');
+                        window.testEditor = editor;
+                    })
+                    .catch(error => {
+                        resultsDiv.innerHTML += '<div class="status error"><strong>❌ Test 3 FAILED:</strong> ' + error.message + '</div>';
+                        log('Initialization failed: ' + error.message, 'error');
+                    });
+                }
+            }, 500);
+        }
+        
+        function loadCKEditor() {
+            log('Attempting to load CKEditor...');
+            
+            if (typeof ClassicEditor === 'undefined') {
+                log('CKEditor library not loaded! Check network tab.', 'error');
+                alert('CKEditor failed to load from CDN');
+                return;
+            }
+            
+            log('CKEditor library is loaded', 'success');
+            log('Available version: ' + (ClassicEditor.version || 'Latest'), 'success');
+        }
+        
+        function getContent() {
+            if (window.testEditor) {
+                const content = window.testEditor.getData();
+                log('Content:\n' + content);
+            } else {
+                log('No editor instance available', 'error');
+            }
+        }
+        
+        function setContent() {
+            if (window.testEditor) {
+                const html = '<p>This is a test passage.</p><img src="uploads/test.jpg" alt="Test image">';
+                window.testEditor.setData(html);
+                log('Content set:\n' + html);
+            } else {
+                log('No editor instance available', 'error');
+            }
+        }
+        
+        // Auto-run on page load
+        window.addEventListener('load', function() {
+            log('Page loaded. Click "Run All Tests" to diagnose issues.');
+        });
+    </script>
+    
+    <!-- Load CKEditor from local file -->
+    <script src="assets/js/ckeditor.js"></script>
+</body>
+</html>

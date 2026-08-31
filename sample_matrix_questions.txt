@@ -1,0 +1,31 @@
+1. What is the result of adding these two matrices?
+
+A. [2 1]
+   [1 1]
+   
+B. [1 2]
+   [1 1]
+   
+C. [3 1]
+   [1 2]
+   
+D. [2 2]
+   [2 1]
+
+ANSWER: A
+
+2. Which matrix represents a 90-degree rotation?
+
+A. [0 -1]
+   [1  0]
+   
+B. [1  0]
+   [0  1]
+   
+C. [-1 0]
+   [ 0 -1]
+   
+D. [0  1]
+   [-1 0]
+
+ANSWER: A

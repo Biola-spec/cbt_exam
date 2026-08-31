@@ -1,0 +1,26 @@
+1. What is the capital of France?
+
+A. Paris is the capital city of France and it is located in the northern-central 
+   part of the country along the Seine River.
+B. Marseille is a major city in southern France, located in the Provence-Alpes-Côte 
+   d'Azur region on the Mediterranean coast.
+C. Lyon is a major city in eastern France, located in the Auvergne-Rhône-Alpes 
+   region along the Rhône and Saône rivers.
+D. Toulouse is a major city in southern France, located in the Occitanie region 
+   along the Garonne river.
+
+ANSWER: A
+
+2. Which of the following statements about photosynthesis is correct?
+
+A. Photosynthesis is the process by which plants convert light energy into 
+   chemical energy in the form of glucose using carbon dioxide and water, 
+   with oxygen being released as a byproduct.
+B. Photosynthesis occurs only at night when plants can rest and process 
+   the nutrients they have absorbed during the day.
+C. Photosynthesis is the process by which plants absorb oxygen from the 
+   atmosphere and release carbon dioxide as a waste product.
+D. Photosynthesis takes place in the roots of plants where specialized 
+   cells convert minerals from the soil into usable energy.
+
+ANSWER: A

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Display Test</title>
+</head>
+<body>
+    <h1>Image Display Test</h1>
+    
+    <h2>Test 1: Direct Image Display</h2>
+    <p>This should show an image if the file exists:</p>
+    <img src="uploads/img_6926edd8df5153.81050369.JPG" alt="Test Image" style="max-width: 100%; height: auto;">
+    
+    <h2>Test 2: Image in HTML Content</h2>
+    <div style="border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
+        <p>This is a test passage with an image:</p>
+        <img src="uploads/img_6926edd8df5153.81050369.JPG" alt="Test Image" style="max-width: 100%; height: auto;">
+        <p>End of passage.</p>
+    </div>
+    
+    <h2>Test 3: File Existence Check</h2>
+    <p>File path: uploads/img_6926edd8df5153.81050369.JPG</p>
+    <p>File size: 2506.4KB (as shown in directory listing)</p>
+    
+    <h2>Possible Issues:</h2>
+    <ul>
+        <li>Web server permissions - the web server might not have permission to read the uploads directory</li>
+        <li>File path issues - the path might be incorrect relative to the web root</li>
+        <li>Image file corruption - the image file might be corrupted</li>
+        <li>Browser security - some browsers block mixed content or have strict security policies</li>
+    </ul>
+</body>
+</html>

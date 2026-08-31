@@ -1,0 +1,179 @@
+1. The Pascaline was built by_______________  
+
+A. Blaise Pascal    
+B. Jacquard Loom   
+C. Tinubu
+D. None of the above 
+
+ANSWER: A
+
+2. ___________is the first counting machine    
+
+A. Calculator    
+B. Abacus    
+C. Multiplier wheel
+D. None of the above 
+
+ANSWER: B
+
+3. The technology used in first generation computers was the ______________
+
+A. Pascaline     
+B. Vacuum tube    
+C. Napier's bone
+D. None of the above
+
+ANSWER: B
+
+4. ________is the father of computers   
+
+A. Charles Babbage      
+B. Graham Bell   
+C. Ted Holf
+D. None of the above
+
+ANSWER: A
+
+5. The characteristic technology used in second generation computer was_____________
+
+A. Transformer     
+B. The Transistor     
+C. program
+D. None of the above
+
+ANSWER: B
+
+6. The technology used in the third generation computers was the___________
+
+A. Integrated Circuits(IC)  
+B. Transistor
+C. Progressor
+D. None of the above
+
+ANSWER: A
+
+7. The main future of the fifth generation is______________
+
+A. Artificial Intelligence(AI)     
+B. Chips     
+C. arithmetic and logic unit
+D. None of the above
+
+ANSWER: A
+
+8. Abacus is also called___________
+
+A. Counting Frame    
+B. Public Frame    
+C. Personal Frame
+D. None of the above
+
+ANSWER: A
+
+9. Computer that have human-like intelligence are called __________   
+
+A. Robot
+B. Animal
+C. Ape
+D. None of the above
+
+ANSWER: A
+
+10. Which year was the pacalline built________________
+
+A. 1902     
+B. 1642    
+C. 1730
+D. None of the above 
+
+ANSWER: B
+
+11. Abacus was made in_________
+
+A. Japan     
+B. China      
+C. Russia
+D. None of the above
+
+ANSWER: A
+
+12. ________is the brain of computer system    
+
+A. printer    
+B. CPU    
+C. monitor
+D. None of the above 
+
+ANSWER: B
+
+13. The component of system unit where diskette, compact disk and flash can be inserted on set on motion is called______________
+
+A. motherboard     
+B. system case    
+C. disk drives
+D. None of the above
+
+ANSWER: A
+
+14. Pascal was developed in_____________
+
+A. 2001     
+B. 1642      
+C. 1620
+D. None of the above
+
+ANSWER: B
+
+15. There are________ types of computer   
+
+A. 6         
+B. 9        
+C. 3
+D. None of the above
+
+ANSWER: C
+
+16. CPU stores data inside____________
+
+A. mouse      
+B. RAM    
+C. printer
+D. None of the above
+
+ANSWER:  B
+
+17. ____________can be found on the motherboard   
+
+A. ports      
+B. keys      
+C. slots
+D. None of the above
+
+ANSWER: A 
+
+18. CD means ____________
+
+A. Coal Depot      
+B. Compact Disk     
+C. Common Disk
+D. None of the above
+
+ANSWER: B 
+
+19. ___________developed the microprocessor chip   
+
+A. Blaise Pascal     
+B. John Napier   
+C. Ted Holf
+D. None of the above 
+
+ANSWER: A
+
+20. ______ and ______ are examples of output devices
+
+A. keyboard and mouse    
+B. monitor and speakers   
+C. joystick and scanner
+D. None of the above
+
+ANSWER: B

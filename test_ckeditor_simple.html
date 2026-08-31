@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CKEditor Test</title>
+    <script src="assets/js/ckeditor.js"></script>
+    <script>
+        window.addEventListener('load', function() {
+            console.log('Page loaded');
+            console.log('ClassicEditor defined:', typeof ClassicEditor !== 'undefined');
+            if (typeof ClassicEditor === 'undefined') {
+                console.error('CKEditor failed to load from assets/js/ckeditor.js');
+            } else {
+                console.log('CKEditor loaded successfully!');
+            }
+        });
+    </script>
+</head>
+<body>
+    <h1>CKEditor 5 Test</h1>
+    
+    <h2>Checking if CKEditor loaded:</h2>
+    <div id="status"></div>
+    
+    <h2>Textarea:</h2>
+    <textarea id="passage_content" rows="10" cols="80">
+        Test content here. Try uploading an image!
+    </textarea>
+    
+    <script>
+        const status = document.getElementById('status');
+        
+        if (typeof ClassicEditor === 'undefined') {
+            status.innerHTML = '<p style="color: red;"><strong>ERROR:</strong> ClassicEditor is NOT loaded from CDN!</p>';
+            console.error('ClassicEditor is not defined');
+        } else {
+            status.innerHTML = '<p style="color: green;"><strong>SUCCESS:</strong> ClassicEditor is loaded!</p>';
+            
+            ClassicEditor
+                .create(document.querySelector('#passage_content'), {
+                    simpleUpload: {
+                        uploadUrl: 'teacher/upload_image.php'
+                    },
+                    toolbar: [
+                        'heading', '|',
+                        'bold', 'italic', 'link',
+                        'bulletedList', 'numberedList',
+                        '|',
+                        'insertTable', 'uploadImage',
+                        '|',
+                        'undo', 'redo'
+                    ]
+                })
+                .then(editor => {
+                    window.editor = editor;
+                    console.log('CKEditor initialized:', editor);
+                    status.innerHTML += '<p style="color: green;"><strong>Editor created successfully!</strong></p>';
+                })
+                .catch(error => {
+                    console.error('CKEditor error:', error);
+                    status.innerHTML += '<p style="color: red;"><strong>Error:</strong> ' + error.message + '</p>';
+                });
+        }
+    </script>
+</body>
+</html>

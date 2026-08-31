@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Passage Image Display</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Test: Passage Image Display in Edit Mode</h2>
+        <hr>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Simulated Edit Form</h5>
+            </div>
+            <div class="card-body">
+                <label for="passage_content" class="form-label">Passage Content (with images):</label>
+                
+                <!-- This simulates what the textarea should show -->
+                <textarea class="form-control mb-3" id="test_content" rows="10"></textarea>
+                
+                <button class="btn btn-success" onclick="loadTestData()">
+                    <i class="fas fa-play me-2"></i> Load Test Data
+                </button>
+                
+                <button class="btn btn-info text-white ms-2" onclick="showRawContent()">
+                    <i class="fas fa-code me-2"></i> Show Raw Content
+                </button>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-4">
+            <h5><i class="fas fa-info-circle me-2"></i>Expected Result:</h5>
+            <p>The textarea above should display HTML code including <code>&lt;img&gt;</code> tags when you click "Load Test Data".</p>
+            <p>If you see the actual image tags, the fix is working!</p>
+        </div>
+        
+        <div class="mt-4">
+            <h4>Debug Information:</h4>
+            <pre id="debug_output" class="bg-light p-3 border rounded"></pre>
+        </div>
+    </div>
+    
+    <script>
+        // Simulate encoded passage content from database (base64 + HTML entities)
+        const testData = {
+            title: "Sample Passage with Image",
+            content: "This is a sample passage.&nbsp;<img src=\"uploads/img_test123.png\" alt=\"Test Image\" style=\"max-width: 100%;\"> More text here."
+        };
+        
+        function loadTestData() {
+            // Simulate what happens when editing:
+            // 1. Content from database (might be HTML-encoded)
+            // 2. Encoded to base64 for data attribute
+            // 3. Decoded from base64 in JavaScript
+            // 4. Should decode HTML entities
+            
+            const originalContent = testData.content;
+            
+            // Step 1: Simulate HTML encoding (what might be in DB)
+            const encoded = originalContent
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            
+            // Step 2: Base64 encode (like in PHP's data-content attribute)
+            const base64Content = btoa(encoded);
+            
+            // Step 3: Decode base64 (current code does this)
+            let decoded = atob(base64Content);
+            
+            // Step 4: Decode HTML entities (the fix we added)
+            let tempTextarea = document.createElement('textarea');
+            tempTextarea.innerHTML = decoded;
+            decoded = tempTextarea.value;
+            
+            // Set in textarea
+            document.getElementById('test_content').value = decoded;
+            
+            // Show debug info
+            document.getElementById('debug_output').innerHTML = 
+                '<strong>Original:</strong><br>' + originalContent + '<br><br>' +
+                '<strong>After Encoding (in DB):</strong><br>' + encoded + '<br><br>' +
+                '<strong>Base64 (data attribute):</strong><br>' + base64Content + '<br><br>' +
+                '<strong>After Base64 Decode:</strong><br>' + atob(base64Content) + '<br><br>' +
+                '<strong>After HTML Entity Decode (FINAL):</strong><br>' + decoded;
+            
+            if (decoded.includes('<img')) {
+                alert('✓ SUCCESS! Image tags are visible in textarea!\n\nThe fix is working correctly.');
+            } else {
+                alert('✗ PROBLEM! Image tags are NOT visible.\n\nCheck the debug output below.');
+            }
+        }
+        
+        function showRawContent() {
+            const content = document.getElementById('test_content').value;
+            alert('Current content:\n\n' + content);
+        }
+        
+        // Auto-load on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            loadTestData();
+        });
+    </script>
+</body>
+</html>
