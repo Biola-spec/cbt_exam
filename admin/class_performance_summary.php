@@ -136,8 +136,11 @@ try {
 
 <?php if ($selected_class_id > 0 && count($performance_summary) > 0): ?>
     <div class="card mb-4">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h6 class="mb-0">Performance Summary for <?php echo htmlspecialchars($classes[array_search($selected_class_id, array_column($classes, 'id'))]['name']); ?></h6>
+            <a href="../teacher/export_class_excel.php?class_id=<?php echo $selected_class_id; ?>&exam_id=<?php echo $selected_exam_id; ?>&pass_mark=<?php echo $pass_mark; ?>" class="btn btn-sm btn-success">
+                <i class="fas fa-file-excel me-1"></i> Download Class Excel Broadsheet
+            </a>
         </div>
         <div class="card-body">
             <div class="table-responsive">

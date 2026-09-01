@@ -91,10 +91,13 @@ try {
                 <?php endforeach; ?>
             </select>
         </div>
-        <div class="col-md-2 d-flex align-items-end">
+        <div class="col-md-6 d-flex align-items-end justify-content-md-end mt-3 mt-md-0">
             <button type="submit" class="btn btn-primary">Filter</button>
             <?php if ($selected_class_id > 0): ?>
                 <a href="?tab=results" class="btn btn-secondary ms-2">Clear</a>
+                <a href="export_class_excel.php?class_id=<?php echo $selected_class_id; ?>" class="btn btn-success ms-3" title="Download Excel Broadsheet containing all students and subject scores for this class">
+                    <i class="fas fa-file-excel me-1"></i> Download Class Excel
+                </a>
             <?php endif; ?>
         </div>
     </div>

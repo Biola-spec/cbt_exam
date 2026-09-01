@@ -219,6 +219,10 @@ function getQuestionCount($exam_subject_id) {
                                                                 <?php else: ?>
                                                                     <span class="text-muted small">Not published</span>
                                                                 <?php endif; ?>
+                                                                <a href="export_class_excel.php?exam_id=<?php echo $exam['id']; ?>&class_id=<?php echo $subject['class_id']; ?>" 
+                                                                   class="btn btn-outline-success btn-sm" title="Download Excel Broadsheet Results for <?php echo htmlspecialchars($subject['class_name']); ?>">
+                                                                    <i class="fas fa-file-excel me-1"></i> Excel
+                                                                </a>
                                                             </div>
                                                         </li>
                                                     <?php endforeach; ?>

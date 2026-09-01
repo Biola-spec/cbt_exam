@@ -236,8 +236,16 @@ try {
         </div>
 
         <div class="card border-0 shadow-sm rounded-xl overflow-hidden">
-            <div class="card-header bg-white p-4 border-0">
+            <div class="card-header bg-white p-4 border-0 d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <h5 class="fw-800 mb-0">Detailed Subject Performance</h5>
+                <div class="d-flex gap-2">
+                    <a href="export_class_excel.php?class_id=<?php echo $selected_class_id; ?>&exam_id=<?php echo $selected_exam_id; ?>&pass_mark=<?php echo $pass_mark; ?>&format=csv" class="btn btn-success rounded-pill px-4 shadow-sm">
+                        <i class="fas fa-file-excel me-2"></i> Download Excel Results
+                    </a>
+                    <a href="export_class_excel.php?class_id=<?php echo $selected_class_id; ?>&exam_id=<?php echo $selected_exam_id; ?>&pass_mark=<?php echo $pass_mark; ?>&format=xml" class="btn btn-outline-secondary rounded-pill px-3 shadow-sm" title="Download Excel XML Format">
+                        <i class="fas fa-file-code me-1"></i> XML Excel
+                    </a>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">

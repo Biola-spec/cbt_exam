@@ -252,6 +252,11 @@ try {
             <a href="export_results.php?class_id=<?php echo $selected_class_id; ?>&student_id=<?php echo $selected_student_id; ?>&exam_id=<?php echo $selected_exam_id; ?>" class="btn btn-success">
                 <i class="fas fa-download"></i> Export Results
             </a>
+            <?php if ($selected_class_id > 0): ?>
+                <a href="../teacher/export_class_excel.php?class_id=<?php echo $selected_class_id; ?>&exam_id=<?php echo $selected_exam_id; ?>" class="btn btn-outline-success ms-2" title="Export Broadsheet with all subjects and scores per student">
+                    <i class="fas fa-file-excel me-1"></i> Class Broadsheet (Excel)
+                </a>
+            <?php endif; ?>
         </div>
     </div>
 <?php else: ?>
