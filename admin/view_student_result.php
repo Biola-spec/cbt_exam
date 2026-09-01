@@ -88,6 +88,22 @@ if ($stmt) {
     }
     $stmt->close();
 }
+
+// Calculate accurate max possible score including objective and theory marks
+$stmt = $mysqli->prepare("SELECT SUM(CASE WHEN COALESCE(question_type, 'objective') = 'objective' THEN 1 ELSE 0 END) AS objective_questions,
+                      COALESCE(SUM(CASE WHEN question_type = 'theory' THEN theory_marks ELSE 0 END), 0) AS theory_total_marks
+                      FROM questions
+                      WHERE exam_subject_id = ?");
+$stmt->bind_param("i", $exam_details['exam_subject_id']);
+$stmt->execute();
+$marks_summary = $stmt->get_result()->fetch_assoc();
+$objective_questions = (int)($marks_summary['objective_questions'] ?? $exam_details['total_questions']);
+$theory_total_marks = (float)($marks_summary['theory_total_marks'] ?? 0);
+$max_possible_score = ($objective_questions * (float)$exam_details['marks_per_question']) + $theory_total_marks;
+if ($max_possible_score <= 0) {
+    $max_possible_score = (float)$exam_details['total_questions'] * (float)$exam_details['marks_per_question'];
+}
+$stmt->close();
 ?>
 
 <!DOCTYPE html>
@@ -151,11 +167,10 @@ if ($stmt) {
                                 <p class="mb-1"><strong>Time Limit:</strong> <?php echo $exam_details['time_limit']; ?> minutes</p>
                                 <p class="mb-1">
                                     <strong>Score:</strong> 
-                                    <span class="fs-4"><?php echo number_format($exam_details['score'], 2); ?>/<?php echo number_format($exam_details['total_questions'] * $exam_details['marks_per_question'], 2); ?></span>
+                                    <span class="fs-4"><?php echo number_format($exam_details['score'], 2); ?>/<?php echo number_format($max_possible_score, 2); ?></span>
                                 </p>
                                 <?php 
                                 $percentage = 0;
-                                $max_possible_score = $exam_details['total_questions'] * $exam_details['marks_per_question'];
                                 if ($max_possible_score > 0) {
                                     $percentage = ($exam_details['score'] / $max_possible_score) * 100;
                                 }

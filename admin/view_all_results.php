@@ -73,7 +73,9 @@ try {
     }
     
     // Build the query based on filters
-    $sql = "SELECT ea.*, e.title as exam_title, c.name as class_name, s.name as subject_name, u.full_name as student_name, COALESCE(c.marks_per_question, 1) as marks_per_question
+    $sql = "SELECT ea.*, e.title as exam_title, c.name as class_name, s.name as subject_name, u.full_name as student_name, COALESCE(c.marks_per_question, 1) as marks_per_question,
+            (SELECT COUNT(*) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND COALESCE(q.question_type, 'objective') = 'objective') AS objective_questions,
+            (SELECT COALESCE(SUM(q.theory_marks), 0) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND q.question_type = 'theory') AS theory_total_marks
             FROM exam_attempts ea
             JOIN exams e ON ea.exam_id = e.id
             JOIN exam_subjects es ON ea.exam_subject_id = es.id
@@ -179,10 +181,9 @@ try {
                     <th>Student</th>
                     <th>Exam</th>
                     <th>Class - Subject</th>
-                    <th>Score</th>
-                    <th>Total Questions</th>
-                    <th>Marks Per Question</th>
-                    <th>Total Score</th>
+                    <th>Questions</th>
+                    <th>Marks Per Q</th>
+                    <th>Score / Max Marks</th>
                     <th>Percentage</th>
                     <th>Submitted At</th>
                     <th>Actions</th>
@@ -190,33 +191,27 @@ try {
             </thead>
             <tbody>
                 <?php foreach ($results as $result): ?>
+                    <?php 
+                    $marks_per_question = (float)$result['marks_per_question'];
+                    $objective_questions = (int)($result['objective_questions'] ?? $result['total_questions']);
+                    $theory_total_marks = (float)($result['theory_total_marks'] ?? 0);
+                    $max_possible_score = ($objective_questions * $marks_per_question) + $theory_total_marks;
+                    if ($max_possible_score <= 0) {
+                        $max_possible_score = (float)$result['total_questions'] * $marks_per_question;
+                    }
+                    $percentage = $max_possible_score > 0 ? ($result['score'] / $max_possible_score) * 100 : 0;
+                    ?>
                     <tr>
                         <td><?php echo htmlspecialchars($result['student_name']); ?></td>
                         <td><?php echo htmlspecialchars($result['exam_title']); ?></td>
                         <td><?php echo htmlspecialchars($result['class_name']); ?> - <?php echo htmlspecialchars($result['subject_name']); ?></td>
-                        <td><?php echo $result['score']; ?></td>
                         <td><?php echo $result['total_questions']; ?></td>
+                        <td><?php echo number_format($marks_per_question, 2); ?></td>
+                        <td><strong><?php echo number_format((float)$result['score'], 2); ?></strong> / <?php echo number_format($max_possible_score, 2); ?></td>
                         <td>
-                            <?php
-                            $marks_per_question = $result['marks_per_question'];
-                            echo $marks_per_question;
-                            ?>
-                        </td>
-                        <td>
-                            <?php
-                            $total_score = $result['total_questions'] * $marks_per_question;
-                            // The score field in the database already reflects the marks settings
-                            echo $result['score'] . '/' . $total_score;
-                            ?>
-                        </td>
-                        <td>
-                            <?php 
-                            $percentage = 0;
-                            if ($total_score > 0) {
-                                $percentage = ($result['score'] / $total_score) * 100;
-                            }
-                            echo round($percentage, 2) . '%';
-                            ?>
+                            <strong class="<?php echo $percentage >= 50 ? 'text-success' : 'text-danger'; ?>">
+                                <?php echo round($percentage, 2) . '%'; ?>
+                            </strong>
                         </td>
                         <td><?php echo date('M j, Y g:i A', strtotime($result['submitted_at'])); ?></td>
                         <td>

@@ -17,7 +17,9 @@ try {
     $mysqli = getDBConnection();
     
     // Build the query based on filters
-    $sql = "SELECT ea.*, e.title as exam_title, c.name as class_name, s.name as subject_name, u.full_name as student_name, COALESCE(c.marks_per_question, 1) as marks_per_question
+    $sql = "SELECT ea.*, e.title as exam_title, c.name as class_name, s.name as subject_name, u.full_name as student_name, COALESCE(c.marks_per_question, 1) as marks_per_question,
+            (SELECT COUNT(*) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND COALESCE(q.question_type, 'objective') = 'objective') AS objective_questions,
+            (SELECT COALESCE(SUM(q.theory_marks), 0) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND q.question_type = 'theory') AS theory_total_marks
             FROM exam_attempts ea
             JOIN exams e ON ea.exam_id = e.id
             JOIN exam_subjects es ON ea.exam_subject_id = es.id
@@ -95,7 +97,7 @@ try {
         'Exam Title',
         'Class',
         'Subject',
-        'Score',
+        'Score Obtained',
         'Total Questions',
         'Marks Per Question',
         'Total Possible Score',
@@ -105,8 +107,13 @@ try {
     
     // Write data rows
     foreach ($results as $result) {
-        $marks_per_question = $result['marks_per_question'];
-        $total_score = $result['total_questions'] * $marks_per_question;
+        $marks_per_question = (float)$result['marks_per_question'];
+        $objective_questions = (int)($result['objective_questions'] ?? $result['total_questions']);
+        $theory_total_marks = (float)($result['theory_total_marks'] ?? 0);
+        $total_score = ($objective_questions * $marks_per_question) + $theory_total_marks;
+        if ($total_score <= 0) {
+            $total_score = (float)$result['total_questions'] * $marks_per_question;
+        }
         $percentage = 0;
         if ($total_score > 0) {
             $percentage = ($result['score'] / $total_score) * 100;

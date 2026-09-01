@@ -43,8 +43,8 @@ try {
             $sql = "SELECT 
                         s.name AS subject_name,
                         COUNT(ea.student_id) AS total_students,
-                        SUM(CASE WHEN (ea.score / (ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100 >= ? THEN 1 ELSE 0 END) AS passed_count,
-                        ROUND(AVG((ea.score / (ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100), 2) AS average_percentage
+                        SUM(CASE WHEN (ea.score / COALESCE(NULLIF(((SELECT COUNT(*) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND COALESCE(q.question_type, 'objective') = 'objective') * COALESCE(c.marks_per_question, 1)) + (SELECT COALESCE(SUM(q.theory_marks), 0) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND q.question_type = 'theory'), 0), ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100 >= ? THEN 1 ELSE 0 END) AS passed_count,
+                        ROUND(AVG((ea.score / COALESCE(NULLIF(((SELECT COUNT(*) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND COALESCE(q.question_type, 'objective') = 'objective') * COALESCE(c.marks_per_question, 1)) + (SELECT COALESCE(SUM(q.theory_marks), 0) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND q.question_type = 'theory'), 0), ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100), 2) AS average_percentage
                     FROM exam_attempts ea
                     JOIN exam_subjects es ON ea.exam_subject_id = es.id
                     JOIN subjects s ON es.subject_id = s.id
@@ -61,8 +61,8 @@ try {
             $sql = "SELECT 
                         s.name AS subject_name,
                         COUNT(ea.student_id) AS total_students,
-                        SUM(CASE WHEN (ea.score / (ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100 >= ? THEN 1 ELSE 0 END) AS passed_count,
-                        ROUND(AVG((ea.score / (ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100), 2) AS average_percentage
+                        SUM(CASE WHEN (ea.score / COALESCE(NULLIF(((SELECT COUNT(*) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND COALESCE(q.question_type, 'objective') = 'objective') * COALESCE(c.marks_per_question, 1)) + (SELECT COALESCE(SUM(q.theory_marks), 0) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND q.question_type = 'theory'), 0), ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100 >= ? THEN 1 ELSE 0 END) AS passed_count,
+                        ROUND(AVG((ea.score / COALESCE(NULLIF(((SELECT COUNT(*) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND COALESCE(q.question_type, 'objective') = 'objective') * COALESCE(c.marks_per_question, 1)) + (SELECT COALESCE(SUM(q.theory_marks), 0) FROM questions q WHERE q.exam_subject_id = ea.exam_subject_id AND q.question_type = 'theory'), 0), ea.total_questions * COALESCE(c.marks_per_question, 1))) * 100), 2) AS average_percentage
                     FROM exam_attempts ea
                     JOIN exam_subjects es ON ea.exam_subject_id = es.id
                     JOIN subjects s ON es.subject_id = s.id

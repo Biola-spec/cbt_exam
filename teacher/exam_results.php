@@ -115,8 +115,8 @@ try {
                     <th>Student</th>
                     <th>Exam</th>
                     <th>Class - Subject</th>
-                    <th>Score</th>
-                    <th>Total Questions</th>
+                    <th>Score / Max Marks</th>
+                    <th>Questions</th>
                     <th>Percentage</th>
                     <th>Submitted At</th>
                     <th>Actions</th>
@@ -124,24 +124,29 @@ try {
             </thead>
             <tbody>
                 <?php foreach ($results as $result): ?>
+                    <?php 
+                    $marks_per_question = (float)$result['marks_per_question'];
+                    $objective_questions = (int)($result['objective_questions'] ?? $result['total_questions']);
+                    $theory_total_marks = (float)($result['theory_total_marks'] ?? 0);
+                    $max_possible_score = ($objective_questions * $marks_per_question) + $theory_total_marks;
+                    if ($max_possible_score <= 0) {
+                        $max_possible_score = (float)$result['total_questions'] * $marks_per_question;
+                    }
+                    $percentage = 0;
+                    if ($max_possible_score > 0) {
+                        $percentage = ($result['score'] / $max_possible_score) * 100;
+                    }
+                    ?>
                     <tr>
                         <td><?php echo htmlspecialchars($result['student_name']); ?></td>
                         <td><?php echo htmlspecialchars($result['exam_title']); ?></td>
                         <td><?php echo htmlspecialchars($result['class_name']); ?> - <?php echo htmlspecialchars($result['subject_name']); ?></td>
-                        <td><?php echo number_format((float)$result['score'], 2); ?></td>
+                        <td><strong><?php echo number_format((float)$result['score'], 2); ?></strong> / <?php echo number_format($max_possible_score, 2); ?></td>
                         <td><?php echo $result['total_questions']; ?></td>
                         <td>
-                            <?php 
-                            $marks_per_question = (float)$result['marks_per_question'];
-                            $objective_questions = (int)($result['objective_questions'] ?? $result['total_questions']);
-                            $theory_total_marks = (float)($result['theory_total_marks'] ?? 0);
-                            $total_score = ($objective_questions * $marks_per_question) + $theory_total_marks;
-                            $percentage = 0;
-                            if ($total_score > 0) {
-                                $percentage = ($result['score'] / $total_score) * 100;
-                            }
-                            echo round($percentage, 2) . '%';
-                            ?>
+                            <strong class="<?php echo $percentage >= 50 ? 'text-success' : 'text-danger'; ?>">
+                                <?php echo round($percentage, 2) . '%'; ?>
+                            </strong>
                         </td>
                         <td><?php echo date('M j, Y g:i A', strtotime($result['submitted_at'])); ?></td>
                         <td>
@@ -154,7 +159,7 @@ try {
                                     <i class="fas fa-check"></i>
                                 </a>
                             <?php endif; ?>
-                            <a href="print_exam_result.php?attempt_id=<?php echo $result['id']; ?>" class="btn btn-sm btn-outline-primary" title="Print Results" target="_blank">
+                            <a href="../student/print_exam_result.php?attempt_id=<?php echo $result['id']; ?>" class="btn btn-sm btn-outline-primary" title="Print Results" target="_blank">
                                 <i class="fas fa-print"></i>
                             </a>
                         </td>

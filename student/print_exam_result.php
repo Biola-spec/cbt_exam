@@ -2,9 +2,10 @@
 require_once '../config/database.php';
 require_once '../config/session.php';
 
-// Check if user is logged in and is a student
+// Check if user is logged in
 requireLogin();
-if (getUserRole() !== 'student') {
+$user_role = getUserRole();
+if (!in_array($user_role, ['student', 'teacher', 'admin'])) {
     header('Location: ../login.php');
     exit();
 }
@@ -35,18 +36,34 @@ function sanitizeHtml($text) {
 }
 
 // Function to get detailed exam results for printing
-function getExamDetails($mysqli, $attempt_id, $student_id) {
-    $stmt = $mysqli->prepare("SELECT ea.score, ea.total_questions, ea.submitted_at, ea.exam_subject_id,
-                          e.title as exam_title, c.name as class_name, s.name as subject_name,
-                          es.time_limit, c.marks_per_question, u.passport
-                          FROM exam_attempts ea
-                          JOIN exams e ON ea.exam_id = e.id
-                          JOIN exam_subjects es ON ea.exam_subject_id = es.id
-                          JOIN classes c ON es.class_id = c.id
-                          JOIN subjects s ON es.subject_id = s.id
-                          JOIN users u ON ea.student_id = u.id
-                          WHERE ea.id = ? AND ea.student_id = ?");
-    $stmt->bind_param("ii", $attempt_id, $student_id);
+function getExamDetails($mysqli, $attempt_id, $user_id, $user_role) {
+    if ($user_role === 'student') {
+        $stmt = $mysqli->prepare("SELECT ea.score, ea.total_questions, ea.submitted_at, ea.exam_subject_id,
+                              e.title as exam_title, c.name as class_name, s.name as subject_name,
+                              es.time_limit, c.marks_per_question, u.passport, u.full_name as student_name,
+                              es.class_id, es.subject_id
+                              FROM exam_attempts ea
+                              JOIN exams e ON ea.exam_id = e.id
+                              JOIN exam_subjects es ON ea.exam_subject_id = es.id
+                              JOIN classes c ON es.class_id = c.id
+                              JOIN subjects s ON es.subject_id = s.id
+                              JOIN users u ON ea.student_id = u.id
+                              WHERE ea.id = ? AND ea.student_id = ?");
+        $stmt->bind_param("ii", $attempt_id, $user_id);
+    } else {
+        $stmt = $mysqli->prepare("SELECT ea.score, ea.total_questions, ea.submitted_at, ea.exam_subject_id,
+                              e.title as exam_title, c.name as class_name, s.name as subject_name,
+                              es.time_limit, c.marks_per_question, u.passport, u.full_name as student_name,
+                              es.class_id, es.subject_id
+                              FROM exam_attempts ea
+                              JOIN exams e ON ea.exam_id = e.id
+                              JOIN exam_subjects es ON ea.exam_subject_id = es.id
+                              JOIN classes c ON es.class_id = c.id
+                              JOIN subjects s ON es.subject_id = s.id
+                              JOIN users u ON ea.student_id = u.id
+                              WHERE ea.id = ?");
+        $stmt->bind_param("i", $attempt_id);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     return $result->fetch_assoc();
@@ -72,7 +89,7 @@ function getQuestionDetails($mysqli, $attempt_id) {
     return $questions;
 }
 
-$exam_details = getExamDetails($mysqli, $attempt_id, $current_user_id);
+$exam_details = getExamDetails($mysqli, $attempt_id, $current_user_id, $user_role);
 $question_details = getQuestionDetails($mysqli, $attempt_id);
 
 if (!$exam_details) {
