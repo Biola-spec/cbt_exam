@@ -266,15 +266,15 @@ try {
         "ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_2` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_3` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE",
-        "ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_4` FOREIGN KEY (`allocated_by`) REFERENCES `users` (`id`)",
-        "ALTER TABLE `exams` ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)",
+        "ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_4` FOREIGN KEY (`allocated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL",
+        "ALTER TABLE `exams` ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL",
         "ALTER TABLE `exam_subjects` ADD CONSTRAINT `exam_subjects_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `exam_subjects` ADD CONSTRAINT `exam_subjects_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `exam_subjects` ADD CONSTRAINT `exam_subjects_ibfk_3` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `questions` ADD CONSTRAINT `questions_ibfk_1` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE",
-        "ALTER TABLE `questions` ADD CONSTRAINT `questions_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)",
+        "ALTER TABLE `questions` ADD CONSTRAINT `questions_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL",
         "ALTER TABLE `passkeys` ADD CONSTRAINT `passkeys_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE",
-        "ALTER TABLE `passkeys` ADD CONSTRAINT `passkeys_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)",
+        "ALTER TABLE `passkeys` ADD CONSTRAINT `passkeys_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL",
         "ALTER TABLE `exam_attempts` ADD CONSTRAINT `exam_attempts_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `exam_attempts` ADD CONSTRAINT `exam_attempts_ibfk_2` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `exam_attempts` ADD CONSTRAINT `exam_attempts_ibfk_3` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE",
@@ -283,7 +283,7 @@ try {
         "ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_2` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE",
         "ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_3` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE",
-        "ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_4` FOREIGN KEY (`republished_by`) REFERENCES `users` (`id`)"
+        "ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_4` FOREIGN KEY (`republished_by`) REFERENCES `users` (`id`) ON DELETE SET NULL"
     ];
     
     foreach ($constraints as $constraint) {

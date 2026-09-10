@@ -16,7 +16,7 @@ CREATE TABLE `comprehension_passages` (
   KEY `exam_subject_id` (`exam_subject_id`),
   KEY `created_by` (`created_by`),
   CONSTRAINT `comprehension_passages_ibfk_1` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `comprehension_passages_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+  CONSTRAINT `comprehension_passages_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Add indexes for better performance

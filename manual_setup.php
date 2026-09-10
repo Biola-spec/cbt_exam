@@ -210,10 +210,10 @@ try {
     $pdo->exec("ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_1` FOREIGN KEY (`teacher_id`) REFERENCES `users` (`id`) ON DELETE CASCADE");
     $pdo->exec("ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_2` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE");
     $pdo->exec("ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_3` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE");
-    $pdo->exec("ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_4` FOREIGN KEY (`allocated_by`) REFERENCES `users` (`id`)");
+    $pdo->exec("ALTER TABLE `teacher_allocations` ADD CONSTRAINT `teacher_allocations_ibfk_4` FOREIGN KEY (`allocated_by`) REFERENCES `users` (`id`) ON DELETE SET NULL");
     
     // Constraints for exams
-    $pdo->exec("ALTER TABLE `exams` ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)");
+    $pdo->exec("ALTER TABLE `exams` ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL");
     
     // Constraints for exam_subjects
     $pdo->exec("ALTER TABLE `exam_subjects` ADD CONSTRAINT `exam_subjects_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE");
@@ -222,11 +222,11 @@ try {
     
     // Constraints for questions
     $pdo->exec("ALTER TABLE `questions` ADD CONSTRAINT `questions_ibfk_1` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE");
-    $pdo->exec("ALTER TABLE `questions` ADD CONSTRAINT `questions_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)");
+    $pdo->exec("ALTER TABLE `questions` ADD CONSTRAINT `questions_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL");
     
     // Constraints for passkeys
     $pdo->exec("ALTER TABLE `passkeys` ADD CONSTRAINT `passkeys_ibfk_1` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE");
-    $pdo->exec("ALTER TABLE `passkeys` ADD CONSTRAINT `passkeys_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)");
+    $pdo->exec("ALTER TABLE `passkeys` ADD CONSTRAINT `passkeys_ibfk_2` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL");
     
     // Constraints for exam_attempts
     $pdo->exec("ALTER TABLE `exam_attempts` ADD CONSTRAINT `exam_attempts_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE");
@@ -241,7 +241,7 @@ try {
     $pdo->exec("ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON DELETE CASCADE");
     $pdo->exec("ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_2` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE");
     $pdo->exec("ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_3` FOREIGN KEY (`exam_subject_id`) REFERENCES `exam_subjects` (`id`) ON DELETE CASCADE");
-    $pdo->exec("ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_4` FOREIGN KEY (`republished_by`) REFERENCES `users` (`id`)");
+    $pdo->exec("ALTER TABLE `exam_republish_log` ADD CONSTRAINT `exam_republish_log_ibfk_4` FOREIGN KEY (`republished_by`) REFERENCES `users` (`id`) ON DELETE SET NULL");
     
     echo "<p style='color: green;'>✓ Foreign key constraints added</p>";
     

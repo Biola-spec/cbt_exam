@@ -120,6 +120,15 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                                     </a>
                                 </div>
                             </div>
+
+                            <div class="mt-4">
+                                <?php
+                                $calendar_widget_id = 'student_home_calendar';
+                                $show_dropdown_toggle = true;
+                                $calendar_collapsed_default = true;
+                                include '../includes/school_calendar.php';
+                                ?>
+                            </div>
                         </div>
                         <?php
                         break;

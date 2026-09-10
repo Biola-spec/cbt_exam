@@ -162,6 +162,30 @@ try {
                 $stmt->execute();
                 $stmt->close();
                 
+                // Clear user references in dependent tables before deleting user record to avoid foreign key failures
+                $tables_to_nullify = [
+                    'comprehension_passages' => 'created_by',
+                    'questions'              => 'created_by',
+                    'exams'                  => 'created_by',
+                    'teacher_allocations'   => 'allocated_by',
+                    'exam_republish_log'     => 'republished_by',
+                    'student_answers'        => 'marked_by',
+                    'school_config'          => 'updated_by',
+                    'calendar_events'        => 'created_by',
+                    'passkeys'               => 'created_by'
+                ];
+
+                foreach ($tables_to_nullify as $table => $col) {
+                    $col_check = $mysqli->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
+                    if ($col_check && $col_check->num_rows > 0) {
+                        if ($null_stmt = $mysqli->prepare("UPDATE `$table` SET `$col` = NULL WHERE `$col` = ?")) {
+                            $null_stmt->bind_param("i", $teacher_id);
+                            $null_stmt->execute();
+                            $null_stmt->close();
+                        }
+                    }
+                }
+
                 // Delete the user from users table (allow admin or teacher)
                 $stmt = $mysqli->prepare("DELETE FROM users WHERE id = ? AND role IN ('teacher', 'admin')");
                 $stmt->bind_param("i", $teacher_id);
