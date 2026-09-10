@@ -29,11 +29,6 @@
         "full_name": "Admin Ahmad",
         "role": "admin"
     },
-    "gb.to@gmail.com": {
-        "password": "$2y$10$CQdAdLXMwBx5ihYO0nCXX.IQxR2bjGqdb3twVV1hR\/bzjZi4PjzLi",
-        "full_name": "Gbenga Tosin",
-        "role": "teacher"
-    },
     "ash.raf@gmail.com": {
         "password": "$2y$10$11NqB7wbZj0e6uPdr6dgQ.iuena7JMtsZAPLPZRY7MXpgnQvMTcJ.",
         "full_name": "Ashraf Ahmad",
