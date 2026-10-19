@@ -176,12 +176,15 @@ try {
                 ];
 
                 foreach ($tables_to_nullify as $table => $col) {
-                    $col_check = $mysqli->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
-                    if ($col_check && $col_check->num_rows > 0) {
-                        if ($null_stmt = $mysqli->prepare("UPDATE `$table` SET `$col` = NULL WHERE `$col` = ?")) {
-                            $null_stmt->bind_param("i", $teacher_id);
-                            $null_stmt->execute();
-                            $null_stmt->close();
+                    $tbl_check = $mysqli->query("SHOW TABLES LIKE '$table'");
+                    if ($tbl_check && $tbl_check->num_rows > 0) {
+                        $col_check = $mysqli->query("SHOW COLUMNS FROM `$table` LIKE '$col'");
+                        if ($col_check && $col_check->num_rows > 0) {
+                            if ($null_stmt = $mysqli->prepare("UPDATE `$table` SET `$col` = NULL WHERE `$col` = ?")) {
+                                $null_stmt->bind_param("i", $teacher_id);
+                                $null_stmt->execute();
+                                $null_stmt->close();
+                            }
                         }
                     }
                 }
