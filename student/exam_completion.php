@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/session.php';
+require_once '../includes/results_sheet.php';
 
 // Check if user is logged in and is a student
 requireLogin();
@@ -22,7 +23,8 @@ try {
     ensureTheoryExamSchema($mysqli);
     
     // Get exam attempt details with class information
-    $stmt = $mysqli->prepare("SELECT ea.*, e.title as exam_title, c.name as class_name, s.name as subject_name, c.marks_per_question
+    $stmt = $mysqli->prepare("SELECT ea.*, e.title as exam_title, e.is_published AS exam_published, es.is_published AS subject_published,
+                          c.name as class_name, s.name as subject_name, c.marks_per_question
                           FROM exam_attempts ea
                           JOIN exams e ON ea.exam_id = e.id
                           JOIN exam_subjects es ON ea.exam_subject_id = es.id
@@ -83,8 +85,11 @@ try {
     // Keep percentage for backward compatibility but use percentage_of_total for display
     $percentage = $percentage_of_total;
 
-    // Determine if student passed (assuming 50% is passing)
-    $passed = $pending_theory === 0 && $percentage_of_total >= 50;
+    $result_is_released = !empty($attempt['exam_published']) && !empty($attempt['subject_published'])
+        && $pending_theory === 0 && $attempt['submitted_at'] !== null && $attempt['score'] !== null && $max_possible_score > 0;
+    $result_grade = $result_is_released ? resultSheetGrade(resultSheetGetScale($mysqli), $percentage_of_total) : null;
+    $result_is_released = $result_is_released && $result_grade !== null;
+    $passed = $result_is_released && (int)$result_grade['is_passing'] === 1;
 
     // Get school name and logo
     $school_name = getSchoolName();
@@ -150,7 +155,10 @@ try {
         <div class="col-md-8">
             <div class="card shadow-lg border-0">
                 <div class="card-body text-center p-5">
-                    <?php if ($passed): ?>
+                    <?php if (!$result_is_released): ?>
+                        <h1 class="display-5 text-primary fw-bold mb-3">Exam Completed</h1>
+                        <p class="lead mb-4">Your result will appear in My Examination Results after publication and marking are complete.</p>
+                    <?php elseif ($passed): ?>
                         <!-- Success Animation -->
                         <div class="mb-4">
                             <div class="success-animation">
@@ -196,6 +204,7 @@ try {
                                     
                                     <hr>
                                     
+                                    <?php if ($result_is_released): ?>
                                     <div class="row text-center">
                                         <div class="col-md-4 mb-3">
                                             <h5 class="text-primary"><?php echo number_format($total_score, 2); ?> / <?php echo number_format($max_possible_score, 2); ?></h5>
@@ -212,6 +221,9 @@ try {
                                             <p class="mb-0">Percentage</p>
                                         </div>
                                     </div>
+                                    <?php else: ?>
+                                    <div class="alert alert-info mb-0">Your score is pending result release. Check My Examination Results later.</div>
+                                    <?php endif; ?>
 
                                     <div class="mt-3">
                                         <div class="text-center mb-3">
@@ -245,12 +257,13 @@ try {
                     </div>
                     
                     <div class="mt-4">
-                        <a href="dashboard.php?tab=history" class="btn btn-primary btn-lg">
-                            <i class="fas fa-history me-2"></i>View Exam History
-                        </a>
-                        <button class="btn btn-outline-primary btn-lg ms-2" onclick="window.print()">
-                            <i class="fas fa-print me-2"></i>Print Results
-                        </button>
+                        <?php if ($result_is_released): ?>
+                            <a href="result_sheet.php?exam_id=<?php echo (int)$attempt['exam_id']; ?>" class="btn btn-primary btn-lg"><i class="fas fa-poll me-2"></i>View Results Sheet</a>
+                            <a href="print_exam_result.php?attempt_id=<?php echo (int)$attempt_id; ?>" class="btn btn-outline-primary btn-lg ms-2" target="_blank"><i class="fas fa-print me-2"></i>Print Subject Details</a>
+                        <?php else: ?>
+                            <a href="dashboard.php?tab=results" class="btn btn-primary btn-lg"><i class="fas fa-poll me-2"></i>My Examination Results</a>
+                            <a href="dashboard.php?tab=history" class="btn btn-outline-secondary btn-lg ms-2"><i class="fas fa-history me-2"></i>Exam History</a>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

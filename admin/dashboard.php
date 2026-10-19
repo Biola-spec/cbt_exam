@@ -59,6 +59,7 @@ try {
                                 case 'students': echo 'Students'; break;
                                 case 'exams': echo 'Exam Management'; break;
                                 case 'results': echo 'Exam Results'; break;
+                                case 'grades': echo 'Grade Settings'; break;
                                 case 'performance_summary': echo 'Class Performance Summary'; break;
                                 case 'teacher_stats': echo 'Teacher Statistics'; break;
                                 
@@ -114,6 +115,9 @@ try {
                     <i class="fas fa-chart-bar me-2"></i> Exam Results
                     <?php if ($results_count > 0): ?><span class="badge bg-primary float-end"><?php echo $results_count; ?></span><?php endif; ?>
                 </a>
+                <a href="dashboard.php?tab=grades" class="list-group-item list-group-item-action <?php echo $active_tab === 'grades' ? 'active' : ''; ?>">
+                    <i class="fas fa-sliders-h me-2"></i> Grade Settings
+                </a>
                 <a href="dashboard.php?tab=performance_summary" class="list-group-item list-group-item-action <?php echo $active_tab === 'performance_summary' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line me-2"></i> Class Performance Summary
                 </a>
@@ -152,6 +156,7 @@ try {
                         case 'students': echo '<i class="fas fa-user-graduate me-2"></i> Student Management'; break;
                         case 'exams': echo '<i class="fas fa-file-alt me-2"></i> Exam Management'; break;
                         case 'results': echo '<i class="fas fa-chart-bar me-2"></i> Exam Results'; break;
+                        case 'grades': echo '<i class="fas fa-sliders-h me-2"></i> Grade Settings'; break;
                         case 'performance_summary': echo '<i class="fas fa-chart-line me-2"></i> Class Performance Summary'; break;
                         case 'teacher_stats': echo '<i class="fas fa-chart-pie me-2"></i> Teacher Statistics'; break;
                         
@@ -183,6 +188,9 @@ try {
                         break;
                     case 'results':
                         include 'view_all_results.php';
+                        break;
+                    case 'grades':
+                        include 'grade_settings.php';
                         break;
                     case 'performance_summary':
                         include 'class_performance_summary.php';

@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/session.php';
+require_once '../includes/results_sheet.php';
 
 // Check if user is logged in
 requireLogin();
@@ -39,7 +40,8 @@ function sanitizeHtml($text) {
 function getExamDetails($mysqli, $attempt_id, $user_id, $user_role) {
     if ($user_role === 'student') {
         $stmt = $mysqli->prepare("SELECT ea.score, ea.total_questions, ea.submitted_at, ea.exam_subject_id,
-                              e.title as exam_title, c.name as class_name, s.name as subject_name,
+                              e.title as exam_title, e.is_published AS exam_published, es.is_published AS subject_published,
+                              c.name as class_name, s.name as subject_name,
                               es.time_limit, c.marks_per_question, u.passport, u.full_name as student_name,
                               es.class_id, es.subject_id
                               FROM exam_attempts ea
@@ -52,7 +54,8 @@ function getExamDetails($mysqli, $attempt_id, $user_id, $user_role) {
         $stmt->bind_param("ii", $attempt_id, $user_id);
     } else {
         $stmt = $mysqli->prepare("SELECT ea.score, ea.total_questions, ea.submitted_at, ea.exam_subject_id,
-                              e.title as exam_title, c.name as class_name, s.name as subject_name,
+                              e.title as exam_title, e.is_published AS exam_published, es.is_published AS subject_published,
+                              c.name as class_name, s.name as subject_name,
                               es.time_limit, c.marks_per_question, u.passport, u.full_name as student_name,
                               es.class_id, es.subject_id
                               FROM exam_attempts ea
@@ -90,12 +93,26 @@ function getQuestionDetails($mysqli, $attempt_id) {
 }
 
 $exam_details = getExamDetails($mysqli, $attempt_id, $current_user_id, $user_role);
-$question_details = getQuestionDetails($mysqli, $attempt_id);
-
 if (!$exam_details) {
     header('Location: dashboard.php?tab=history');
     exit();
 }
+
+if ($user_role === 'student') {
+    $pendingStmt = $mysqli->prepare("SELECT COUNT(*) AS pending_count FROM student_answers sa
+        JOIN questions q ON q.id=sa.question_id
+        JOIN exam_attempts ea ON ea.id=sa.attempt_id
+        WHERE ea.id=? AND q.question_type='theory' AND COALESCE(sa.answer_text,'')<>'' AND sa.marked_at IS NULL");
+    $pendingStmt->bind_param('i', $attempt_id);
+    $pendingStmt->execute();
+    $pendingCount = (int)$pendingStmt->get_result()->fetch_assoc()['pending_count'];
+    if (empty($exam_details['exam_published']) || empty($exam_details['subject_published']) || $exam_details['submitted_at'] === null || $exam_details['score'] === null || $pendingCount > 0) {
+        http_response_code(403);
+        echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Result pending</title><body style="font:16px Arial,sans-serif;max-width:640px;margin:12vh auto;padding:24px;color:#243447"><h1>Result not available yet</h1><p>This subject result has not been published or marking is still in progress.</p><p><a href="dashboard.php?tab=results">Return to My Examination Results</a></p></body></html>';
+        exit();
+    }
+}
+$question_details = getQuestionDetails($mysqli, $attempt_id);
 
 $stmt = $mysqli->prepare("SELECT SUM(CASE WHEN COALESCE(question_type, 'objective') = 'objective' THEN 1 ELSE 0 END) AS objective_questions,
                       COALESCE(SUM(CASE WHEN question_type = 'theory' THEN theory_marks ELSE 0 END), 0) AS theory_total_marks
@@ -192,17 +209,21 @@ if ($stmt) {
                                     <span class="fs-4"><?php echo number_format($exam_details['score'], 2); ?>/<?php echo number_format($max_possible_score, 2); ?></span>
                                 </p>
                                 <?php 
-                                $percentage = 0;
-                                if ($max_possible_score > 0) {
-                                    $percentage = ($exam_details['score'] / $max_possible_score) * 100;
-                                }
+$percentage = 0;
+if ($max_possible_score > 0) {
+    $percentage = ($exam_details['score'] / $max_possible_score) * 100;
+}
+$grade_result = resultSheetGrade(resultSheetGetScale($mysqli), $percentage);
                                 ?>
                                 <p class="mb-0">
                                     <strong>Percentage:</strong> 
-                                    <span class="fs-4 <?php echo $percentage >= 50 ? 'text-success' : 'text-danger'; ?>">
+                                    <span class="fs-4 <?php echo $grade_result && $grade_result['is_passing'] ? 'text-success' : 'text-danger'; ?>">
                                         <?php echo round($percentage, 2); ?>%
                                     </span>
                                 </p>
+                                <?php if ($grade_result): ?>
+                                <p class="mb-0"><strong>Grade:</strong> <?php echo htmlspecialchars($grade_result['grade_letter']); ?> · <?php echo htmlspecialchars($grade_result['remark']); ?></p>
+                                <?php endif; ?>
                             </div>
                         </div>
                         

@@ -43,7 +43,7 @@ try {
     $mysqli = getDBConnection();
     if ($mysqli) {
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
@@ -81,6 +81,8 @@ try {
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'create') {
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
+    $academic_session = trim($_POST['academic_session'] ?? '');
+    if ($academic_session === '') $academic_session = null;
     
     if (!empty($title)) {
         try {
@@ -89,9 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 $user_id = getUserId();
                 if ($user_id) {
                     $show_calculator = isset($_POST['show_calculator']) ? 1 : 0;
-                    $stmt = $mysqli->prepare("INSERT INTO exams (title, description, created_by) VALUES (?, ?, ?)");
+                    $stmt = $mysqli->prepare("INSERT INTO exams (title, academic_session, description, created_by) VALUES (?, ?, ?, ?)");
                     if ($stmt) {
-                        $stmt->bind_param("ssi", $title, $description, $user_id);
+                        $stmt->bind_param("sssi", $title, $academic_session, $description, $user_id);
                         $stmt->execute();
                         $stmt->close();
                         $message = 'Exam created successfully';
@@ -103,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 }
                 
                 // Refresh exams list
-                $stmt = $mysqli->prepare("SELECT id, title, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+                $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $exams = [];
@@ -125,19 +127,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $exam_id = (int)$_POST['exam_id'];
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
+    $academic_session = trim($_POST['academic_session'] ?? '');
+    if ($academic_session === '') $academic_session = null;
     
     if ($exam_id > 0 && !empty($title)) {
         try {
             $mysqli = getDBConnection();
             if ($mysqli) {
-                $stmt = $mysqli->prepare("UPDATE exams SET title = ?, description = ? WHERE id = ?");
-                $stmt->bind_param("ssi", $title, $description, $exam_id);
+                $stmt = $mysqli->prepare("UPDATE exams SET title = ?, academic_session = ?, description = ? WHERE id = ?");
+                $stmt->bind_param("sssi", $title, $academic_session, $description, $exam_id);
                 $stmt->execute();
                 $stmt->close();
                 $message = 'Exam updated successfully';
                 
                 // Refresh exams list
-                $stmt = $mysqli->prepare("SELECT id, title, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+                $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $exams = [];
@@ -240,7 +244,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             }
             
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
             $stmt->execute();
             $result = $stmt->get_result();
             $exams = [];
@@ -323,7 +327,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             $message = 'Exam deleted successfully';
             
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
             $stmt->execute();
             $result = $stmt->get_result();
             $exams = [];
@@ -388,7 +392,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         <form method="POST">
             <input type="hidden" name="action" value="create">
             <div class="row">
-                <div class="col-md-8">
+                <div class="col-md-4">
                     <div class="mb-3">
                         <label for="title" class="form-label">Exam Title</label>
                         <input type="text" class="form-control" id="title" name="title" required>
@@ -398,6 +402,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                     <div class="mb-3">
                         <label for="description" class="form-label">Description</label>
                         <input type="text" class="form-control" id="description" name="description">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="academic_session" class="form-label">Academic Session</label>
+                        <input type="text" class="form-control" id="academic_session" name="academic_session" maxlength="50" placeholder="e.g. 2026/2027">
                     </div>
                 </div>
             </div>
@@ -687,6 +697,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         <div class="mb-3">
                             <label for="edit_description_<?php echo $exam['id']; ?>" class="form-label">Description</label>
                             <input type="text" class="form-control" id="edit_description_<?php echo $exam['id']; ?>" name="description" value="<?php echo htmlspecialchars($exam['description']); ?>">
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_session_<?php echo $exam['id']; ?>" class="form-label">Academic Session</label>
+                            <input type="text" class="form-control" id="edit_session_<?php echo $exam['id']; ?>" name="academic_session" maxlength="50" value="<?php echo htmlspecialchars($exam['academic_session'] ?? ''); ?>" placeholder="e.g. 2026/2027">
                         </div>
                     </div>
                     <div class="modal-footer">

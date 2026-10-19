@@ -30,6 +30,7 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                             switch ($active_tab) {
                                 case 'available': echo 'Available Exams'; break;
                                 case 'history': echo 'Exam History'; break;
+                                case 'results': echo 'My Examination Results'; break;
                                 default: echo 'Dashboard';
                             }
                             ?>
@@ -54,6 +55,9 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                 <a href="dashboard.php?tab=history" class="list-group-item list-group-item-action <?php echo $active_tab === 'history' ? 'active' : ''; ?>">
                     <i class="fas fa-history me-2"></i> Exam History
                 </a>
+                <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
+                    <i class="fas fa-poll me-2"></i> My Examination Results
+                </a>
                 <form method="POST" action="../logout.php" class="list-group-item list-group-item-action p-0">
                     <button type="submit" class="btn btn-link text-danger w-100 text-start px-3 py-2 border-0 text-decoration-none" style="display: block; background: none; box-shadow: none;">
                         <i class="fas fa-sign-out-alt me-2"></i> Logout
@@ -71,6 +75,7 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                     switch ($active_tab) {
                         case 'available': echo '<i class="fas fa-file-alt me-2"></i> Available Exams'; break;
                         case 'history': echo '<i class="fas fa-history me-2"></i> Exam History'; break;
+                        case 'results': echo '<i class="fas fa-poll me-2"></i> My Examination Results'; break;
                         default: echo '<i class="fas fa-user-graduate me-2"></i> Dashboard';
                     }
                     ?>
@@ -84,6 +89,9 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                         break;
                     case 'history':
                         include 'exam_history.php';
+                        break;
+                    case 'results':
+                        include 'results_list.php';
                         break;
                     default:
                         ?>

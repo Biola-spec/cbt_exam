@@ -65,6 +65,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         $full_name = trim($_POST['full_name'] ?? '');
         $email = trim($_POST['email'] ?? '');
+        $admission_number = trim($_POST['admission_number'] ?? '');
+        if ($admission_number === '') $admission_number = null;
         $class_id = intval($_POST['class_id'] ?? 0);
 
         // Basic validations
@@ -103,9 +105,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     }
 
                     // Insert student
-                    $ins = $mysqli->prepare("INSERT INTO users (email, password, full_name, role, class_id, passport) VALUES (?, ?, ?, 'student', ?, ?)");
+                    $ins = $mysqli->prepare("INSERT INTO users (email, password, full_name, admission_number, role, class_id, passport) VALUES (?, ?, ?, ?, 'student', ?, ?)");
                     if ($ins) {
-                        $ins->bind_param('sssis', $email, $hash, $full_name, $class_id, $passport_path);
+                        $ins->bind_param('ssssis', $email, $hash, $full_name, $admission_number, $class_id, $passport_path);
                         if ($ins->execute()) {
                             $message = 'Student added successfully. Passkey generated below. Copy it now; it will not be shown again on refresh.';
                         } else {
@@ -132,6 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $sid = intval($_POST['student_id'] ?? 0);
         $full_name = trim($_POST['edit_full_name'] ?? '');
         $email = trim($_POST['edit_email'] ?? '');
+        $admission_number = trim($_POST['edit_admission_number'] ?? '');
+        if ($admission_number === '') $admission_number = null;
         $class_id = intval($_POST['edit_class_id'] ?? 0);
         $reset_pass = isset($_POST['reset_password']) ? true : false;
 
@@ -168,19 +172,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     try {
                         if ($has_class_id) {
                             if ($passport_path) {
-                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, class_id = ?, passport = ? WHERE id = ? AND role = 'student'");
-                                $upd->bind_param('ssisi', $full_name, $email, $class_id, $passport_path, $sid);
+                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, admission_number = ?, class_id = ?, passport = ? WHERE id = ? AND role = 'student'");
+                                $upd->bind_param('sssisi', $full_name, $email, $admission_number, $class_id, $passport_path, $sid);
                             } else {
-                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, class_id = ? WHERE id = ? AND role = 'student'");
-                                $upd->bind_param('ssii', $full_name, $email, $class_id, $sid);
+                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, admission_number = ?, class_id = ? WHERE id = ? AND role = 'student'");
+                                $upd->bind_param('sssii', $full_name, $email, $admission_number, $class_id, $sid);
                             }
                         } else {
                             if ($passport_path) {
-                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, passport = ? WHERE id = ? AND role = 'student'");
-                                $upd->bind_param('sssi', $full_name, $email, $passport_path, $sid);
+                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, admission_number = ?, passport = ? WHERE id = ? AND role = 'student'");
+                                $upd->bind_param('ssssi', $full_name, $email, $admission_number, $passport_path, $sid);
                             } else {
-                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ? WHERE id = ? AND role = 'student'");
-                                $upd->bind_param('ssi', $full_name, $email, $sid);
+                                $upd = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, admission_number = ? WHERE id = ? AND role = 'student'");
+                                $upd->bind_param('sssi', $full_name, $email, $admission_number, $sid);
                             }
                         }
                         if (!$upd || !$upd->execute()) {
@@ -302,13 +306,13 @@ $students = [];
 $class_filter = isset($_GET['class_filter']) ? intval($_GET['class_filter']) : 0;
 try {
     if ($has_class_id) {
-        $sql = "SELECT u.id, u.full_name, u.email, u.passport, c.name AS class_name, u.class_id FROM users u LEFT JOIN classes c ON u.class_id = c.id WHERE u.role = 'student'";
+        $sql = "SELECT u.id, u.full_name, u.admission_number, u.email, u.passport, c.name AS class_name, u.class_id FROM users u LEFT JOIN classes c ON u.class_id = c.id WHERE u.role = 'student'";
         if ($class_filter > 0) {
             $sql .= " AND u.class_id = ?";
         }
         $sql .= " ORDER BY u.full_name";
     } else {
-        $sql = "SELECT id, full_name, email, passport FROM users WHERE role = 'student' ORDER BY full_name";
+        $sql = "SELECT id, full_name, admission_number, email, passport FROM users WHERE role = 'student' ORDER BY full_name";
     }
     $stmt = $mysqli->prepare($sql);
     if ($stmt) {
@@ -356,13 +360,19 @@ try {
                     <input type="hidden" name="action" value="add_student">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Full Name</label>
                                 <input type="text" class="form-control form-control-lg" name="full_name" required placeholder="Enter student's full name">
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Admission Number</label>
+                                <input type="text" class="form-control form-control-lg" name="admission_number" maxlength="100" placeholder="Optional school ID">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Gmail Address</label>
                                 <input type="email" class="form-control form-control-lg" name="email" required placeholder="student.name@gmail.com">
@@ -429,6 +439,7 @@ try {
                                     <th width="50">#</th>
                                     <th width="70">Photo</th>
                                     <th>Full Name</th>
+                                    <th>Admission No.</th>
                                     <th>Email</th>
                                     <th>Class</th>
                                     <th width="150" class="text-center">Actions</th>
@@ -446,6 +457,7 @@ try {
                                             <?php endif; ?>
                                         </td>
                                         <td><strong><?php echo htmlspecialchars($s['full_name']); ?></strong></td>
+                                        <td><?php echo htmlspecialchars($s['admission_number'] ?? ''); ?></td>
                                         <td><?php echo htmlspecialchars($s['email']); ?></td>
                                         <td><?php echo htmlspecialchars($s['class_name'] ?? 'Unassigned'); ?></td>
                                         <td class="text-center">
@@ -453,6 +465,7 @@ try {
                                                 data-bs-toggle="modal" data-bs-target="#editStudentModal" 
                                                 data-id="<?php echo (int)$s['id']; ?>"
                                                 data-name="<?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>"
+                                                data-admission-number="<?php echo htmlspecialchars($s['admission_number'] ?? '', ENT_QUOTES); ?>"
                                                 data-email="<?php echo htmlspecialchars($s['email'], ENT_QUOTES); ?>"
                                                 data-passport="<?php echo htmlspecialchars($s['passport'] ?? '', ENT_QUOTES); ?>"
                                                 <?php if ($has_class_id): ?>
@@ -500,6 +513,10 @@ try {
           <div class="mb-3">
             <label class="form-label" for="edit_email">Gmail</label>
             <input type="email" class="form-control" name="edit_email" id="edit_email" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="edit_admission_number">Admission Number</label>
+            <input type="text" class="form-control" name="edit_admission_number" id="edit_admission_number" maxlength="100">
           </div>
           <div class="mb-3">
             <label class="form-label" for="edit_passport">Passport Photograph (Optional)</label>
@@ -586,12 +603,14 @@ try {
     var button = event.relatedTarget;
     var sid = button.getAttribute('data-id');
     var name = button.getAttribute('data-name');
+    var admissionNumber = button.getAttribute('data-admission-number');
     var email = button.getAttribute('data-email');
     var classId = button.getAttribute('data-class-id');
     var passport = button.getAttribute('data-passport');
 
     document.getElementById('edit_student_id').value = sid || '';
     document.getElementById('edit_full_name').value = name || '';
+    document.getElementById('edit_admission_number').value = admissionNumber || '';
     document.getElementById('edit_email').value = email || '';
     
     var passportPreview = document.getElementById('current_passport_preview');
