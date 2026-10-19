@@ -14,11 +14,6 @@
         "full_name": "Student User",
         "role": "student"
     },
-    "ahmbio4real@gmail.com": {
-        "password": "$2y$10$F9E95ky.n9Gyzf8n.cAY7e71NdXe5pj6u8Yv6CoNM9QvkRAwvyoM2",
-        "full_name": "Ahmad Abiola",
-        "role": "teacher"
-    },
     "ahmad.abiola@famaiis.sch.ng": {
         "password": "$2y$10$5EZBMTZYiswkyNW8pjCIJuBsTZDi9GY.rRBg5ET0PTbNem3cEBgHa",
         "full_name": "Ahmad Abiola Ogunmeru",
@@ -27,11 +22,6 @@
     "adminahmad@gmail.com": {
         "password": "$2y$10$hTGXuH3uZP8ZA5ukupgR7.YrwWQcHeTik5WzEjSGPbA\/83GSnfP7q",
         "full_name": "Admin Ahmad",
-        "role": "admin"
-    },
-    "ash.raf@gmail.com": {
-        "password": "$2y$10$11NqB7wbZj0e6uPdr6dgQ.iuena7JMtsZAPLPZRY7MXpgnQvMTcJ.",
-        "full_name": "Ashraf Ahmad",
         "role": "admin"
     }
 }
