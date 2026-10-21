@@ -58,6 +58,9 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
                 <a href="dashboard.php?tab=performance_summary" class="list-group-item list-group-item-action <?php echo $active_tab === 'performance_summary' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line me-2"></i> Class Performance Summary
                 </a>
+                <a href="student_broadsheet.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-table me-2"></i> Student Broadsheet
+                </a>
             </div>
         </div>
     </div>
@@ -234,6 +237,17 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
                                         </div>
                                         <h5 class="fw-bold text-dark">Performance</h5>
                                         <p class="small text-muted mb-0">View aggregate class performance summaries</p>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="student_broadsheet.php" class="card h-100 border-0 shadow-sm text-decoration-none hover-lift">
+                                    <div class="card-body p-4">
+                                        <div class="stat-icon bg-warning-soft text-warning mb-3">
+                                            <i class="fas fa-table"></i>
+                                        </div>
+                                        <h5 class="fw-bold text-dark">Student Broadsheet</h5>
+                                        <p class="small text-muted mb-0">View each student’s score for an assigned subject</p>
                                     </div>
                                 </a>
                             </div>
