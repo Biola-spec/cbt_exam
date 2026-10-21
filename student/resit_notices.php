@@ -43,7 +43,7 @@ try {
                     <p class="mb-1"><strong>Date:</strong> <?php echo htmlspecialchars(date('l, F j, Y', strtotime($notice['resit_date']))); ?></p>
                     <p class="mb-1"><strong>Time:</strong> <?php echo htmlspecialchars(date('g:i A', strtotime($notice['resit_start_time'])) . ' - ' . date('g:i A', strtotime($notice['resit_end_time']))); ?></p>
                     <p class="mb-1"><strong>Venue:</strong> <?php echo htmlspecialchars($notice['venue']); ?></p>
-                    <?php if (!$notice['resit_subject_published']): ?><p class="mb-0 fw-semibold">Your resit questions are being prepared. The exam will appear under Available Exams when it is published.</p><?php endif; ?>
+                    <?php if (!$notice['resit_subject_published']): ?><p class="mb-0 fw-semibold">Your resit questions are being prepared. The exam will appear under Available Exams after your teacher completes the question set.</p><?php endif; ?>
                 <?php elseif ($notice['status'] === 'pending'): ?>
                     <p class="mb-0">Your teacher has requested that you resit this subject. The administrator is reviewing the request and will publish the date, time, and venue here.</p>
                 <?php else: ?>

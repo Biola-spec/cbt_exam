@@ -85,11 +85,9 @@ try {
     // Keep percentage for backward compatibility but use percentage_of_total for display
     $percentage = $percentage_of_total;
 
-    $result_is_released = !empty($attempt['exam_published']) && !empty($attempt['subject_published'])
-        && $pending_theory === 0 && $attempt['submitted_at'] !== null && $attempt['score'] !== null && $max_possible_score > 0;
+    $result_is_released = $attempt['submitted_at'] !== null && $attempt['score'] !== null && $max_possible_score > 0;
     $result_grade = $result_is_released ? resultSheetGrade(resultSheetGetScale($mysqli), $percentage_of_total) : null;
-    $result_is_released = $result_is_released && $result_grade !== null;
-    $passed = $result_is_released && (int)$result_grade['is_passing'] === 1;
+    $passed = $result_is_released && $result_grade !== null && (int)$result_grade['is_passing'] === 1;
 
     // Get school name and logo
     $school_name = getSchoolName();
@@ -243,12 +241,6 @@ try {
                                         <i class="fas fa-exclamation-triangle me-2"></i>
                                         <strong>Note:</strong> You answered <?php echo $answered_questions; ?> out of <?php echo $total_questions; ?> questions. 
                                         Unanswered questions were scored as incorrect.
-                                    </div>
-                                    <?php endif; ?>
-                                    <?php if ($pending_theory > 0): ?>
-                                    <div class="alert alert-info mt-3 mb-0">
-                                        <i class="fas fa-pen me-2"></i>
-                                        <strong>Theory Pending:</strong> <?php echo $pending_theory; ?> theory answer<?php echo $pending_theory === 1 ? '' : 's'; ?> will be marked by your teacher before the final score is complete.
                                     </div>
                                     <?php endif; ?>
                                 </div>

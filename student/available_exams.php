@@ -23,13 +23,33 @@ try {
     $table_check = $mysqli->query("SHOW TABLES LIKE 'resit_requests'");
     $column_check = $mysqli->query("SHOW COLUMNS FROM exam_subjects LIKE 'resit_request_id'");
     $resit_schema_available = $table_check && $table_check->num_rows > 0 && $column_check && $column_check->num_rows > 0;
-    $resit_filter = $resit_schema_available ? "
-               AND (es.resit_request_id IS NULL OR EXISTS (
-                   SELECT 1 FROM resit_requests rr
-                   WHERE rr.id = es.resit_request_id
-                     AND rr.student_id = ?
-                     AND rr.status = 'approved'
-               ))" : '';
+    $student_subject_filter = $resit_schema_available ? "
+               AND (
+                   (es.resit_request_id IS NULL AND s.subject_code = ?)
+                   OR (
+                       es.resit_request_id IS NOT NULL
+                       AND EXISTS (
+                           SELECT 1 FROM resit_requests rr
+                           WHERE rr.id = es.resit_request_id
+                             AND rr.student_id = ?
+                             AND rr.status = 'approved'
+                       )
+                   )
+               )" : "
+               AND s.subject_code = ?";
+    $exam_visibility_filter = $resit_schema_available ? "
+               AND (
+                   (e.is_published = 1 AND es.is_published = 1)
+                   OR (
+                       es.resit_request_id IS NOT NULL
+                       AND EXISTS (
+                           SELECT 1 FROM questions rq
+                           WHERE rq.exam_subject_id = es.id
+                       )
+                   )
+               )" : "
+               AND e.is_published = 1
+               AND es.is_published = 1";
 
     // NEW ROBUST QUERY: Get exams with their latest attempt status and retake permission comparison
     $query = "SELECT 
@@ -52,10 +72,9 @@ try {
               JOIN exams e ON es.exam_id = e.id
               JOIN classes c ON es.class_id = c.id
               JOIN subjects s ON es.subject_id = s.id
-               WHERE e.is_published = 1
-               AND es.is_published = 1
+               WHERE 1 = 1" . $exam_visibility_filter . "
                AND es.class_id = ?
-               AND s.subject_code = ?" . $resit_filter . "
+               " . $student_subject_filter . "
                ORDER BY e.published_at DESC";
 
     $stmt = $mysqli->prepare($query);

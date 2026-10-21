@@ -23,11 +23,7 @@ function resultSheetExamList(mysqli $mysqli, int $studentId): array {
     $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session,
             MAX(ea.submitted_at) AS last_submitted_at,
             COUNT(*) AS subjects_submitted,
-            SUM(CASE WHEN EXISTS (
-                SELECT 1 FROM student_answers sa JOIN questions q ON q.id = sa.question_id
-                WHERE sa.attempt_id = ea.id AND q.question_type = 'theory'
-                  AND COALESCE(sa.answer_text, '') <> '' AND sa.marked_at IS NULL
-            ) THEN 1 ELSE 0 END) AS pending_subjects
+            SUM(CASE WHEN ea.score IS NULL THEN 1 ELSE 0 END) AS pending_subjects
         FROM (
             SELECT student_id, exam_id, exam_subject_id, MAX(id) AS attempt_id
             FROM exam_attempts WHERE student_id = ? AND submitted_at IS NOT NULL
@@ -36,7 +32,6 @@ function resultSheetExamList(mysqli $mysqli, int $studentId): array {
         JOIN exam_attempts ea ON ea.id = latest.attempt_id
         JOIN exams e ON e.id = ea.exam_id
         JOIN exam_subjects es ON es.id = ea.exam_subject_id AND es.exam_id = e.id
-        WHERE e.is_published = 1 AND es.is_published = 1
         GROUP BY e.id, e.title, e.academic_session
         ORDER BY MAX(ea.submitted_at) DESC, e.title");
     $stmt->bind_param('i', $studentId);
@@ -52,13 +47,13 @@ function resultSheetLoad(mysqli $mysqli, int $studentId, int $examId): ?array {
     $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, u.full_name, u.admission_number,
                 c.id AS class_id, c.name AS class_name, sc.school_name
             FROM exams e
-            JOIN exam_subjects access_es ON access_es.exam_id = e.id AND access_es.is_published = 1
+            JOIN exam_subjects access_es ON access_es.exam_id = e.id
             JOIN users u ON u.id = ? AND u.role = 'student'
             JOIN classes c ON c.id = access_es.class_id
             JOIN exam_attempts access_ea ON access_ea.exam_id = e.id AND access_ea.student_id = u.id
                 AND access_ea.exam_subject_id = access_es.id AND access_ea.submitted_at IS NOT NULL
             LEFT JOIN school_config sc ON sc.id = (SELECT MIN(id) FROM school_config)
-            WHERE e.id = ? AND e.is_published = 1 LIMIT 1");
+            WHERE e.id = ? LIMIT 1");
     $stmt->bind_param('ii', $studentId, $examId);
     $stmt->execute();
     $exam = $stmt->get_result()->fetch_assoc();
@@ -91,7 +86,7 @@ function resultSheetLoad(mysqli $mysqli, int $studentId, int $examId): ?array {
                 WHERE q.question_type='theory' AND COALESCE(sa.answer_text,'')<>'' AND sa.marked_at IS NULL
                 GROUP BY sa.attempt_id
             ) pending ON pending.attempt_id = ea.id
-            WHERE es.exam_id = ? AND es.class_id = ? AND es.is_published = 1
+            WHERE es.exam_id = ? AND es.class_id = ?
             ORDER BY s.name");
     $stmt->bind_param('iiii', $studentId, $examId, $examId, $exam['class_id']);
     $stmt->execute();
@@ -107,7 +102,7 @@ function resultSheetLoad(mysqli $mysqli, int $studentId, int $examId): ?array {
         $subject['percentage'] = null; $subject['grade'] = null;
         if (empty($subject['attempt_id'])) { $allReleased = false; continue; }
         $taken++;
-        if ((int)$subject['pending_theory'] > 0 || $subject['score'] === null || $subject['max_score'] <= 0) {
+        if ($subject['score'] === null || $subject['max_score'] <= 0) {
             $subject['status'] = 'Pending'; $allReleased = false; continue;
         }
         $subject['percentage'] = round(((float)$subject['score'] / $subject['max_score']) * 100, 2);

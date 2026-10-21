@@ -122,7 +122,9 @@ try {
     $stmt = $mysqli->prepare("SELECT rr.*, e.title AS exam_title, s.name AS subject_name,
                                      c.name AS class_name, u.full_name AS student_name,
                                      t.full_name AS teacher_name,
-                                     res.is_published AS resit_subject_published
+                                     res.is_published AS resit_subject_published,
+                                     (SELECT COUNT(*) FROM questions rq
+                                      WHERE rq.exam_subject_id = rr.resit_exam_subject_id) AS resit_question_count
                               FROM resit_requests rr
                               JOIN exams e ON e.id = rr.exam_id
                               JOIN exam_subjects es ON es.id = rr.exam_subject_id
@@ -172,7 +174,7 @@ try {
     <div class="card-body">
         <?php if ($message): ?><div class="alert alert-<?php echo $message_type; ?>"><?php echo htmlspecialchars($message); ?></div><?php endif; ?>
         <div class="alert alert-info">
-            Approved resits are created as private exam subjects. The teacher adds the new questions, then the administrator publishes the resit subject from Exam Management.
+            Approved resits are private and visible only to the approved student after the teacher adds questions. The administrator can still publish the resit from Exam Management when required.
         </div>
         <div class="table-responsive">
             <table class="table table-bordered align-middle">
@@ -202,7 +204,7 @@ try {
                                 <?php else: ?>
                                     <div><?php echo $request['resit_date'] ? htmlspecialchars(date('M j, Y', strtotime($request['resit_date']))) : '—'; ?></div>
                                     <div class="small text-muted"><?php echo $request['resit_start_time'] ? htmlspecialchars(date('g:i A', strtotime($request['resit_start_time'])) . ' - ' . date('g:i A', strtotime($request['resit_end_time'])) . ' · ' . $request['venue']) : ''; ?></div>
-                                    <?php if ($request['status'] === 'approved' && !$request['resit_subject_published']): ?><div class="small text-warning mt-1">Awaiting question setup/publication</div><?php endif; ?>
+                                    <?php if ($request['status'] === 'approved' && (int)$request['resit_question_count'] === 0): ?><div class="small text-warning mt-1">Awaiting teacher question setup</div><?php elseif ($request['status'] === 'approved' && !$request['resit_subject_published']): ?><div class="small text-success mt-1">Questions ready — available to the approved student</div><?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>

@@ -99,16 +99,9 @@ if (!$exam_details) {
 }
 
 if ($user_role === 'student') {
-    $pendingStmt = $mysqli->prepare("SELECT COUNT(*) AS pending_count FROM student_answers sa
-        JOIN questions q ON q.id=sa.question_id
-        JOIN exam_attempts ea ON ea.id=sa.attempt_id
-        WHERE ea.id=? AND q.question_type='theory' AND COALESCE(sa.answer_text,'')<>'' AND sa.marked_at IS NULL");
-    $pendingStmt->bind_param('i', $attempt_id);
-    $pendingStmt->execute();
-    $pendingCount = (int)$pendingStmt->get_result()->fetch_assoc()['pending_count'];
-    if (empty($exam_details['exam_published']) || empty($exam_details['subject_published']) || $exam_details['submitted_at'] === null || $exam_details['score'] === null || $pendingCount > 0) {
+    if ($exam_details['submitted_at'] === null || $exam_details['score'] === null) {
         http_response_code(403);
-        echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Result pending</title><body style="font:16px Arial,sans-serif;max-width:640px;margin:12vh auto;padding:24px;color:#243447"><h1>Result not available yet</h1><p>This subject result has not been published or marking is still in progress.</p><p><a href="dashboard.php?tab=results">Return to My Examination Results</a></p></body></html>';
+        echo '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Result unavailable</title><body style="font:16px Arial,sans-serif;max-width:640px;margin:12vh auto;padding:24px;color:#243447"><h1>Result not available yet</h1><p>This exam has not been submitted or has no calculated score.</p><p><a href="dashboard.php?tab=results">Return to My Examination Results</a></p></body></html>';
         exit();
     }
 }

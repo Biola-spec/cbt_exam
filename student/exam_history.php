@@ -26,7 +26,6 @@ try {
                           JOIN classes c ON es.class_id = c.id
                           JOIN subjects s ON es.subject_id = s.id
                           WHERE ea.student_id = ? AND ea.submitted_at IS NOT NULL
-                            AND e.is_published = 1 AND es.is_published = 1
                           ORDER BY ea.submitted_at DESC");
     $stmt->bind_param("i", $current_user_id); // Use variable instead of function call
     $stmt->execute();
@@ -65,7 +64,7 @@ try {
                     <?php
                     $objective_questions = (int)($exam['objective_questions'] ?? $exam['total_questions']);
                     $max_possible_score = ($objective_questions * (float)$exam['marks_per_question']) + (float)($exam['theory_total_marks'] ?? 0);
-                    $result_released = (int)$exam['pending_theory'] === 0 && $exam['score'] !== null && $max_possible_score > 0;
+                    $result_released = $exam['score'] !== null && $max_possible_score > 0;
                     ?>
                     <tr>
                         <td><?php echo htmlspecialchars($exam['exam_title']); ?></td>
