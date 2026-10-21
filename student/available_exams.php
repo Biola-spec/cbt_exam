@@ -19,6 +19,18 @@ try {
     $student = $result->fetch_assoc();
     $student_class_id = $student['class_id'];
     
+    $resit_schema_available = false;
+    $table_check = $mysqli->query("SHOW TABLES LIKE 'resit_requests'");
+    $column_check = $mysqli->query("SHOW COLUMNS FROM exam_subjects LIKE 'resit_request_id'");
+    $resit_schema_available = $table_check && $table_check->num_rows > 0 && $column_check && $column_check->num_rows > 0;
+    $resit_filter = $resit_schema_available ? "
+               AND (es.resit_request_id IS NULL OR EXISTS (
+                   SELECT 1 FROM resit_requests rr
+                   WHERE rr.id = es.resit_request_id
+                     AND rr.student_id = ?
+                     AND rr.status = 'approved'
+               ))" : '';
+
     // NEW ROBUST QUERY: Get exams with their latest attempt status and retake permission comparison
     $query = "SELECT 
                 es.id as exam_subject_id, es.time_limit, 
@@ -33,21 +45,25 @@ try {
                 (SELECT id FROM exam_attempts 
                  WHERE student_id = ? AND exam_subject_id = es.id AND submitted_at IS NULL 
                  ORDER BY started_at DESC LIMIT 1) as in_progress_attempt_id,
-                (SELECT republished_at FROM exam_republish_log 
-                 WHERE student_id = ? AND exam_subject_id = es.id 
-                 ORDER BY republished_at DESC LIMIT 1) as last_retake_at
+                 (SELECT republished_at FROM exam_republish_log
+                  WHERE student_id = ? AND exam_subject_id = es.id
+                  ORDER BY republished_at DESC LIMIT 1) as last_retake_at
               FROM exam_subjects es
               JOIN exams e ON es.exam_id = e.id
               JOIN classes c ON es.class_id = c.id
               JOIN subjects s ON es.subject_id = s.id
-              WHERE e.is_published = 1 
-              AND es.is_published = 1
-              AND es.class_id = ?
-              AND s.subject_code = ?
-              ORDER BY e.published_at DESC";
-              
+               WHERE e.is_published = 1
+               AND es.is_published = 1
+               AND es.class_id = ?
+               AND s.subject_code = ?" . $resit_filter . "
+               ORDER BY e.published_at DESC";
+
     $stmt = $mysqli->prepare($query);
-    $stmt->bind_param("iiiiis", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id, $_SESSION['subject_code']);
+    if ($resit_schema_available) {
+        $stmt->bind_param("iiiiisi", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id, $_SESSION['subject_code'], $current_user_id);
+    } else {
+        $stmt->bind_param("iiiiis", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id, $_SESSION['subject_code']);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
     

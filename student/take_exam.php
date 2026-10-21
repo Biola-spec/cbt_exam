@@ -126,7 +126,10 @@ try {
         
     } else {
         // Verify exam subject exists and user has access through subject code
-        $stmt = $mysqli->prepare("SELECT es.id as exam_subject_id, es.exam_id, es.subject_id, es.class_id, es.time_limit, es.show_calculator, es.created_at,
+        $resit_column_check = $mysqli->query("SHOW COLUMNS FROM exam_subjects LIKE 'resit_request_id'");
+        $resit_schema_available = $resit_column_check && $resit_column_check->num_rows > 0;
+        $resit_request_select = $resit_schema_available ? 'es.resit_request_id' : 'NULL';
+        $stmt = $mysqli->prepare("SELECT es.id as exam_subject_id, es.exam_id, es.subject_id, es.class_id, {$resit_request_select} as resit_request_id, es.time_limit, es.show_calculator, es.created_at,
                               e.title as exam_title, c.name as class_name, s.name as subject_name
                               FROM exam_subjects es
                               JOIN exams e ON es.exam_id = e.id
@@ -141,6 +144,19 @@ try {
         if (!$exam_subject) {
             header('Location: dashboard.php?tab=available');
             exit();
+        }
+
+        if ($resit_schema_available && !empty($exam_subject['resit_request_id'])) {
+            $stmt = $mysqli->prepare("SELECT id FROM resit_requests
+                                      WHERE id = ? AND student_id = ? AND status = 'approved'
+                                        AND resit_exam_subject_id = ?");
+            $stmt->bind_param('iii', $exam_subject['resit_request_id'], $current_user_id, $exam_subject_id);
+            $stmt->execute();
+            if (!$stmt->get_result()->fetch_assoc()) {
+                header('Location: dashboard.php?tab=available');
+                exit();
+            }
+            $stmt->close();
         }
         
         // Get all comprehension passages for this exam subject

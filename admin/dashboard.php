@@ -14,6 +14,7 @@ $message = isset($_GET['message']) ? $_GET['message'] : '';
 
 // Count results for badge
 $results_count = 0;
+$pending_resit_count = 0;
 try {
     $mysqli = getDBConnection();
     $stmt = $mysqli->prepare("SELECT COUNT(*) as count FROM exam_attempts WHERE submitted_at IS NOT NULL");
@@ -33,6 +34,14 @@ try {
     $has_allocations = ($row['count'] > 0);
 } catch (Exception $e) {
     // Handle error silently
+}
+try {
+    $stmt = $mysqli->prepare("SELECT COUNT(*) AS count FROM resit_requests WHERE status = 'pending'");
+    $stmt->execute();
+    $pending_resit_count = (int)$stmt->get_result()->fetch_assoc()['count'];
+    $stmt->close();
+} catch (Exception $e) {
+    $pending_resit_count = 0;
 }
 ?>
 
@@ -114,6 +123,10 @@ try {
                 <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-bar me-2"></i> Exam Results
                     <?php if ($results_count > 0): ?><span class="badge bg-primary float-end"><?php echo $results_count; ?></span><?php endif; ?>
+                </a>
+                <a href="resit_requests.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-clipboard-check me-2"></i> Resit Requests
+                    <?php if ($pending_resit_count > 0): ?><span class="badge bg-warning text-dark float-end"><?php echo $pending_resit_count; ?></span><?php endif; ?>
                 </a>
                 <a href="dashboard.php?tab=grades" class="list-group-item list-group-item-action <?php echo $active_tab === 'grades' ? 'active' : ''; ?>">
                     <i class="fas fa-sliders-h me-2"></i> Grade Settings

@@ -82,6 +82,7 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                 </h4>
             </div>
             <div class="card-body">
+                <?php include 'resit_notices.php'; ?>
                 <?php
                 switch ($active_tab) {
                     case 'available':
