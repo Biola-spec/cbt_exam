@@ -15,6 +15,7 @@ $message = '';
 $classes = [];
 $exams = [];
 $subjects = [];
+$subject_options = [];
 $students = [];
 $attempts = [];
 $selected_class_id = isset($_GET['class_id']) ? (int)$_GET['class_id'] : 0;
@@ -60,6 +61,30 @@ try {
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
         $exams[] = $row;
+    }
+    $stmt->close();
+
+    if ($user_role === 'admin') {
+        $stmt = $mysqli->prepare("SELECT es.exam_id, es.class_id, es.id AS exam_subject_id,
+                                         s.id AS subject_id, s.name AS subject_name
+                                  FROM exam_subjects es
+                                  JOIN subjects s ON s.id = es.subject_id
+                                  ORDER BY es.class_id, es.exam_id, s.name");
+        $stmt->execute();
+    } else {
+        $stmt = $mysqli->prepare("SELECT es.exam_id, es.class_id, es.id AS exam_subject_id,
+                                         s.id AS subject_id, s.name AS subject_name
+                                  FROM exam_subjects es
+                                  JOIN subjects s ON s.id = es.subject_id
+                                  JOIN teacher_allocations ta ON ta.class_id = es.class_id AND ta.subject_id = es.subject_id
+                                  WHERE ta.teacher_id = ?
+                                  ORDER BY es.class_id, es.exam_id, s.name");
+        $stmt->bind_param('i', $current_user_id);
+        $stmt->execute();
+    }
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $subject_options[] = $row;
     }
     $stmt->close();
 
@@ -221,7 +246,7 @@ foreach ($exams as $exam) {
             </div>
             <div class="col-md-3">
                 <label for="subject_id" class="form-label fw-semibold">Subject</label>
-                <select name="subject_id" id="subject_id" class="form-select" required <?php echo count($subjects) === 0 ? 'disabled' : ''; ?>>
+                <select name="subject_id" id="subject_id" class="form-select" required <?php echo $selected_class_id > 0 && $selected_exam_id > 0 && count($subjects) === 0 ? 'disabled' : ''; ?>>
                     <option value="">Select subject</option>
                     <?php foreach ($subjects as $subject): ?>
                         <option value="<?php echo (int)$subject['subject_id']; ?>" <?php echo $selected_subject_id === (int)$subject['subject_id'] ? 'selected' : ''; ?>>
@@ -242,6 +267,38 @@ foreach ($exams as $exam) {
         </form>
     </div>
 </div>
+
+<script>
+const assignedSubjectOptions = <?php echo json_encode($subject_options, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+const classSelect = document.getElementById('class_id');
+const examSelect = document.getElementById('exam_id');
+const subjectSelect = document.getElementById('subject_id');
+const initialSubjectId = '<?php echo (int)$selected_subject_id; ?>';
+
+function updateSubjectOptions() {
+    const classId = classSelect.value;
+    const examId = examSelect.value;
+    const matchingSubjects = assignedSubjectOptions.filter(function(subject) {
+        return String(subject.class_id) === classId && String(subject.exam_id) === examId;
+    });
+
+    subjectSelect.innerHTML = '<option value="">Select subject</option>';
+    matchingSubjects.forEach(function(subject) {
+        const option = document.createElement('option');
+        option.value = subject.subject_id;
+        option.textContent = subject.subject_name;
+        if (String(subject.subject_id) === initialSubjectId) {
+            option.selected = true;
+        }
+        subjectSelect.appendChild(option);
+    });
+    subjectSelect.disabled = !(classId && examId && matchingSubjects.length);
+}
+
+classSelect.addEventListener('change', updateSubjectOptions);
+examSelect.addEventListener('change', updateSubjectOptions);
+updateSubjectOptions();
+</script>
 
 <?php if ($message): ?>
     <div class="alert alert-warning mt-4"><?php echo htmlspecialchars($message); ?></div>
