@@ -194,10 +194,10 @@ try {
                                     <form method="POST" class="row g-2">
                                         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                                         <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
-                                        <div class="col-md-6"><input type="date" name="resit_date" class="form-control form-control-sm" required></div>
-                                        <div class="col-md-3"><input type="time" name="resit_start_time" class="form-control form-control-sm" required></div>
-                                        <div class="col-md-3"><input type="time" name="resit_end_time" class="form-control form-control-sm" required></div>
-                                        <div class="col-md-7"><input type="text" name="venue" class="form-control form-control-sm" placeholder="Venue" required></div>
+                                        <div class="col-md-6"><input type="date" name="resit_date" class="form-control form-control-sm"></div>
+                                        <div class="col-md-3"><input type="time" name="resit_start_time" class="form-control form-control-sm"></div>
+                                        <div class="col-md-3"><input type="time" name="resit_end_time" class="form-control form-control-sm"></div>
+                                        <div class="col-md-7"><input type="text" name="venue" class="form-control form-control-sm" placeholder="Venue"></div>
                                         <div class="col-md-5"><input type="text" name="admin_note" class="form-control form-control-sm" placeholder="Note (optional)"></div>
                                         <div class="col-12 d-flex gap-2"><button name="decision" value="approve" class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i> Approve & Schedule</button><button name="decision" value="reject" class="btn btn-outline-danger btn-sm"><i class="fas fa-times me-1"></i> Reject</button></div>
                                     </form>

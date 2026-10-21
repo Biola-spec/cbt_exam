@@ -14,7 +14,7 @@ try {
                               JOIN classes c ON c.id = es.class_id
                               LEFT JOIN exam_subjects res ON res.id = rr.resit_exam_subject_id
                               WHERE rr.student_id = ?
-                                AND rr.status IN ('pending', 'approved', 'rejected')
+                                AND rr.status IN ('pending', 'approved')
                               ORDER BY rr.requested_at DESC
                               LIMIT 5");
     $stmt->bind_param('i', $student_id);
