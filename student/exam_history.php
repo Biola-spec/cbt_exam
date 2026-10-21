@@ -85,6 +85,7 @@ try {
                         <td><?php echo date('M j, Y g:i A', strtotime($exam['submitted_at'])); ?></td>
                         <td>
                             <?php if ($result_released): ?>
+                                <a href="print_exam_result.php?attempt_id=<?php echo (int)$exam['attempt_id']; ?>" class="btn btn-sm btn-outline-success" title="View Questions and Answers" target="_blank"><i class="fas fa-list-check"></i> View Q&amp;A</a>
                                 <a href="print_exam_result.php?attempt_id=<?php echo (int)$exam['attempt_id']; ?>" class="btn btn-sm btn-outline-primary" title="Print Subject Details" target="_blank"><i class="fas fa-print"></i></a>
                             <?php else: ?><span class="text-muted small">Awaiting release</span><?php endif; ?>
                         </td>

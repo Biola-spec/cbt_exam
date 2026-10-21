@@ -251,6 +251,7 @@ try {
                     <div class="mt-4">
                         <?php if ($result_is_released): ?>
                             <a href="result_sheet.php?exam_id=<?php echo (int)$attempt['exam_id']; ?>" class="btn btn-primary btn-lg"><i class="fas fa-poll me-2"></i>View Results Sheet</a>
+                            <a href="print_exam_result.php?attempt_id=<?php echo (int)$attempt_id; ?>" class="btn btn-outline-success btn-lg ms-2" target="_blank"><i class="fas fa-list-check me-2"></i>View Questions &amp; Answers</a>
                             <a href="print_exam_result.php?attempt_id=<?php echo (int)$attempt_id; ?>" class="btn btn-outline-primary btn-lg ms-2" target="_blank"><i class="fas fa-print me-2"></i>Print Subject Details</a>
                         <?php else: ?>
                             <a href="dashboard.php?tab=results" class="btn btn-primary btn-lg"><i class="fas fa-poll me-2"></i>My Examination Results</a>
