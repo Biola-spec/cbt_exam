@@ -412,12 +412,27 @@ try {
             </div>
         </div>
 
+        <style>
+        @media print {
+            @page { size: A4 portrait; margin: 6mm; }
+            #student-directory-print { width: 100% !important; margin: 0 !important; border: 0 !important; }
+            #student-directory-print .card-header { min-height: 7mm; padding: 1mm 0 !important; }
+            #student-directory-print .card-body { padding: 0 !important; }
+            #student-directory-print table { table-layout: fixed !important; width: 100% !important; font-size: 7pt !important; }
+            #student-directory-print col.no-print { display: none !important; }
+            #student-directory-print th, #student-directory-print td { padding: 1px 2px !important; line-height: 1.1 !important; vertical-align: middle !important; overflow-wrap: anywhere !important; }
+            #student-directory-print tbody tr { height: 17mm !important; break-inside: avoid !important; page-break-inside: avoid !important; }
+            #student-directory-print img.student-export-photo { width: 12mm !important; height: 15mm !important; max-width: 12mm !important; max-height: 15mm !important; object-fit: contain !important; }
+            #student-directory-print .table-responsive { overflow: visible !important; }
+        }
+        </style>
         <!-- Student Directory -->
-        <div class="card">
+        <div class="card admin-print-area" id="student-directory-print">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">Student Directory</h6>
+                <button type="button" class="btn btn-outline-primary btn-sm no-print" onclick="window.print()"><i class="fas fa-print me-1"></i> Print / Save PDF</button>
                 <?php if ($has_class_id && !empty($classes)): ?>
-                <form method="GET" class="d-flex align-items-center mb-0">
+                <form method="GET" class="d-flex align-items-center mb-0 no-print">
                     <input type="hidden" name="tab" value="students">
                     <select name="class_filter" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="0">All Classes</option>
@@ -434,6 +449,11 @@ try {
                 <?php else: ?>
                     <div class="table-responsive">
                         <table class="table table-bordered table-striped align-middle">
+                            <colgroup>
+                                <col style="width:5%"><col style="width:10%"><col style="width:24%">
+                                <col style="width:16%"><col style="width:29%"><col style="width:16%">
+                                <col class="no-print" style="width:120px">
+                            </colgroup>
                             <thead class="table-light">
                                 <tr>
                                     <th width="50">#</th>
@@ -442,7 +462,7 @@ try {
                                     <th>Admission No.</th>
                                     <th>Email</th>
                                     <th>Class</th>
-                                    <th width="150" class="text-center">Actions</th>
+                                    <th width="150" class="text-center no-print">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -451,7 +471,7 @@ try {
                                         <td><?php echo $index + 1; ?></td>
                                         <td class="text-center">
                                             <?php if (!empty($s['passport'])): ?>
-                                                <img src="../<?php echo htmlspecialchars($s['passport']); ?>" width="40" height="40" class="rounded-circle" style="object-fit: cover;">
+                                                <img src="../<?php echo htmlspecialchars($s['passport']); ?>" width="72" height="88" class="student-export-photo" loading="eager" alt="Student photograph">
                                             <?php else: ?>
                                                 <i class="fas fa-user-circle fa-2x text-muted"></i>
                                             <?php endif; ?>
@@ -460,7 +480,7 @@ try {
                                         <td><?php echo htmlspecialchars($s['admission_number'] ?? ''); ?></td>
                                         <td><?php echo htmlspecialchars($s['email']); ?></td>
                                         <td><?php echo htmlspecialchars($s['class_name'] ?? 'Unassigned'); ?></td>
-                                        <td class="text-center">
+                                        <td class="text-center no-print">
                                             <button type="button" class="btn btn-sm btn-info text-white" 
                                                 data-bs-toggle="modal" data-bs-target="#editStudentModal" 
                                                 data-id="<?php echo (int)$s['id']; ?>"

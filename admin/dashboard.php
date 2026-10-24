@@ -47,6 +47,25 @@ try {
 
 <?php include '../includes/header.php'; ?>
 
+<style>
+@media print {
+    @page { size: A4 landscape; margin: 8mm; }
+    body * { visibility: hidden !important; }
+    .admin-print-area, .admin-print-area * { visibility: visible !important; }
+    .admin-print-area { display: block !important; position: absolute !important; left: 0 !important; top: 0 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; }
+    .admin-print-area .no-print { display: none !important; }
+    .admin-print-area .table-responsive { width: 100% !important; max-width: 100% !important; overflow: visible !important; }
+    .admin-print-area table { width: 100% !important; border-collapse: collapse !important; font-size: 9pt; }
+    .admin-print-area th, .admin-print-area td { border: 1px solid #66717a !important; padding: 4px !important; color: #111 !important; background: #fff !important; }
+    .admin-print-area thead { display: table-header-group; }
+    .admin-print-area tr { break-inside: avoid; }
+    .admin-print-area img.student-export-photo { width: 22mm !important; height: 28mm !important; max-width: 22mm !important; max-height: 28mm !important; object-fit: contain !important; border-radius: 0 !important; }
+    body:has(.admin-print-area) *:has(.admin-print-area) { display: contents !important; }
+    body:has(.admin-print-area) *:not(:has(.admin-print-area)):not(.admin-print-area):not(.admin-print-area *) { display: none !important; }
+    .admin-print-area, .admin-print-area * { display: revert !important; }
+}
+</style>
+
 <div class="dashboard-header">
     <div class="container">
         <div class="row align-items-center">
@@ -123,6 +142,12 @@ try {
                 <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-bar me-2"></i> Exam Results
                     <?php if ($results_count > 0): ?><span class="badge bg-primary float-end"><?php echo $results_count; ?></span><?php endif; ?>
+                </a>
+                <a href="term_results.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-clipboard-check me-2"></i> Term Results &amp; Release
+                </a>
+                <a href="report_card_settings.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-star-half-alt me-2"></i> Report Card Settings
                 </a>
                 <a href="resit_requests.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-clipboard-check me-2"></i> Resit Requests

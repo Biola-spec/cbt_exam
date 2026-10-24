@@ -10,6 +10,24 @@ if (!in_array(getUserRole(), ['teacher', 'admin'])) {
 }
 
 $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
+$termReleaseSummary = ['released' => 0, 'awaiting' => 0, 'not_submitted' => 0];
+try {
+    $termDb = getDBConnection();
+    if ($termDb) {
+        $termTeacherId = (int)getUserId();
+        $termStmt = $termDb->prepare("SELECT
+            SUM(release_status='approved') AS released,
+            SUM(release_status='submitted') AS awaiting,
+            SUM(release_status IN ('draft','recalled')) AS not_submitted
+            FROM term_scores WHERE teacher_id=?");
+        $termStmt->bind_param('i', $termTeacherId);
+        $termStmt->execute();
+        $termReleaseSummary = array_merge($termReleaseSummary, $termStmt->get_result()->fetch_assoc() ?: []);
+        $termStmt->close();
+    }
+} catch (Throwable $e) {
+    // Keep the existing dashboard available if the term-results tables are not installed yet.
+}
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -42,6 +60,17 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
     </div>
 </div>
 
+<div class="container mt-3">
+    <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2 mb-0">
+        <div><strong>Term result updates</strong><div class="small text-muted">
+            <?php echo (int)$termReleaseSummary['released']; ?> released by admin ·
+            <?php echo (int)$termReleaseSummary['awaiting']; ?> awaiting admin release ·
+            <?php echo (int)$termReleaseSummary['not_submitted']; ?> not submitted or recalled
+        </div></div>
+        <a class="btn btn-sm btn-outline-primary" href="term_scores.php"><i class="fas fa-clipboard-list me-1"></i> Open score sheets</a>
+    </div>
+</div>
+
 <div class="row">
     <div class="col-md-3">
         <div class="card shadow-sm">
@@ -54,6 +83,12 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
                 </a>
                 <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-bar me-2"></i> Exam Results
+                </a>
+                <a href="term_scores.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-edit me-2"></i> Enter Term Scores
+                </a>
+                <a href="class_duties.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-calendar-check me-2"></i> Class Duties
                 </a>
                 <a href="dashboard.php?tab=performance_summary" class="list-group-item list-group-item-action <?php echo $active_tab === 'performance_summary' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line me-2"></i> Class Performance Summary
@@ -237,6 +272,15 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
                                         </div>
                                         <h5 class="fw-bold text-dark">Performance</h5>
                                         <p class="small text-muted mb-0">View aggregate class performance summaries</p>
+                                    </div>
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a href="class_duties.php" class="card h-100 border-0 shadow-sm text-decoration-none hover-lift">
+                                    <div class="card-body p-4">
+                                        <div class="stat-icon bg-success-soft text-success mb-3"><i class="fas fa-calendar-check"></i></div>
+                                        <h5 class="fw-bold text-dark">Class Duties</h5>
+                                        <p class="small text-muted mb-0">Take daily attendance and write term remarks for assigned classes</p>
                                     </div>
                                 </a>
                             </div>

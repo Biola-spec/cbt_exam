@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/session.php';
+require_once '../includes/term_results.php';
 
 // Check if user is logged in and is a student
 requireLogin();
@@ -10,6 +11,13 @@ if (getUserRole() !== 'student') {
 }
 
 $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
+$releasedTermResults = 0;
+try {
+    $notificationDb = getDBConnection();
+    if ($notificationDb) $releasedTermResults = termResultsStudentNotifications($notificationDb, (int)getUserId());
+} catch (Throwable $e) {
+    $releasedTermResults = 0;
+}
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -58,6 +66,10 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
                 <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
                     <i class="fas fa-poll me-2"></i> My Examination Results
                 </a>
+                <a href="term_results.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-award me-2"></i> Academic Term Results
+                    <?php if ($releasedTermResults > 0): ?><span class="badge bg-success float-end"><?php echo $releasedTermResults; ?></span><?php endif; ?>
+                </a>
                 <form method="POST" action="../logout.php" class="list-group-item list-group-item-action p-0">
                     <button type="submit" class="btn btn-link text-danger w-100 text-start px-3 py-2 border-0 text-decoration-none" style="display: block; background: none; box-shadow: none;">
                         <i class="fas fa-sign-out-alt me-2"></i> Logout
@@ -68,6 +80,12 @@ $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
     </div>
     
     <div class="col-md-9 order-1 order-md-2">
+        <?php if ($releasedTermResults > 0): ?>
+            <div class="alert alert-success d-flex justify-content-between align-items-center flex-wrap gap-2" role="status">
+                <span><i class="fas fa-bell me-2"></i><?php echo $releasedTermResults === 1 ? 'A term result is out.' : $releasedTermResults . ' term results are out.'; ?></span>
+                <a class="btn btn-sm btn-success" href="term_results.php">View results</a>
+            </div>
+        <?php endif; ?>
         <div class="card shadow-sm fade-in">
             <div class="card-header">
                 <h4 class="mb-0">

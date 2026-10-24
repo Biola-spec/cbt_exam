@@ -96,7 +96,7 @@ function getSchoolName() {
             }
             
             if ($mysqli) {
-                $stmt = $mysqli->prepare("SELECT school_name FROM school_config LIMIT 1");
+                $stmt = $mysqli->prepare("SELECT school_name FROM school_config ORDER BY id DESC LIMIT 1");
                 if ($stmt) {
                     $stmt->execute();
                     $result = $stmt->get_result();

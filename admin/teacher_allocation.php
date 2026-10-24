@@ -321,6 +321,9 @@ try {
                     <div class="alert alert-info"><?php echo htmlspecialchars($message); ?></div>
                 <?php endif; ?>
 
+                <div class="no-print d-flex justify-content-end mb-3">
+                    <button type="button" class="btn btn-outline-primary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print / Save Teacher Information</button>
+                </div>
                 <div class="row">
                     <!-- Allocation Form -->
                     <div class="col-md-4">
@@ -383,7 +386,7 @@ try {
                     </div>
 
                     <!-- Current Allocations Table -->
-                    <div class="col-md-8">
+                    <div class="col-md-8 admin-print-area" id="teacher-information-print">
                         <div class="card mb-4">
                             <div class="card-header bg-primary text-white">
                                 <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Current Subject Allocations</h6>
@@ -396,7 +399,7 @@ try {
                                                 <th>Teacher</th>
                                                 <th>Class</th>
                                                 <th>Subject</th>
-                                                <th class="text-center">Action</th>
+                                                <th class="text-center no-print">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -406,7 +409,7 @@ try {
                                                         <td><?php echo htmlspecialchars($allocation['teacher_name']); ?></td>
                                                         <td><?php echo htmlspecialchars($allocation['class_name']); ?></td>
                                                         <td><?php echo htmlspecialchars($allocation['subject_name']); ?></td>
-                                                        <td class="text-center">
+                                                        <td class="text-center no-print">
                                                             <div class="btn-group btn-group-sm">
                                                                 <a href="dashboard.php?tab=teachers&action=edit&id=<?php echo $allocation['id']; ?>" class="btn btn-info text-white" title="Edit Allocation">
                                                                     <i class="fas fa-edit"></i>
@@ -437,7 +440,7 @@ try {
                         <div class="card">
                             <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0"><i class="fas fa-users-cog me-2"></i>Staff Management (Teachers & Admins)</h6>
-                                <a href="add_teacher.php" class="btn btn-sm btn-outline-light">
+                                <a href="add_teacher.php" class="btn btn-sm btn-outline-light no-print">
                                     <i class="fas fa-user-plus me-1"></i>Add New Staff
                                 </a>
                             </div>
@@ -449,7 +452,7 @@ try {
                                                 <th>Full Name</th>
                                                 <th>Email/Username</th>
                                                 <th>Role</th>
-                                                <th class="text-center">Action</th>
+                                                <th class="text-center no-print">Action</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -463,7 +466,7 @@ try {
                                                                 <?php echo ucfirst($staff['role']); ?>
                                                             </span>
                                                         </td>
-                                                        <td class="text-center">
+                                                        <td class="text-center no-print">
                                                             <div class="btn-group btn-group-sm">
                                                                 <a href="edit_teacher.php?id=<?php echo $staff['id']; ?>" class="btn btn-primary" title="Edit Staff Member">
                                                                     <i class="fas fa-user-edit"></i> Edit

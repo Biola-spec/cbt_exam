@@ -1,6 +1,78 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/session.php';
+require_once '../includes/term_results.php';
+requireLogin();
+if (getUserRole() !== 'admin') { http_response_code(403); exit('Forbidden'); }
+
+$mysqli = getDBConnection();
+$resultSessions = [];
+if ($mysqli) {
+    $sessionResult = $mysqli->query('SELECT id, name, is_current FROM academic_sessions ORDER BY is_current DESC, name DESC');
+    if ($sessionResult) while ($sessionRow = $sessionResult->fetch_assoc()) $resultSessions[] = $sessionRow;
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'get_result_components') {
+    header('Content-Type: application/json');
+    $sessionId = (int)($_GET['session_id'] ?? 0);
+    $classId = (int)($_GET['class_id'] ?? 0);
+    $components = [];
+    if ($mysqli && $sessionId > 0) {
+        if ($classId > 0) {
+            $stmt = $mysqli->prepare('SELECT ca_count, exam_count FROM class_result_settings WHERE class_id=? AND session_id=?');
+            $stmt->bind_param('ii', $classId, $sessionId);
+            $stmt->execute();
+            $settings = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$settings) $settings = ['ca_count' => 3, 'exam_count' => 1];
+            $customLabels = [];
+            $stmt = $mysqli->prepare('SELECT component_type, component_number, label FROM class_result_component_names WHERE class_id=? AND session_id=?');
+            $stmt->bind_param('ii', $classId, $sessionId);
+            $stmt->execute();
+            $labelRows = $stmt->get_result();
+            while ($labelRow = $labelRows->fetch_assoc()) $customLabels[$labelRow['component_type']][(int)$labelRow['component_number']] = $labelRow['label'];
+            $stmt->close();
+        } else {
+            $stmt = $mysqli->prepare('SELECT MAX(crs.ca_count) AS ca_count, MAX(crs.exam_count) AS exam_count FROM academic_sessions a LEFT JOIN class_result_settings crs ON crs.session_id=a.id WHERE a.id=? GROUP BY a.id');
+            $stmt->bind_param('i', $sessionId);
+            $stmt->execute();
+            $settings = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            $customLabels = [];
+        }
+        if ($settings) {
+            $counts = ['ca' => $settings['ca_count'] === null ? 3 : (int)$settings['ca_count'], 'exam' => $settings['exam_count'] === null ? 1 : (int)$settings['exam_count']];
+            foreach ($counts as $type => $count) {
+                for ($number = 1; $number <= $count; $number++) {
+                    $defaultLabel = ($type === 'ca' ? 'CA ' : 'Exam ') . $number;
+                    $components[] = [
+                        'value' => $type . ':' . $number,
+                        'label' => $customLabels[$type][$number] ?? $defaultLabel,
+                    ];
+                }
+            }
+        }
+    }
+    echo json_encode($components);
+    exit();
+}
+
+function examResultComponentAvailableForClass(mysqli $mysqli, int $classId, int $sessionId, string $type, int $number): bool {
+    if ($classId < 1 || $sessionId < 1 || !in_array($type, ['ca', 'exam'], true)) return false;
+    $stmt = $mysqli->prepare('SELECT ca_count, exam_count FROM class_result_settings WHERE class_id=? AND session_id=?');
+    $stmt->bind_param('ii', $classId, $sessionId);
+    $stmt->execute();
+    $settings = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    $default = $type === 'ca' ? 3 : 1;
+    $count = $settings ? (int)$settings[$type . '_count'] : $default;
+    return $number >= 1 && $number <= $count;
+}
+
+function parseExamResultComponent($value): array {
+    $parts = explode(':', (string)$value, 2);
+    return [isset($parts[0]) ? (string)$parts[0] : '', isset($parts[1]) ? (int)$parts[1] : 0];
+}
 
 // Handle AJAX request for subjects based on class
 if (isset($_GET['action']) && $_GET['action'] == 'get_subjects' && isset($_GET['class_id'])) {
@@ -10,7 +82,6 @@ if (isset($_GET['action']) && $_GET['action'] == 'get_subjects' && isset($_GET['
     
     if ($class_id > 0) {
         try {
-            $mysqli = getDBConnection();
             if ($mysqli) {
                 $stmt = $mysqli->prepare("SELECT s.id, s.name 
                                          FROM subjects s
@@ -43,7 +114,7 @@ try {
     $mysqli = getDBConnection();
     if ($mysqli) {
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
@@ -83,29 +154,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $description = trim($_POST['description']);
     $academic_session = trim($_POST['academic_session'] ?? '');
     if ($academic_session === '') $academic_session = null;
-    
     if (!empty($title)) {
+        $createTransaction = false;
         try {
-            $mysqli = getDBConnection();
             if ($mysqli) {
                 $user_id = getUserId();
                 if ($user_id) {
-                    $show_calculator = isset($_POST['show_calculator']) ? 1 : 0;
-                    $stmt = $mysqli->prepare("INSERT INTO exams (title, academic_session, description, created_by) VALUES (?, ?, ?, ?)");
-                    if ($stmt) {
-                        $stmt->bind_param("sssi", $title, $academic_session, $description, $user_id);
-                        $stmt->execute();
-                        $stmt->close();
-                        $message = 'Exam created successfully';
-                    } else {
-                        $message = 'Error: Could not prepare statement';
-                    }
+                    $mysqli->begin_transaction();
+                    $createTransaction = true;
+                    $stmt = $mysqli->prepare('INSERT INTO exams (title, academic_session, description, created_by) VALUES (?, ?, ?, ?)');
+                    $stmt->bind_param('sssi', $title, $academic_session, $description, $user_id);
+                    $stmt->execute();
+                    $stmt->close();
+                    $mysqli->commit();
+                    $createTransaction = false;
+                    $message = 'Exam created. Add classes and subjects, then set a report-card component for each class.';
                 } else {
                     $message = 'Error: User not found in database';
                 }
                 
                 // Refresh exams list
-                $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+                $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $exams = [];
@@ -115,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 $stmt->close();
             }
         } catch (Exception $e) {
+            if ($mysqli && $createTransaction) $mysqli->rollback();
             $message = 'Error creating exam: ' . $e->getMessage();
         }
     } else {
@@ -132,7 +202,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     
     if ($exam_id > 0 && !empty($title)) {
         try {
-            $mysqli = getDBConnection();
             if ($mysqli) {
                 $stmt = $mysqli->prepare("UPDATE exams SET title = ?, academic_session = ?, description = ? WHERE id = ?");
                 $stmt->bind_param("sssi", $title, $academic_session, $description, $exam_id);
@@ -141,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 $message = 'Exam updated successfully';
                 
                 // Refresh exams list
-                $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+                $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $exams = [];
@@ -166,7 +235,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     // Use default time limit from school configuration if not provided
     $time_limit = isset($_POST['time_limit']) ? (int)$_POST['time_limit'] : 60;
     
-    if (!empty($exam_id) && !empty($class_id) && !empty($subject_id)) {
+    if ($mysqli && !empty($exam_id) && !empty($class_id) && !empty($subject_id)) {
         try {
             $mysqli = getDBConnection();
             if ($mysqli) {
@@ -183,7 +252,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                     $stmt = $mysqli->prepare("INSERT INTO exam_subjects (exam_id, class_id, subject_id, time_limit) VALUES (?, ?, ?, ?)");
                     $stmt->bind_param("iiii", $exam_id, $class_id, $subject_id, $time_limit);
                     $stmt->execute();
-                    $message = 'Subject added to exam successfully with time limit of ' . $time_limit . ' minutes';
+                    $message = 'Subject added. Set the result component for this class in the class links below.';
                 }
                 $stmt->close();
             }
@@ -192,6 +261,44 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         }
     } else {
         $message = 'Please select class and subject';
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'link_class_result_component' && !isset($_POST['clear_class_result_component'])) {
+    $examId = (int)($_POST['exam_id'] ?? 0);
+    $classId = (int)($_POST['class_id'] ?? 0);
+    $sessionId = (int)($_POST['result_session_id'] ?? 0);
+    $termValue = (int)($_POST['result_term'] ?? 0);
+    [$componentType, $componentNumber] = parseExamResultComponent($_POST['result_component'] ?? '');
+    if ($mysqli && $examId > 0 && $classId > 0 && $termValue >= 1 && $termValue <= 3 && examResultComponentAvailableForClass($mysqli, $classId, $sessionId, $componentType, $componentNumber)) {
+        $stmt = $mysqli->prepare('SELECT 1 FROM exam_subjects WHERE exam_id=? AND class_id=? LIMIT 1');
+        $stmt->bind_param('ii', $examId, $classId);
+        $stmt->execute();
+        $classIsInExam = (bool)$stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($classIsInExam) {
+            $stmt = $mysqli->prepare('INSERT INTO exam_class_result_links (exam_id,class_id,result_session_id,result_term,result_component_type,result_component_number) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE result_session_id=VALUES(result_session_id),result_term=VALUES(result_term),result_component_type=VALUES(result_component_type),result_component_number=VALUES(result_component_number)');
+            $stmt->bind_param('iiiisi', $examId, $classId, $sessionId, $termValue, $componentType, $componentNumber);
+            $stmt->execute();
+            $stmt->close();
+            $message = 'Report-card component saved for every subject in this class under the exam.';
+        } else {
+            $message = 'Add a subject for this class to the exam before setting a class-specific component.';
+        }
+    } else {
+        $message = 'That component is not configured for the selected class and session.';
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['clear_class_result_component'] ?? '') === '1') {
+    $examId = (int)($_POST['exam_id'] ?? 0);
+    $classId = (int)($_POST['class_id'] ?? 0);
+    if ($mysqli && $examId > 0 && $classId > 0) {
+        $stmt = $mysqli->prepare('DELETE FROM exam_class_result_links WHERE exam_id=? AND class_id=?');
+        $stmt->bind_param('ii', $examId, $classId);
+        $stmt->execute();
+        $stmt->close();
+        $message = 'The class report-card link was cleared. CBT scores will not import to term results until a class link is set.';
     }
 }
 
@@ -244,7 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             }
             
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
             $stmt->execute();
             $result = $stmt->get_result();
             $exams = [];
@@ -327,7 +434,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             $message = 'Exam deleted successfully';
             
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, academic_session, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
             $stmt->execute();
             $result = $stmt->get_result();
             $exams = [];
@@ -375,8 +482,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         <h6><i class="fas fa-info-circle me-2"></i>How Exam Management Works</h6>
         <p class="mb-2">To make exams available to teachers:</p>
         <ol class="mb-0">
-            <li>Create an exam</li>
-            <li>Add subjects to the exam (linking classes and subjects)</li>
+            <li>Create the exam</li>
+            <li>Add its classes and subjects, then link a report-card component for each class</li>
             <li>Publish the exam subjects so teachers can see them</li>
         </ol>
         <p class="mb-0 mt-2"><strong>Note:</strong> Teachers will only see exams that have been published and are linked to their class/subject allocations.</p>
@@ -482,6 +589,67 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                         </button>
                                     </div>
                                 </div>
+
+                                <?php
+                                $examClassMappings = [];
+                                $classMapStmt = $mysqli->prepare('SELECT DISTINCT c.id AS class_id, c.name AS class_name, ecl.result_session_id AS override_session_id, ecl.result_term AS override_term, ecl.result_component_type AS override_component_type, ecl.result_component_number AS override_component_number FROM exam_subjects es JOIN classes c ON c.id=es.class_id LEFT JOIN exam_class_result_links ecl ON ecl.exam_id=es.exam_id AND ecl.class_id=es.class_id WHERE es.exam_id=? ORDER BY c.name');
+                                $classMapStmt->bind_param('i', $exam['id']);
+                                $classMapStmt->execute();
+                                $classMapResult = $classMapStmt->get_result();
+                                while ($classMapRow = $classMapResult->fetch_assoc()) $examClassMappings[] = $classMapRow;
+                                $classMapStmt->close();
+                                ?>
+                                <?php if ($examClassMappings): ?>
+                                    <div class="mb-3">
+                                        <div class="fw-semibold mb-1">Report-card component by class</div>
+                                        <div class="form-text mb-2">Set the session, term and component separately for each class. A class link applies to all subjects in that class. Custom component names and maximum scores come from the class's result settings.</div>
+                                        <div class="row row-cols-1 row-cols-xl-2 g-2">
+                                            <?php foreach ($examClassMappings as $classMapping):
+                                                $classLinked = $classMapping['override_session_id'] !== null;
+                                                $classSession = $classLinked ? (int)$classMapping['override_session_id'] : 0;
+                                                $classTerm = $classLinked ? (int)$classMapping['override_term'] : 1;
+                                                $classComponent = $classLinked ? ($classMapping['override_component_type'] . ':' . $classMapping['override_component_number']) : '';
+                                            ?>
+                                                <div class="col">
+                                                    <form method="POST" class="result-component-form border rounded p-2 h-100" data-component-select="class_result_component_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>" data-current-component="<?php echo htmlspecialchars($classComponent, ENT_QUOTES); ?>">
+                                                        <input type="hidden" name="action" value="link_class_result_component">
+                                                        <input type="hidden" name="exam_id" value="<?php echo (int)$exam['id']; ?>">
+                                                        <input type="hidden" name="class_id" value="<?php echo (int)$classMapping['class_id']; ?>">
+                                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                                            <strong><?php echo htmlspecialchars($classMapping['class_name']); ?></strong>
+                                                            <span class="badge bg-<?php echo $classLinked ? 'success' : 'secondary'; ?>"><?php echo $classLinked ? 'Linked' : 'Not linked'; ?></span>
+                                                        </div>
+                                                        <div class="row g-2">
+                                                            <div class="col-5">
+                                                                <label class="form-label small mb-1" for="class_result_session_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>">Session</label>
+                                                                <select class="form-select form-select-sm result-session-select" id="class_result_session_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>" name="result_session_id" required>
+                                                                    <option value="">Select session</option>
+                                                                    <?php foreach ($resultSessions as $resultSession): ?>
+                                                                        <option value="<?php echo (int)$resultSession['id']; ?>" <?php echo $classSession === (int)$resultSession['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($resultSession['name']); ?></option>
+                                                                    <?php endforeach; ?>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-3">
+                                                                <label class="form-label small mb-1" for="class_result_term_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>">Term</label>
+                                                                <select class="form-select form-select-sm" id="class_result_term_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>" name="result_term" required>
+                                                                    <?php for ($termOption = 1; $termOption <= 3; $termOption++): ?><option value="<?php echo $termOption; ?>" <?php echo $classTerm === $termOption ? 'selected' : ''; ?>><?php echo htmlspecialchars(termLabel($termOption)); ?></option><?php endfor; ?>
+                                                                </select>
+                                                            </div>
+                                                            <div class="col-4">
+                                                                <label class="form-label small mb-1" for="class_result_component_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>">Component</label>
+                                                                <select class="form-select form-select-sm result-component-select" id="class_result_component_<?php echo (int)$exam['id']; ?>_<?php echo (int)$classMapping['class_id']; ?>" name="result_component" required disabled><option value="">Loading…</option></select>
+                                                            </div>
+                                                        </div>
+                                                        <div class="d-flex gap-2 mt-2">
+                                                            <button type="submit" class="btn btn-sm btn-outline-primary">Save class link</button>
+                                                            <?php if ($classLinked): ?><button type="submit" name="clear_class_result_component" value="1" formnovalidate class="btn btn-sm btn-outline-secondary">Clear class link</button><?php endif; ?>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                                 
                                 <!-- Add Subject to Exam Form -->
                                 <div class="card mb-3">
@@ -748,7 +916,47 @@ document.addEventListener('DOMContentLoaded', function() {
                         console.error('Error loading subjects:', error);
                     });
             }
+            var form = this.closest('.result-component-form');
+            if (form) loadResultComponents(form);
         });
+    });
+
+    function loadResultComponents(form) {
+        var sessionSelect = form.querySelector('.result-session-select');
+        var componentSelect = document.getElementById(form.getAttribute('data-component-select'));
+        var sessionId = sessionSelect ? sessionSelect.value : '';
+        var currentComponent = form.getAttribute('data-current-component') || componentSelect.value || '';
+        componentSelect.innerHTML = '<option value="">Select result session first</option>';
+        componentSelect.disabled = true;
+        if (!sessionId) return;
+        var classSelect = form.querySelector('[name="class_id"]');
+        var classId = classSelect ? classSelect.value : '';
+        var url = 'exam_management.php?action=get_result_components&session_id=' + encodeURIComponent(sessionId);
+        if (classId) url += '&class_id=' + encodeURIComponent(classId);
+        fetch(url)
+            .then(function(response) { return response.json(); })
+            .then(function(components) {
+                componentSelect.innerHTML = '<option value="">Select component</option>';
+                components.forEach(function(component) {
+                    var option = document.createElement('option');
+                    option.value = component.value;
+                    option.textContent = component.label;
+                    componentSelect.appendChild(option);
+                });
+                if (currentComponent) componentSelect.value = currentComponent;
+                componentSelect.disabled = components.length === 0;
+                if (components.length === 0) componentSelect.innerHTML = '<option value="">No components configured</option>';
+                form.removeAttribute('data-current-component');
+            })
+            .catch(function() {
+                componentSelect.innerHTML = '<option value="">Could not load components</option>';
+            });
+    }
+
+    document.querySelectorAll('.result-component-form').forEach(function(form) {
+        var sessionSelect = form.querySelector('.result-session-select');
+        if (sessionSelect) sessionSelect.addEventListener('change', function() { loadResultComponents(form); });
+        loadResultComponents(form);
     });
 });
 </script>
