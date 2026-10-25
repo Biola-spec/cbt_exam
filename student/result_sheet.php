@@ -19,8 +19,8 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?php echo htmlspecialchars(($exam['school_name'] ?: 'School') . ' - ' . $exam['title'] . ' Results'); ?></title>
-<link rel="stylesheet" href="../assets/css/style.css">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>">
 <style>
 .results-paper{max-width:980px;margin:2rem auto;background:#fff;padding:2rem;border:1px solid #d7dce2;color:#17212b}
 .results-brand{text-align:center;border-bottom:2px solid #203b5b;padding-bottom:1rem;margin-bottom:1.25rem}

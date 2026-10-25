@@ -18,7 +18,7 @@
         $base_url = '../';
     }
     ?>
-    <link href="<?php echo $base_url; ?>assets/css/style.css" rel="stylesheet">
+    <link href="<?php echo $base_url; ?>assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>" rel="stylesheet">
 </head>
 <body class="<?php echo isset($body_class) ? htmlspecialchars($body_class) : ''; ?>">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">

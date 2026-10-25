@@ -11,6 +11,7 @@ if (getUserRole() !== 'student') {
 }
 
 $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
+$body_class = 'student-dashboard-page';
 $releasedTermResults = 0;
 try {
     $notificationDb = getDBConnection();

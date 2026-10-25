@@ -764,6 +764,7 @@ if (!empty($questions)) {
             box-shadow: 0 6px 24px rgba(59, 130, 246, 0.6);
         }
     </style>
+    <link href="../assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>" rel="stylesheet">
     
     <script>
         // Prevent back button after submission by forcing a reload if loaded from cache
@@ -990,7 +991,7 @@ if (!empty($questions)) {
     </div>
     <?php endif; ?>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.6.4/math.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 // Time limit countdown

@@ -10,6 +10,7 @@ if (!in_array(getUserRole(), ['teacher', 'admin'])) {
 }
 
 $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'exams';
+$body_class = 'teacher-dashboard-page';
 $termReleaseSummary = ['released' => 0, 'awaiting' => 0, 'not_submitted' => 0];
 try {
     $termDb = getDBConnection();

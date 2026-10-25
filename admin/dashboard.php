@@ -9,7 +9,8 @@ if (getUserRole() !== 'admin') {
     exit();
 }
 
-$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'school';
+$active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'home';
+$body_class = 'admin-dashboard-page';
 $message = isset($_GET['message']) ? $_GET['message'] : '';
 
 // Count results for badge
@@ -118,6 +119,9 @@ try {
                 <h5 class="mb-0"><i class="fas fa-cogs me-2"></i> Navigation</h5>
             </div>
             <div class="list-group list-group-flush">
+                <a href="dashboard.php?tab=home" class="list-group-item list-group-item-action <?php echo $active_tab === 'home' ? 'active' : ''; ?>">
+                    <i class="fas fa-house me-2"></i> Overview
+                </a>
                 <a href="dashboard.php?tab=school" class="list-group-item list-group-item-action <?php echo $active_tab === 'school' ? 'active' : ''; ?>">
                     <i class="fas fa-cog me-2"></i> School Settings
                 </a>
@@ -239,60 +243,23 @@ try {
                     
                     default:
                         ?>
-                        <div class="row text-center mt-2">
-                            <div class="col-md-4 mb-4">
-                                <div class="card bg-light h-100">
-                                    <div class="card-body">
-                                        <i class="fas fa-school fa-3x mb-3 text-primary"></i>
-                                        <h5>School Settings</h5>
-                                        <p class="text-muted">Manage school name, logo and details.</p>
-                                        <a href="dashboard.php?tab=school" class="btn btn-outline-primary btn-sm">Manage</a>
-                                    </div>
-                                </div>
+                        <div class="admin-overview">
+                            <div class="admin-overview-intro">
+                                <div><span class="admin-eyebrow">SCHOOL OPERATIONS</span><h2 class="mb-1">Your school at a glance</h2><p class="text-muted mb-0">Jump into the areas you manage most.</p></div>
+                                <a href="calendar_management.php" class="btn btn-outline-primary"><i class="far fa-calendar-alt me-2"></i>School calendar</a>
                             </div>
-                            <div class="col-md-4 mb-4">
-                                <div class="card bg-light h-100">
-                                    <div class="card-body">
-                                        <i class="fas fa-file-alt fa-3x mb-3 text-success"></i>
-                                        <h5>Exam Management</h5>
-                                        <p class="text-muted">Create and manage CBT exams.</p>
-                                        <a href="dashboard.php?tab=exams" class="btn btn-outline-success btn-sm">Manage</a>
-                                    </div>
-                                </div>
+                            <div class="row g-3 admin-metrics">
+                                <div class="col-md-6"><a href="dashboard.php?tab=results" class="admin-metric-card"><span class="admin-metric-icon"><i class="fas fa-chart-bar"></i></span><span><small>SUBMITTED EXAM ATTEMPTS</small><strong><?php echo number_format((int)$results_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
+                                <div class="col-md-6"><a href="resit_requests.php" class="admin-metric-card"><span class="admin-metric-icon sky"><i class="fas fa-sync-alt"></i></span><span><small>RESIT REQUESTS TO REVIEW</small><strong><?php echo number_format((int)$pending_resit_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
                             </div>
-                            <div class="col-md-4 mb-4">
-                                <div class="card bg-light h-100">
-                                    <div class="card-body">
-                                        <i class="fas fa-users-cog fa-3x mb-3 text-warning"></i>
-                                        <h5>Staff Allocation</h5>
-                                        <p class="text-muted">Allocate subjects to teachers.</p>
-                                        <a href="dashboard.php?tab=teachers" class="btn btn-outline-warning btn-sm">Manage</a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-4">
-                                <div class="card bg-light">
-                                    <div class="card-body d-flex align-items-center">
-                                        <i class="fas fa-chart-bar fa-2x me-3 text-info"></i>
-                                        <div class="text-start">
-                                            <h5 class="mb-1">Exam Results</h5>
-                                            <p class="text-muted small mb-0">View all student exam attempts and scores.</p>
-                                        </div>
-                                        <a href="dashboard.php?tab=results" class="btn btn-sm btn-info text-white ms-auto">View</a>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-4">
-                                <div class="card bg-light">
-                                    <div class="card-body d-flex align-items-center">
-                                        <i class="fas fa-user-graduate fa-2x me-3 text-danger"></i>
-                                        <div class="text-start">
-                                            <h5 class="mb-1">Student Management</h5>
-                                            <p class="text-muted small mb-0">Add, edit and manage students.</p>
-                                        </div>
-                                        <a href="dashboard.php?tab=students" class="btn btn-sm btn-danger ms-auto">Manage</a>
-                                    </div>
-                                </div>
+                            <div class="admin-section-heading"><h3>Quick access</h3><span>Core administration</span></div>
+                            <div class="row g-3 admin-shortcuts">
+                                <div class="col-sm-6 col-xl-4"><a class="admin-shortcut" href="dashboard.php?tab=exams"><img class="admin-shortcut-image" src="../assets/images/dashboard/exams.svg" alt=""><span class="admin-shortcut-content"><span class="admin-shortcut-title">Examinations</span><span class="admin-shortcut-description">Create exams and manage schedules</span><span class="admin-shortcut-action">Open section <i class="fas fa-arrow-right"></i></span></span></a></div>
+                                <div class="col-sm-6 col-xl-4"><a class="admin-shortcut" href="dashboard.php?tab=students"><img class="admin-shortcut-image" src="../assets/images/dashboard/students.svg" alt=""><span class="admin-shortcut-content"><span class="admin-shortcut-title">Students</span><span class="admin-shortcut-description">Manage student accounts and classes</span><span class="admin-shortcut-action">Open section <i class="fas fa-arrow-right"></i></span></span></a></div>
+                                <div class="col-sm-6 col-xl-4"><a class="admin-shortcut" href="dashboard.php?tab=teachers"><img class="admin-shortcut-image" src="../assets/images/dashboard/teachers.svg" alt=""><span class="admin-shortcut-content"><span class="admin-shortcut-title">Teacher allocation</span><span class="admin-shortcut-description">Connect staff with classes and subjects</span><span class="admin-shortcut-action">Open section <i class="fas fa-arrow-right"></i></span></span></a></div>
+                                <div class="col-sm-6 col-xl-4"><a class="admin-shortcut" href="dashboard.php?tab=classes"><img class="admin-shortcut-image" src="../assets/images/dashboard/classes.svg" alt=""><span class="admin-shortcut-content"><span class="admin-shortcut-title">Classes</span><span class="admin-shortcut-description">Set up class groups and grade levels</span><span class="admin-shortcut-action">Open section <i class="fas fa-arrow-right"></i></span></span></a></div>
+                                <div class="col-sm-6 col-xl-4"><a class="admin-shortcut" href="dashboard.php?tab=subjects"><img class="admin-shortcut-image" src="../assets/images/dashboard/subjects.svg" alt=""><span class="admin-shortcut-content"><span class="admin-shortcut-title">Subjects</span><span class="admin-shortcut-description">Organize the curriculum by class</span><span class="admin-shortcut-action">Open section <i class="fas fa-arrow-right"></i></span></span></a></div>
+                                <div class="col-sm-6 col-xl-4"><a class="admin-shortcut" href="dashboard.php?tab=school"><img class="admin-shortcut-image" src="../assets/images/dashboard/school.svg" alt=""><span class="admin-shortcut-content"><span class="admin-shortcut-title">School profile</span><span class="admin-shortcut-description">Update school identity and settings</span><span class="admin-shortcut-action">Open section <i class="fas fa-arrow-right"></i></span></span></a></div>
                             </div>
                         </div>
                         <?php
