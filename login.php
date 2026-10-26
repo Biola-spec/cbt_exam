@@ -229,7 +229,7 @@ $body_class = 'login-page-bg';
                         echo '<i class="fas fa-graduation-cap me-2"></i>';
                     }
                     
-                    echo htmlspecialchars(getSchoolName());
+                    echo '<span class="login-school-name">' . htmlspecialchars(getSchoolName()) . '</span>';
                     ?>
                 </h2>
                 <p class="mb-0 mt-2 text-white-50">Sign in to access your account</p>
