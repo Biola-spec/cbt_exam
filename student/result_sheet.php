@@ -26,6 +26,7 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
 .results-brand{text-align:center;border-bottom:2px solid #203b5b;padding-bottom:1rem;margin-bottom:1.25rem}
 .results-brand img{max-height:76px;max-width:120px;object-fit:contain;margin-bottom:.5rem}
 .results-brand h1{font-size:1.45rem;font-weight:700;margin:0}.results-brand h2{font-size:1rem;letter-spacing:.08em;margin:.45rem 0 0}
+.results-brand .school-contact{font-size:.82rem;line-height:1.35;color:#526273;margin-top:.35rem}
 .results-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem 1.25rem;margin:1rem 0 1.25rem}
 .results-meta div{border-bottom:1px solid #dce1e6;padding:.45rem 0}.results-meta strong{display:block;color:#526273;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
 .results-table{width:100%;border-collapse:collapse}.results-table th,.results-table td{border:1px solid #aeb8c2;padding:.55rem .6rem}.results-table thead th{background:#eaf0f6;color:#203b5b}.results-table td.numeric{text-align:right;font-variant-numeric:tabular-nums}
@@ -48,6 +49,10 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
         <?php if ($logoUrl): ?><img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="School logo"><br><?php endif; ?>
         <h1><?php echo htmlspecialchars($exam['school_name'] ?: getSchoolName()); ?></h1>
         <h2>STUDENT EXAMINATION RESULTS SHEET</h2>
+        <?php if (!empty($exam['school_address']) || !empty($exam['school_phone'])): ?><div class="school-contact">
+            <?php if (!empty($exam['school_address'])): ?><div><?php echo htmlspecialchars($exam['school_address']); ?></div><?php endif; ?>
+            <?php if (!empty($exam['school_phone'])): ?><div><?php echo htmlspecialchars($exam['school_phone']); ?></div><?php endif; ?>
+        </div><?php endif; ?>
     </div>
     <section class="results-meta" aria-label="Student and examination details">
         <div><strong>Student Name</strong><?php echo htmlspecialchars($exam['full_name']); ?></div>

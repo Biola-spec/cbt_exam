@@ -45,14 +45,14 @@ function resultSheetLoad(mysqli $mysqli, int $studentId, int $examId): ?array {
     // Resolve the exam through a published subject in the student's current class
     // and an actual submitted attempt. This prevents URL-only access to arbitrary exams.
     $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, u.full_name, u.admission_number,
-                c.id AS class_id, c.name AS class_name, sc.school_name
+                c.id AS class_id, c.name AS class_name, sc.school_name, sc.school_address, sc.school_phone
             FROM exams e
             JOIN exam_subjects access_es ON access_es.exam_id = e.id
             JOIN users u ON u.id = ? AND u.role = 'student'
             JOIN classes c ON c.id = access_es.class_id
             JOIN exam_attempts access_ea ON access_ea.exam_id = e.id AND access_ea.student_id = u.id
                 AND access_ea.exam_subject_id = access_es.id AND access_ea.submitted_at IS NOT NULL
-            LEFT JOIN school_config sc ON sc.id = (SELECT MIN(id) FROM school_config)
+            LEFT JOIN school_config sc ON sc.id = (SELECT MAX(id) FROM school_config)
             WHERE e.id = ? LIMIT 1");
     $stmt->bind_param('ii', $studentId, $examId);
     $stmt->execute();

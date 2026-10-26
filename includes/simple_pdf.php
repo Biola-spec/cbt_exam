@@ -27,6 +27,19 @@ function resultPdfBuild(array $sheet): string {
         if ($first) {
             $addText($content, 38, $y, $sheet['exam']['school_name'] ?: 'School', 17, true); $y -= 25;
             $addText($content, 38, $y, 'STUDENT EXAMINATION RESULTS SHEET', 11, true); $y -= 27;
+            $schoolAddress = trim((string)($sheet['exam']['school_address'] ?? ''));
+            $schoolPhone = trim((string)($sheet['exam']['school_phone'] ?? ''));
+            if ($schoolAddress !== '') {
+                foreach (explode("\n", wordwrap('Address: ' . $schoolAddress, 100, "\n", true)) as $addressLine) {
+                    $addText($content, 38, $y, $addressLine, 9); $y -= 13;
+                }
+            }
+            if ($schoolPhone !== '') {
+                foreach (explode("\n", wordwrap('Phone: ' . $schoolPhone, 100, "\n", true)) as $phoneLine) {
+                    $addText($content, 38, $y, $phoneLine, 9); $y -= 13;
+                }
+            }
+            if ($schoolAddress !== '' || $schoolPhone !== '') $y -= 4;
             $drawLine($content, 38, $y, 557, $y); $y -= 20;
             $exam = $sheet['exam'];
             $addText($content, 38, $y, 'Student: ' . ($exam['full_name'] ?: '')); $addText($content, 315, $y, 'Admission No: ' . ($exam['admission_number'] ?: 'Not recorded')); $y -= 16;

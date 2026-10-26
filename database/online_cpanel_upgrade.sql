@@ -299,6 +299,31 @@ WHERE e.result_session_id IS NOT NULL AND e.result_term BETWEEN 1 AND 3
 
 
 -- ============================================================
+-- Source: database/school_contact_fields.sql
+-- Editable school address and phone details for printed report cards and score sheets.
+SET @has_school_address = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'school_config' AND COLUMN_NAME = 'school_address'
+);
+SET @sql = IF(@has_school_address = 0,
+    'ALTER TABLE school_config ADD COLUMN school_address VARCHAR(500) NULL AFTER school_name',
+    'SELECT 1');
+PREPARE school_contact_stmt FROM @sql;
+EXECUTE school_contact_stmt;
+DEALLOCATE PREPARE school_contact_stmt;
+
+SET @has_school_phone = (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'school_config' AND COLUMN_NAME = 'school_phone'
+);
+SET @sql = IF(@has_school_phone = 0,
+    'ALTER TABLE school_config ADD COLUMN school_phone VARCHAR(150) NULL AFTER school_address',
+    'SELECT 1');
+PREPARE school_contact_stmt FROM @sql;
+EXECUTE school_contact_stmt;
+DEALLOCATE PREPARE school_contact_stmt;
+
+-- ============================================================
 -- Source: database/report_card_signatory.sql
 -- ============================================================
 -- Report-card signature/stamp assets and per-class signatory assignment.

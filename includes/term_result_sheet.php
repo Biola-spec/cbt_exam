@@ -22,7 +22,8 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
             COALESCE(ctr.remark, '') AS class_teacher_remark,
             COALESCE(trs.school_days_open, 0) AS school_days_open,
             cas.student_id AS attendance_summary_student_id, cas.days_present,
-            COALESCE(sc.school_name, '') AS school_name, COALESCE(sc.logo_path, '') AS logo_path,
+            COALESCE(sc.school_name, '') AS school_name, COALESCE(sc.school_address, '') AS school_address,
+            COALESCE(sc.school_phone, '') AS school_phone, COALESCE(sc.logo_path, '') AS logo_path,
             COALESCE(sc.head_signature_path, '') AS head_signature_path,
             COALESCE(sc.principal_signature_path, '') AS principal_signature_path,
             COALESCE(sc.school_stamp_path, '') AS school_stamp_path,
@@ -188,13 +189,16 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         if (!$subject['has_score']) {
             $subject['percentage'] = null;
             $subject['grade'] = '';
+            $subject['grade_remark'] = '';
             continue;
         }
         $subject['percentage'] = $subject['maximum'] > 0 ? ($subject['total'] / $subject['maximum']) * 100 : 0;
         $subject['grade'] = '';
+        $subject['grade_remark'] = '';
         foreach ($gradeScale as $grade) {
             if ($subject['percentage'] >= (float)$grade['minimum_score'] && $subject['percentage'] <= (float)$grade['maximum_score']) {
                 $subject['grade'] = $grade['grade_letter'];
+                $subject['grade_remark'] = $grade['remark'];
                 break;
             }
         }
@@ -232,6 +236,8 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         ],
         'school' => [
             'name' => $report['school_name'] ?: 'School',
+            'address' => $report['school_address'] ?? '',
+            'phone' => $report['school_phone'] ?? '',
             'logo_path' => $report['logo_path'],
             'signatory_signature_path' => $signatoryStaffSignature ?: ($signatoryName ? '' : $signatorySchoolSignature),
             'stamp_path' => $report['school_stamp_path'],

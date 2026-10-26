@@ -39,6 +39,8 @@ CREATE TABLE `users` (
 CREATE TABLE `school_config` (
   `id` int(11) NOT NULL,
   `school_name` varchar(255) NOT NULL,
+  `school_address` varchar(500) DEFAULT NULL,
+  `school_phone` varchar(150) DEFAULT NULL,
   `default_time_limit` int(11) DEFAULT 60,
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `updated_by` int(11) DEFAULT NULL

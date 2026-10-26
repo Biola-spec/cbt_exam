@@ -8,7 +8,7 @@ $school_config = null;
 try {
     $mysqli = getDBConnection();
     if ($mysqli) {
-        $stmt = $mysqli->prepare("SELECT id, school_name, default_time_limit, logo_path, head_signature_path, principal_signature_path, school_stamp_path, updated_at, updated_by FROM school_config ORDER BY id DESC LIMIT 1");
+        $stmt = $mysqli->prepare("SELECT id, school_name, school_address, school_phone, default_time_limit, logo_path, head_signature_path, principal_signature_path, school_stamp_path, updated_at, updated_by FROM school_config ORDER BY id DESC LIMIT 1");
         if ($stmt) {
             $stmt->execute();
             $result = $stmt->get_result();
@@ -27,6 +27,8 @@ try {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $school_name = trim($_POST['school_name'] ?? '');
+    $school_address = trim($_POST['school_address'] ?? '');
+    $school_phone = trim($_POST['school_phone'] ?? '');
     $default_time_limit = max(1, min(300, (int)($_POST['default_time_limit'] ?? 60)));
     $assets = [
         'logo' => $school_config['logo_path'] ?? null,
@@ -72,18 +74,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$mysqli) throw new RuntimeException('Database connection failed.');
             $user_id = (int)(getUserId() ?: 0);
             if ($school_config) {
-                $stmt = $mysqli->prepare('UPDATE school_config SET school_name=?, default_time_limit=?, logo_path=?, head_signature_path=?, principal_signature_path=?, school_stamp_path=?, updated_by=? WHERE id=?');
+                $stmt = $mysqli->prepare('UPDATE school_config SET school_name=?, school_address=?, school_phone=?, default_time_limit=?, logo_path=?, head_signature_path=?, principal_signature_path=?, school_stamp_path=?, updated_by=? WHERE id=?');
                 $config_id = (int)$school_config['id'];
-                $stmt->bind_param('sissssii', $school_name, $default_time_limit, $assets['logo'], $assets['head_signature'], $assets['principal_signature'], $assets['school_stamp'], $user_id, $config_id);
+                $stmt->bind_param('sssissssii', $school_name, $school_address, $school_phone, $default_time_limit, $assets['logo'], $assets['head_signature'], $assets['principal_signature'], $assets['school_stamp'], $user_id, $config_id);
             } else {
-                $stmt = $mysqli->prepare('INSERT INTO school_config (school_name, default_time_limit, logo_path, head_signature_path, principal_signature_path, school_stamp_path, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?)');
-                $stmt->bind_param('sissssi', $school_name, $default_time_limit, $assets['logo'], $assets['head_signature'], $assets['principal_signature'], $assets['school_stamp'], $user_id);
+                $stmt = $mysqli->prepare('INSERT INTO school_config (school_name, school_address, school_phone, default_time_limit, logo_path, head_signature_path, principal_signature_path, school_stamp_path, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+                $stmt->bind_param('sssissssi', $school_name, $school_address, $school_phone, $default_time_limit, $assets['logo'], $assets['head_signature'], $assets['principal_signature'], $assets['school_stamp'], $user_id);
             }
             $stmt->execute();
             $stmt->close();
             $_SESSION['school_name'] = $school_name;
             $message = 'School settings updated successfully.';
-            $stmt = $mysqli->prepare('SELECT id, school_name, default_time_limit, logo_path, head_signature_path, principal_signature_path, school_stamp_path, updated_at, updated_by FROM school_config ORDER BY id DESC LIMIT 1');
+            $stmt = $mysqli->prepare('SELECT id, school_name, school_address, school_phone, default_time_limit, logo_path, head_signature_path, principal_signature_path, school_stamp_path, updated_at, updated_by FROM school_config ORDER BY id DESC LIMIT 1');
             $stmt->execute();
             $school_config = $stmt->get_result()->fetch_assoc();
             $stmt->close();
@@ -125,6 +127,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="number" class="form-control" id="default_time_limit" name="default_time_limit" 
                                value="<?php echo $school_config && isset($school_config['default_time_limit']) ? htmlspecialchars($school_config['default_time_limit']) : '60'; ?>" 
                                min="1" max="300" required>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="school_address" class="form-label">School Address</label>
+                        <textarea class="form-control" id="school_address" name="school_address" rows="2" maxlength="500" placeholder="Street, town/city, state"><?php echo htmlspecialchars($school_config['school_address'] ?? ''); ?></textarea>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label for="school_phone" class="form-label">School Phone Details</label>
+                        <input type="text" class="form-control" id="school_phone" name="school_phone" maxlength="150" value="<?php echo htmlspecialchars($school_config['school_phone'] ?? ''); ?>" placeholder="Phone numbers">
                     </div>
                 </div>
 
