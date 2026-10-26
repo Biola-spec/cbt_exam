@@ -39,7 +39,10 @@ function verifyCsrfToken($token): bool {
 
 ensureCsrfToken();
 
-$message = '';
+$message = $_SESSION['student_management_message'] ?? '';
+unset($_SESSION['student_management_message']);
+$bulk_password_results = $_SESSION['bulk_generated_passwords'] ?? [];
+unset($_SESSION['bulk_generated_passwords']);
 $has_class_id = usersHasClassId($mysqli);
 
 // Load classes for dropdown
@@ -56,6 +59,22 @@ try {
     }
 } catch (Exception $e) {
     // Handle exception silently
+}
+
+$student_count_by_class = [];
+$all_student_count = 0;
+if ($has_class_id) {
+    $count_result = $mysqli->query("SELECT class_id, COUNT(*) AS student_count FROM users WHERE role = 'student' GROUP BY class_id");
+    if ($count_result) {
+        while ($count_row = $count_result->fetch_assoc()) {
+            $student_count = (int)$count_row['student_count'];
+            $all_student_count += $student_count;
+            if ($count_row['class_id'] !== null) {
+                $student_count_by_class[(int)$count_row['class_id']] = $student_count;
+            }
+        }
+        $count_result->close();
+    }
 }
 
 // Handle add student
@@ -353,6 +372,95 @@ try {
         </div>
         <?php endif; ?>
 
+        <?php if (!empty($bulk_password_results)): ?>
+        <div class="card admin-print-area mb-4" id="bulk-password-print-area">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <div>
+                    <h5 class="mb-1">Generated Student Passwords</h5>
+                    <p class="text-muted mb-0 no-print">Copy or print this list and share each password with its student. It is shown once.</p>
+                </div>
+                <button type="button" class="btn btn-primary no-print" onclick="window.print()"><i class="fas fa-print me-1"></i>Print Password List</button>
+            </div>
+            <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered bg-white mb-0">
+                    <thead><tr><th>#</th><th>Student</th><th>Gmail</th><th>Generated Password</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($bulk_password_results as $credential_index => $credential): ?>
+                        <tr>
+                            <td><?php echo $credential_index + 1; ?></td>
+                            <td><?php echo htmlspecialchars($credential['full_name']); ?></td>
+                            <td><?php echo htmlspecialchars($credential['email']); ?></td>
+                            <td><strong class="generated-password-value"><?php echo htmlspecialchars($credential['password']); ?></strong></td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mt-3 mb-0 no-print">Refreshing or leaving this page clears the password list.</p>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Bulk password generation -->
+        <div class="card mb-4 border-warning">
+            <div class="card-header bg-white py-3">
+                <h5 class="mb-0 text-warning-emphasis fw-bold"><i class="fas fa-key me-2"></i>Generate Passwords for a Class or All Students</h5>
+            </div>
+            <div class="card-body">
+                        <form method="POST" action="generate_student_passwords.php" id="bulkPasswordGenerationForm" class="row g-3 align-items-end">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold" for="target_class_id">Students to update</label>
+                        <select class="form-select" id="target_class_id" name="target_class_id" <?php echo !$has_class_id ? 'disabled' : ''; ?> required>
+                            <option value="0" data-scope="All students" data-count="<?php echo $all_student_count; ?>">All students (<?php echo $all_student_count; ?>)</option>
+                            <?php foreach ($classes as $c): ?>
+                                <?php $class_student_count = $student_count_by_class[(int)$c['id']] ?? 0; ?>
+                                <option value="<?php echo (int)$c['id']; ?>" data-scope="<?php echo htmlspecialchars($c['name'], ENT_QUOTES); ?>" data-count="<?php echo $class_student_count; ?>"><?php echo htmlspecialchars($c['name']); ?> (<?php echo $class_student_count; ?> students)</option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Each student receives a different password. Existing passwords for the selected students will be replaced.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="submit" class="btn btn-warning" <?php echo !$has_class_id ? 'disabled' : ''; ?>>
+                            <i class="fas fa-wand-magic-sparkles me-1"></i>Generate Passwords
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="modal fade" id="bulkPasswordConfirmModal" tabindex="-1" aria-labelledby="bulkPasswordConfirmTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg overflow-hidden">
+                    <div class="text-center px-4 pt-4 pb-3" style="background: linear-gradient(135deg, #fff8e6, #fff);">
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 76px; height: 76px; background: #fff0c2; color: #9a6700;">
+                            <i class="fas fa-key fa-2x"></i>
+                        </div>
+                        <h4 class="modal-title fw-bold mb-1" id="bulkPasswordConfirmTitle">Replace student passwords?</h4>
+                        <p class="text-muted mb-0">Please review the password update before continuing.</p>
+                    </div>
+                    <div class="modal-body px-4 pt-3 pb-4">
+                        <div class="rounded-3 border bg-light p-3 mb-3">
+                            <div class="small text-muted mb-1">Selected group</div>
+                            <div class="fw-bold fs-5" id="bulkPasswordConfirmScope">All students</div>
+                            <div class="text-muted" id="bulkPasswordConfirmCount">0 student passwords will change</div>
+                        </div>
+                        <div class="d-flex gap-2 align-items-start text-danger small">
+                            <i class="fas fa-triangle-exclamation mt-1"></i>
+                            <span>Existing passwords for this group will stop working. Each student will receive a unique generated password, shown to you once after generation.</span>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                        <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning px-4 fw-semibold" id="confirmBulkPasswordButton" onclick="submitBulkPasswordGeneration()">
+                            <i class="fas fa-wand-magic-sparkles me-1"></i>Generate Passwords
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Add Student Form -->
         <div class="card mb-4">
             <div class="card-header bg-white border-bottom py-3">
@@ -425,6 +533,7 @@ try {
         <style>
         @media print {
             @page { size: A4 portrait; margin: 6mm; }
+            body:has(#bulk-password-print-area) #student-directory-print { display: none !important; visibility: hidden !important; }
             #student-directory-print { width: 100% !important; margin: 0 !important; border: 0 !important; }
             #student-directory-print .card-header { min-height: 7mm; padding: 1mm 0 !important; }
             #student-directory-print .card-body { padding: 0 !important; }
@@ -434,6 +543,13 @@ try {
             #student-directory-print tbody tr { height: 17mm !important; break-inside: avoid !important; page-break-inside: avoid !important; }
             #student-directory-print img.student-export-photo { width: 12mm !important; height: 15mm !important; max-width: 12mm !important; max-height: 15mm !important; object-fit: contain !important; }
             #student-directory-print .table-responsive { overflow: visible !important; }
+            #bulk-password-print-area { width: 100% !important; margin: 0 !important; border: 0 !important; box-shadow: none !important; }
+            #bulk-password-print-area .card-header { padding: 0 0 4mm !important; border-bottom: 1px solid #777 !important; }
+            #bulk-password-print-area .card-body { padding: 3mm 0 !important; }
+            #bulk-password-print-area table { width: 100% !important; font-size: 11pt !important; border-collapse: collapse !important; }
+            #bulk-password-print-area th, #bulk-password-print-area td { padding: 2.5mm !important; color: #111 !important; background: #fff !important; vertical-align: middle !important; }
+            #bulk-password-print-area .generated-password-value { font-family: monospace; font-size: 12pt; letter-spacing: .3px; }
+            #bulk-password-print-area tbody tr { break-inside: avoid !important; page-break-inside: avoid !important; }
         }
         </style>
         <!-- Student Directory -->
@@ -569,8 +685,11 @@ try {
           <?php endif; ?>
           <div class="mb-3">
             <label class="form-label" for="edit_new_password">Set / change student password</label>
-            <input type="password" class="form-control" id="edit_new_password" name="new_password" minlength="8" autocomplete="new-password">
-            <div class="form-text">Leave blank to keep the current password. Share any new password with the student.</div>
+            <div class="input-group">
+              <input type="password" class="form-control" id="edit_new_password" name="new_password" minlength="8" autocomplete="new-password">
+              <button type="button" class="btn btn-outline-primary" onclick="generateIndividualStudentPassword()">Generate</button>
+            </div>
+            <div class="form-text">Leave blank to keep the current password. Generated passwords use the simple format Famaiis123.</div>
           </div>
         </div>
         <div class="modal-footer">
@@ -583,6 +702,45 @@ try {
 </div>
 
 <script>
+let pendingBulkPasswordForm = null;
+
+function showBulkPasswordConfirmDialog(form) {
+    const classChoice = form.elements.target_class_id;
+    const selectedOption = classChoice.options[classChoice.selectedIndex];
+    const scope = selectedOption.dataset.scope || 'Selected students';
+    const count = Number(selectedOption.dataset.count || 0);
+    document.getElementById('bulkPasswordConfirmScope').textContent = scope;
+    document.getElementById('bulkPasswordConfirmCount').textContent = count + (count === 1 ? ' student password will change' : ' student passwords will change');
+    pendingBulkPasswordForm = form;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('bulkPasswordConfirmModal')).show();
+    return false;
+}
+
+const bulkPasswordForm = document.getElementById('bulkPasswordGenerationForm');
+if (bulkPasswordForm) {
+    bulkPasswordForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        showBulkPasswordConfirmDialog(this);
+    });
+}
+
+function submitBulkPasswordGeneration() {
+    if (!pendingBulkPasswordForm) return;
+    const button = document.getElementById('confirmBulkPasswordButton');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Generating…';
+    pendingBulkPasswordForm.submit();
+}
+
+function generateIndividualStudentPassword() {
+    const bytes = new Uint32Array(1);
+    window.crypto.getRandomValues(bytes);
+    const password = 'Famaiis' + String(100 + (bytes[0] % 900));
+    const field = document.getElementById('edit_new_password');
+    field.type = 'text';
+    field.value = password;
+}
+
 (function(){
   // Add Student Passport Preview
   var addPassport = document.getElementById('add_student_passport');
@@ -657,6 +815,7 @@ try {
         classSelect.value = classId;
     }
     document.getElementById('edit_new_password').value = '';
+    document.getElementById('edit_new_password').type = 'password';
   });
 })();
 
