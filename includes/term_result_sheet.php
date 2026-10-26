@@ -104,7 +104,7 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         FROM term_scores ts
         JOIN subjects subj ON subj.id=ts.subject_id
         JOIN term_score_items tsi ON tsi.term_score_id=ts.id
-        WHERE ts.period_id=? AND ts.student_id=? AND ts.release_status='approved'
+        WHERE ts.period_id=? AND ts.student_id=? AND ts.release_status='approved' AND tsi.score IS NOT NULL
         ORDER BY subj.name, subj.id,
             CASE WHEN tsi.component_type='ca' THEN 0 ELSE 1 END, tsi.component_number");
     $stmt->bind_param('ii', $periodId, $studentId);
@@ -119,6 +119,7 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
                 'scores' => ['ca' => [], 'exam' => []],
                 'total' => 0.0,
                 'maximum' => 0.0,
+                'has_score' => true,
             ];
         }
         $type = $row['component_type'];
@@ -128,6 +129,45 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         $subjects[$subjectId]['total'] += $score;
     }
     $stmt->close();
+
+    $stmt = $mysqli->prepare("SELECT es.subject_id, subj.name AS subject_name
+        FROM exam_class_result_links ecl
+        JOIN exam_subjects es ON es.exam_id=ecl.exam_id AND es.class_id=ecl.class_id
+        JOIN subjects subj ON subj.id=es.subject_id
+        WHERE ecl.class_id=? AND ecl.result_session_id=? AND ecl.result_term=?
+            AND EXISTS (
+                SELECT 1 FROM exam_attempts ea
+                WHERE ea.exam_subject_id=es.id AND ea.student_id=? AND ea.submitted_at IS NOT NULL
+            )
+        UNION
+        SELECT resit_es.subject_id, subj.name AS subject_name
+        FROM resit_requests rr
+        JOIN exam_subjects original_es ON original_es.id=rr.exam_subject_id
+        JOIN exam_class_result_links ecl ON ecl.exam_id=rr.exam_id AND ecl.class_id=original_es.class_id
+        JOIN exam_subjects resit_es ON resit_es.resit_request_id=rr.id
+        JOIN subjects subj ON subj.id=resit_es.subject_id
+        JOIN exam_attempts ea ON ea.exam_subject_id=resit_es.id AND ea.student_id=rr.student_id AND ea.submitted_at IS NOT NULL
+        WHERE rr.student_id=? AND rr.status='approved' AND original_es.class_id=?
+            AND ecl.result_session_id=? AND ecl.result_term=?
+        ORDER BY subject_name");
+    $stmt->bind_param('iiiiiiii', $report['class_id'], $report['session_id'], $report['term'], $studentId,
+        $studentId, $report['class_id'], $report['session_id'], $report['term']);
+    $stmt->execute();
+    $participatedSubjects = $stmt->get_result();
+    while ($row = $participatedSubjects->fetch_assoc()) {
+        $subjectId = (int)$row['subject_id'];
+        if (!isset($subjects[$subjectId])) {
+            $subjects[$subjectId] = [
+                'name' => $row['subject_name'],
+                'scores' => ['ca' => [], 'exam' => []],
+                'total' => 0.0,
+                'maximum' => 0.0,
+                'has_score' => false,
+            ];
+        }
+    }
+    $stmt->close();
+    if (!$subjects) return null;
 
     $componentList = [];
     foreach (['ca', 'exam'] as $type) {
@@ -145,6 +185,11 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         foreach ($componentList as $component) {
             $subject['maximum'] += $component['maximum'];
         }
+        if (!$subject['has_score']) {
+            $subject['percentage'] = null;
+            $subject['grade'] = '';
+            continue;
+        }
         $subject['percentage'] = $subject['maximum'] > 0 ? ($subject['total'] / $subject['maximum']) * 100 : 0;
         $subject['grade'] = '';
         foreach ($gradeScale as $grade) {
@@ -158,12 +203,15 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         $percentageTotal += $subject['percentage'];
     }
     unset($subject);
-    $overallAverage = count($subjects) ? $percentageTotal / count($subjects) : 0;
+    $scoredSubjectCount = count(array_filter($subjects, static fn(array $subject): bool => $subject['has_score']));
+    $overallAverage = $scoredSubjectCount ? $percentageTotal / $scoredSubjectCount : null;
     $overallGrade = '';
-    foreach ($gradeScale as $grade) {
-        if ($overallAverage >= (float)$grade['minimum_score'] && $overallAverage <= (float)$grade['maximum_score']) {
-            $overallGrade = $grade['grade_letter'];
-            break;
+    if ($overallAverage !== null) {
+        foreach ($gradeScale as $grade) {
+            if ($overallAverage >= (float)$grade['minimum_score'] && $overallAverage <= (float)$grade['maximum_score']) {
+                $overallGrade = $grade['grade_letter'];
+                break;
+            }
         }
     }
 

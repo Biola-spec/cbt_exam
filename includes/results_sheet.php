@@ -67,13 +67,13 @@ function resultSheetLoad(mysqli $mysqli, int $studentId, int $examId): ?array {
             FROM exam_subjects es
             JOIN subjects s ON s.id = es.subject_id
             JOIN classes c ON c.id = es.class_id
-            LEFT JOIN (
+            JOIN (
                 SELECT x.exam_subject_id, MAX(x.id) AS attempt_id
                 FROM exam_attempts x
                 WHERE x.student_id = ? AND x.exam_id = ? AND x.submitted_at IS NOT NULL
                 GROUP BY x.exam_subject_id
             ) latest ON latest.exam_subject_id = es.id
-            LEFT JOIN exam_attempts ea ON ea.id = latest.attempt_id
+            JOIN exam_attempts ea ON ea.id = latest.attempt_id
             LEFT JOIN (
                 SELECT q.exam_subject_id,
                     SUM(CASE WHEN COALESCE(q.question_type,'objective')='objective' THEN 1 ELSE 0 END) AS objective_count,
