@@ -3,8 +3,11 @@ require_once '../config/database.php';
 require_once '../config/session.php';
 require_once '../includes/results_sheet.php';
 
-// Check if user is logged in
-requireLogin();
+// Public subject-code access may print only the result belonging to its own student.
+if (!isLoggedIn() && !isPublicExamSession()) {
+    header('Location: ../login.php');
+    exit();
+}
 $user_role = getUserRole();
 if (!in_array($user_role, ['student', 'teacher', 'admin'])) {
     header('Location: ../login.php');

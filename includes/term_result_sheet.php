@@ -257,7 +257,7 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         'components' => $componentList,
         'subjects' => array_values($subjects),
         'summary' => [
-            'subjects' => count($subjects),
+            'subjects' => $scoredSubjectCount,
             'total' => $overallTotal,
             'maximum' => $overallMaximum,
             'average' => $overallAverage,

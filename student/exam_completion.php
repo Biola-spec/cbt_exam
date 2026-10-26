@@ -3,9 +3,8 @@ require_once '../config/database.php';
 require_once '../config/session.php';
 require_once '../includes/results_sheet.php';
 
-// Check if user is logged in and is a student
-requireLogin();
-if (getUserRole() !== 'student') {
+// Allow a limited subject-code session to view only its own exam completion.
+if ((!isLoggedIn() && !isPublicExamSession()) || getUserRole() !== 'student') {
     header('Location: ../login.php');
     exit();
 }

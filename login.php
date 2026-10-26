@@ -18,54 +18,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $is_student = isset($_POST['is_student']) && $_POST['is_student'] == '1';
     
     if ($is_student) {
-        // Student login with email and subject code
-        $email = trim($_POST['email']);
-        $subject_code = trim($_POST['subject_code']);
-        
-        if (empty($email) || empty($subject_code)) {
-            $error = 'Please enter both email and subject code';
-        } else {
-            // Try to authenticate student with email and subject code
+        $email = trim($_POST['email'] ?? '');
+        $subject_code = trim($_POST['subject_code'] ?? '');
+        $password = (string)($_POST['password'] ?? '');
+
+        if ($email === '') {
+            $error = 'Enter your Gmail address.';
+        } elseif ($subject_code !== '' && $password !== '') {
+            $error = 'Choose one option: use a subject code for a published exam, or use your admin-issued password for the dashboard.';
+        } elseif ($subject_code !== '') {
             $user = authenticateStudentWithSubjectCode($email, $subject_code);
-            
             if ($user) {
-                // Set session variables
-                $_SESSION['user_id'] = $user['id'];
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = (int)$user['id'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['full_name'] = $user['full_name'];
-                $_SESSION['role'] = $user['role'];
-                $_SESSION['subject_code'] = $subject_code; // Store subject code in session
-                
-                // Get school name and logo from database
-                $mysqli = getDBConnection();
-                if ($mysqli) {
-                    $stmt = $mysqli->prepare("SELECT school_name, logo_path FROM school_config LIMIT 1");
-                    if ($stmt) {
-                        $stmt->execute();
-                        $result = $stmt->get_result();
-                        if ($row = $result->fetch_assoc()) {
-                            $_SESSION['school_name'] = $row['school_name'];
-                            $_SESSION['school_logo'] = $row['logo_path'];
-                        } else {
-                            $_SESSION['school_name'] = 'CBT Exam System'; // Fallback
-                            $_SESSION['school_logo'] = null;
-                        }
-                        $stmt->close();
-                    } else {
-                        $_SESSION['school_name'] = 'CBT Exam System'; // Fallback
-                        $_SESSION['school_logo'] = null;
-                    }
-                } else {
-                    $_SESSION['school_name'] = 'CBT Exam System'; // Fallback
-                    $_SESSION['school_logo'] = null;
-                }
-                
-                // Redirect to student dashboard
+                $_SESSION['role'] = 'student';
+                $_SESSION['subject_code'] = $subject_code;
+                $_SESSION['public_exam_access'] = true;
+                $_SESSION['public_exam_access_expires_at'] = time() + (8 * 60 * 60);
+                unset($_SESSION['school_name'], $_SESSION['school_logo']);
+                header('Location: student/public_exams.php');
+                exit();
+            }
+            $error = 'We could not find a published exam for that Gmail address and subject code.';
+        } elseif ($password !== '') {
+            $user = authenticateStudentWithPassword($email, $password);
+            if ($user) {
+                session_regenerate_id(true);
+                unset($_SESSION['public_exam_access'], $_SESSION['public_exam_access_expires_at'], $_SESSION['subject_code']);
+                $_SESSION['user_id'] = (int)$user['id'];
+                $_SESSION['email'] = $user['email'];
+                $_SESSION['full_name'] = $user['full_name'];
+                $_SESSION['role'] = 'student';
                 header('Location: student/dashboard.php');
                 exit();
-            } else {
-                $error = 'Invalid email or subject code';
             }
+            $error = 'Invalid Gmail address or password.';
+        } else {
+            $error = 'Enter a subject code for a published exam or your admin-issued password for the dashboard.';
         }
     } else {
         // Staff login
@@ -79,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if ($user && ($user['role'] == 'admin' || $user['role'] == 'teacher')) {
                 // Set session variables
+                session_regenerate_id(true);
+                unset($_SESSION['public_exam_access'], $_SESSION['public_exam_access_expires_at'], $_SESSION['subject_code']);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['full_name'] = $user['full_name'];
@@ -117,84 +110,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Function to authenticate student with subject code against database
+// A subject code only opens published exams assigned to this student's class.
 function authenticateStudentWithSubjectCode($email, $subject_code) {
-    // Simple cache for subject code validation
-    static $subject_cache = [];
-    static $subject_cache_time = [];
-    static $subject_cache_expiry = 300; // 5 minutes
     $mysqli = getDBConnection();
-    
-    if (!$mysqli) {
-        // Database not available, return false
-        return false;
-    }
-    
-    try {
-        // Check if the student exists in the users table
-        $stmt = $mysqli->prepare("SELECT id, full_name, role FROM users WHERE email = ? AND role = 'student' LIMIT 1");
-        if (!$stmt) {
-            error_log("Prepare failed: " . $mysqli->error);
-            return false;
-        }
-        
-        $stmt->bind_param("s", $email);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($row = $result->fetch_assoc()) {
-            $stmt->close();
-            
-            // Check cache for subject code validation
-            $cache_key = 'subject_' . $subject_code;
-            $current_time = time();
-            
-            $subject_valid = false;
-            
-            if (isset($subject_cache[$cache_key]) && 
-                isset($subject_cache_time[$cache_key]) && 
-                ($current_time - $subject_cache_time[$cache_key]) < 300) {
-                // Use cached result
-                $subject_valid = $subject_cache[$cache_key];
-            } else {
-                // Check if the subject code is valid
-                $stmt = $mysqli->prepare("SELECT id FROM subjects WHERE subject_code = ? LIMIT 1");
-                if (!$stmt) {
-                    error_log("Prepare failed: " . $mysqli->error);
-                    return false;
-                }
-                
-                $stmt->bind_param("s", $subject_code);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                
-                $subject_valid = $result->fetch_assoc() !== false;
-                $stmt->close();
-                
-                // Cache the result
-                $subject_cache[$cache_key] = $subject_valid;
-                $subject_cache_time[$cache_key] = $current_time;
-            }
-            
-            if ($subject_valid) {
-                // Valid student and subject code
-                return [
-                    'id' => $row['id'],
-                    'email' => $email,
-                    'full_name' => $row['full_name'],
-                    'role' => $row['role']
-                ];
-            }
-        }
-        
-        $stmt->close();
-    } catch (Exception $e) {
-        // Database error
-        error_log("Subject code authentication error: " . $e->getMessage());
-        return false;
-    }
-    
-    return false;
+    if (!$mysqli) return false;
+    $stmt = $mysqli->prepare("SELECT DISTINCT u.id, u.email, u.full_name, u.role
+        FROM users u
+        JOIN subjects s ON s.subject_code = ?
+        JOIN exam_subjects es ON es.subject_id = s.id AND es.class_id = u.class_id AND es.is_published = 1
+        JOIN exams e ON e.id = es.exam_id AND e.is_published = 1
+        WHERE u.email = ? AND u.role = 'student' AND u.class_id IS NOT NULL
+        LIMIT 1");
+    if (!$stmt) return false;
+    $stmt->bind_param('ss', $subject_code, $email);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc() ?: false;
+    $stmt->close();
+    return $user;
+}
+
+function authenticateStudentWithPassword(string $email, string $password) {
+    $mysqli = getDBConnection();
+    if (!$mysqli) return false;
+    $stmt = $mysqli->prepare("SELECT id, email, full_name, role, password FROM users WHERE email = ? AND role = 'student' LIMIT 1");
+    if (!$stmt) return false;
+    $stmt->bind_param('s', $email);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$user || !password_verify($password, $user['password'])) return false;
+    unset($user['password']);
+    return $user;
 }
 $body_class = 'login-page-bg';
 ?>
@@ -297,12 +243,19 @@ $body_class = 'login-page-bg';
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label for="subject_code" class="form-label">Subject Code</label>
+                                <label for="subject_code" class="form-label">Subject Code (exam access only)</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-book"></i></span>
-                                    <input type="text" class="form-control" id="subject_code" name="subject_code" placeholder="Enter subject code" required autocomplete="off">
+                                    <input type="text" class="form-control" id="subject_code" name="subject_code" placeholder="Optional: enter subject code" autocomplete="off">
                                 </div>
-                                <div class="form-text">Enter the unique code for the subject you want to access exams for.</div>
+                                <div class="form-text">Use a subject code to access its published exam. Leave it blank and enter your admin-issued password to open your dashboard.</div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="student_password" class="form-label">Admin-issued Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" id="student_password" name="password" placeholder="Enter password for dashboard access" autocomplete="current-password">
+                                </div>
                             </div>
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-success btn-lg">

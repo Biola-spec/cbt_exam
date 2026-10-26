@@ -2,6 +2,12 @@
 require_once '../config/database.php';
 require_once '../config/session.php'; // Added this to ensure session functions are available
 
+$public_exam_access = isPublicExamSession();
+if ((!$public_exam_access && !isLoggedIn()) || getUserRole() !== 'student') {
+    header('Location: ../login.php');
+    exit();
+}
+
 $message = '';
 $available_exams = [];
 
@@ -23,7 +29,7 @@ try {
     $table_check = $mysqli->query("SHOW TABLES LIKE 'resit_requests'");
     $column_check = $mysqli->query("SHOW COLUMNS FROM exam_subjects LIKE 'resit_request_id'");
     $resit_schema_available = $table_check && $table_check->num_rows > 0 && $column_check && $column_check->num_rows > 0;
-    $student_subject_filter = $resit_schema_available ? "
+    $student_subject_filter = $public_exam_access ? ($resit_schema_available ? "
                AND (
                    (es.resit_request_id IS NULL AND s.subject_code = ?)
                    OR (
@@ -35,8 +41,11 @@ try {
                              AND rr.status = 'approved'
                        )
                    )
-               )" : "
-               AND s.subject_code = ?";
+               )" : "AND s.subject_code = ?") : ($resit_schema_available ? "
+               AND (es.resit_request_id IS NULL OR EXISTS (
+                   SELECT 1 FROM resit_requests rr
+                   WHERE rr.id = es.resit_request_id AND rr.student_id = ? AND rr.status = 'approved'
+               ))" : "");
     $exam_visibility_filter = $resit_schema_available ? "
                AND (
                    (e.is_published = 1 AND es.is_published = 1)
@@ -78,10 +87,14 @@ try {
                ORDER BY e.published_at DESC";
 
     $stmt = $mysqli->prepare($query);
-    if ($resit_schema_available) {
+    if ($public_exam_access && $resit_schema_available) {
         $stmt->bind_param("iiiiisi", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id, $_SESSION['subject_code'], $current_user_id);
-    } else {
+    } elseif ($public_exam_access) {
         $stmt->bind_param("iiiiis", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id, $_SESSION['subject_code']);
+    } elseif ($resit_schema_available) {
+        $stmt->bind_param("iiiiii", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id, $current_user_id);
+    } else {
+        $stmt->bind_param("iiiii", $current_user_id, $current_user_id, $current_user_id, $current_user_id, $student_class_id);
     }
     $stmt->execute();
     $result = $stmt->get_result();

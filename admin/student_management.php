@@ -68,10 +68,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $admission_number = trim($_POST['admission_number'] ?? '');
         if ($admission_number === '') $admission_number = null;
         $class_id = intval($_POST['class_id'] ?? 0);
+        $password = (string)($_POST['student_password'] ?? '');
 
         // Basic validations
-        if ($full_name === '' || $email === '' || $class_id <= 0) {
-            $message = 'Please fill in full name, Gmail and select a class.';
+        if ($full_name === '' || $email === '' || $class_id <= 0 || $password === '') {
+            $message = 'Please fill in full name, Gmail, password and select a class.';
+        } elseif (strlen($password) < 8) {
+            $message = 'Student password must be at least 8 characters.';
         } elseif (!preg_match('/@gmail\.com$/i', $email)) {
             $message = 'Email must be a valid Gmail address ending with @gmail.com';
         } elseif (!$has_class_id) {
@@ -86,8 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 if ($res && $res->num_rows > 0) {
                     $message = 'A user with this email already exists.';
                 } else {
-                    // Generate and hash password
-                    $password = bin2hex(random_bytes(8));
+                    // Store only a password hash; the admin shares the chosen password with the student.
                     $hash = password_hash($password, PASSWORD_DEFAULT);
                     
                     // Handle passport upload
@@ -109,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     if ($ins) {
                         $ins->bind_param('ssssis', $email, $hash, $full_name, $admission_number, $class_id, $passport_path);
                         if ($ins->execute()) {
-                            $message = 'Student added successfully. Passkey generated below. Copy it now; it will not be shown again on refresh.';
+                            $message = 'Student added successfully. Share the password you set with the student.';
                         } else {
                             $message = 'Error adding student: ' . $mysqli->error;
                         }
@@ -137,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $admission_number = trim($_POST['edit_admission_number'] ?? '');
         if ($admission_number === '') $admission_number = null;
         $class_id = intval($_POST['edit_class_id'] ?? 0);
-        $reset_pass = isset($_POST['reset_password']) ? true : false;
+        $new_password = (string)($_POST['new_password'] ?? '');
 
         if ($sid <= 0) {
             $message = 'Invalid student selected.';
@@ -145,6 +147,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $message = 'Please provide valid name, Gmail and class.';
         } elseif (!preg_match('/@gmail\.com$/i', $email)) {
             $message = 'Email must be a valid Gmail address ending with @gmail.com';
+        } elseif ($new_password !== '' && strlen($new_password) < 8) {
+            $message = 'Student password must be at least 8 characters.';
         } else {
             // Ensure email uniqueness (excluding current student)
             $stmt = $mysqli->prepare('SELECT id FROM users WHERE email = ? AND id <> ?');
@@ -190,18 +194,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         if (!$upd || !$upd->execute()) {
                             throw new Exception('Failed to update student.');
                         }
-                        if ($reset_pass) {
-                            $password = bin2hex(random_bytes(8));
-                            $hash = password_hash($password, PASSWORD_DEFAULT);
-                            $rp = $mysqli->prepare('UPDATE users SET password = ? WHERE id = ?');
-                            if (!$rp) throw new Exception('Failed to prepare password reset.');
+                        if ($new_password !== '') {
+                            $hash = password_hash($new_password, PASSWORD_DEFAULT);
+                            $rp = $mysqli->prepare("UPDATE users SET password = ? WHERE id = ? AND role = 'student'");
+                            if (!$rp) throw new Exception('Failed to prepare password update.');
                             $rp->bind_param('si', $hash, $sid);
-                            if (!$rp->execute()) throw new Exception('Failed to reset password.');
+                            if (!$rp->execute()) throw new Exception('Failed to update password.');
                             $rp->close();
                         }
                         $upd->close();
                         $mysqli->commit();
-                        $message = 'Student updated successfully.';
+                        $message = $new_password !== '' ? 'Student updated successfully. Share the new password with the student.' : 'Student updated successfully.';
                     } catch (Exception $ex) {
                         $mysqli->rollback();
                         $message = 'Error updating student: ' . $ex->getMessage();
@@ -360,22 +363,29 @@ try {
                     <input type="hidden" name="action" value="add_student">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Full Name</label>
                                 <input type="text" class="form-control form-control-lg" name="full_name" required placeholder="Enter student's full name">
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Admission Number</label>
                                 <input type="text" class="form-control form-control-lg" name="admission_number" maxlength="100" placeholder="Optional school ID">
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Gmail Address</label>
                                 <input type="email" class="form-control form-control-lg" name="email" required placeholder="student.name@gmail.com">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Student Password</label>
+                                <input type="password" class="form-control form-control-lg" name="student_password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+                                <div class="form-text">Share this password with the student for dashboard access.</div>
                             </div>
                         </div>
                     </div>
@@ -557,13 +567,11 @@ try {
             </select>
           </div>
           <?php endif; ?>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" value="1" id="reset_password" name="reset_password">
-            <label class="form-check-label" for="reset_password">
-              Reset password
-            </label>
+          <div class="mb-3">
+            <label class="form-label" for="edit_new_password">Set / change student password</label>
+            <input type="password" class="form-control" id="edit_new_password" name="new_password" minlength="8" autocomplete="new-password">
+            <div class="form-text">Leave blank to keep the current password. Share any new password with the student.</div>
           </div>
-          <div class="form-text">If password is reset, a new password will be generated.</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -648,7 +656,7 @@ try {
     if (classSelect && classId) {
         classSelect.value = classId;
     }
-    document.getElementById('reset_password').checked = false;
+    document.getElementById('edit_new_password').value = '';
   });
 })();
 

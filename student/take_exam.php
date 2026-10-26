@@ -2,6 +2,12 @@
 require_once '../config/database.php';
 require_once '../config/session.php'; // Added this to ensure session functions are available
 
+$public_exam_access = isPublicExamSession();
+if ((!$public_exam_access && !isLoggedIn()) || getUserRole() !== 'student') {
+    header('Location: ../login.php');
+    exit();
+}
+
 // Prevent browser caching to handle back button after submission
 header("Cache-Control: no-cache, no-store, must-revalidate"); // HTTP 1.1.
 header("Pragma: no-cache"); // HTTP 1.0.
@@ -98,20 +104,21 @@ try {
     $current_user_id = getUserId();
     
     // Get user details for sidebar
-    $stmt = $mysqli->prepare("SELECT full_name, passport FROM users WHERE id = ?");
+    $stmt = $mysqli->prepare("SELECT full_name, passport, class_id FROM users WHERE id = ? AND role = 'student'");
     $stmt->bind_param("i", $current_user_id);
     $stmt->execute();
     $current_user = $stmt->get_result()->fetch_assoc();
+    $student_class_id = (int)($current_user['class_id'] ?? 0);
 
     // Validate exam_subject_id
     $exam_subject_id = isset($_GET['exam_subject_id']) ? (int)$_GET['exam_subject_id'] : 0;
     if (!$exam_subject_id) {
-        header('Location: dashboard.php?tab=available');
+        header('Location: ' . ($public_exam_access ? 'public_exams.php' : 'dashboard.php?tab=available'));
         exit();
     }
     
     // Create cache key
-    $cache_key = "exam_data_{$exam_subject_id}_" . $_SESSION['subject_code'];
+    $cache_key = "exam_data_{$exam_subject_id}_" . ($public_exam_access ? ($_SESSION['subject_code'] ?? '') : 'dashboard');
     $current_time = time();
     
     // Check cache first
@@ -129,9 +136,13 @@ try {
         $resit_column_check = $mysqli->query("SHOW COLUMNS FROM exam_subjects LIKE 'resit_request_id'");
         $resit_schema_available = $resit_column_check && $resit_column_check->num_rows > 0;
         $resit_request_select = $resit_schema_available ? 'es.resit_request_id' : 'NULL';
+        $regular_exam_filter = "es.class_id = {$student_class_id} AND e.is_published = 1 AND es.is_published = 1";
+        if ($public_exam_access) {
+            $regular_exam_filter .= " AND s.subject_code = ?";
+        }
         $student_access_filter = $resit_schema_available ? "
                               AND (
-                                  s.subject_code = ?
+                                  (es.resit_request_id IS NULL AND {$regular_exam_filter})
                                   OR (
                                       es.resit_request_id IS NOT NULL
                                       AND EXISTS (
@@ -141,7 +152,7 @@ try {
                                             AND rr.status = 'approved'
                                       )
                                   )
-                              )" : "AND s.subject_code = ?";
+                              )" : "AND {$regular_exam_filter}";
         $stmt = $mysqli->prepare("SELECT es.id as exam_subject_id, es.exam_id, es.subject_id, es.class_id, {$resit_request_select} as resit_request_id, es.time_limit, es.show_calculator, es.created_at,
                               e.title as exam_title, c.name as class_name, s.name as subject_name
                               FROM exam_subjects es
@@ -149,17 +160,21 @@ try {
                               JOIN classes c ON es.class_id = c.id
                               JOIN subjects s ON es.subject_id = s.id
                               WHERE es.id = ? {$student_access_filter}");
-        if ($resit_schema_available) {
+        if ($public_exam_access && $resit_schema_available) {
             $stmt->bind_param("isi", $exam_subject_id, $_SESSION['subject_code'], $current_user_id);
-        } else {
+        } elseif ($public_exam_access) {
             $stmt->bind_param("is", $exam_subject_id, $_SESSION['subject_code']);
+        } elseif ($resit_schema_available) {
+            $stmt->bind_param("ii", $exam_subject_id, $current_user_id);
+        } else {
+            $stmt->bind_param("i", $exam_subject_id);
         }
         $stmt->execute();
         $result = $stmt->get_result();
         $exam_subject = $result->fetch_assoc();
         
         if (!$exam_subject) {
-            header('Location: dashboard.php?tab=available');
+            header('Location: ' . ($public_exam_access ? 'public_exams.php' : 'dashboard.php?tab=available'));
             exit();
         }
 
@@ -170,7 +185,7 @@ try {
             $stmt->bind_param('iii', $exam_subject['resit_request_id'], $current_user_id, $exam_subject_id);
             $stmt->execute();
             if (!$stmt->get_result()->fetch_assoc()) {
-                header('Location: dashboard.php?tab=available');
+                header('Location: ' . ($public_exam_access ? 'public_exams.php' : 'dashboard.php?tab=available'));
                 exit();
             }
             $stmt->close();

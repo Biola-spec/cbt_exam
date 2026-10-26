@@ -66,8 +66,11 @@ include '../includes/header.php';
 .term-report-page .report-summary strong{display:block;font-size:.7rem;text-transform:uppercase;color:var(--report-muted)}
 .term-report-page .report-comment{min-height:44px;border-bottom:1px solid var(--report-line);padding:.55rem 0}
 .term-report-page .report-approval-assets{display:flex;justify-content:flex-end;align-items:flex-end;gap:1rem;min-height:78px;margin-top:.75rem}
-.term-report-page .report-approval-assets img{display:block;max-width:135px;max-height:62px;object-fit:contain}
+.term-report-page .report-approval-assets img{display:block;max-width:74px;max-height:70px;object-fit:contain}
 .term-report-page .report-approval-assets img.report-stamp{max-width:74px;max-height:70px}
+.term-report-page .report-approval-label{font-size:.72rem;font-weight:600;white-space:nowrap}
+.term-report-page .report-authority-signature{display:flex;align-items:center;gap:.5rem;margin-top:.35rem}
+.term-report-page .report-authority-signature img{display:block;max-width:90px;max-height:42px;object-fit:contain}
 .term-report-page .report-attendance{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--report-line);margin-top:.8rem}
 .term-report-page .report-attendance div{padding:.45rem;border-right:1px solid var(--report-line)}
 .term-report-page .report-attendance div:last-child{border-right:0}
@@ -115,8 +118,11 @@ include '../includes/header.php';
  .term-report-page .report-summary div{padding:1.5mm}
  .term-report-page .report-comment{min-height:7mm;padding:1.5mm 0}
  .term-report-page .report-approval-assets{min-height:18mm;margin-top:2mm;gap:4mm}
- .term-report-page .report-approval-assets img{max-width:34mm;max-height:16mm}
+ .term-report-page .report-approval-assets img{max-width:20mm;max-height:18mm}
  .term-report-page .report-approval-assets img.report-stamp{max-width:20mm;max-height:18mm}
+ .term-report-page .report-approval-label{font-size:6pt}
+ .term-report-page .report-authority-signature{gap:2mm;margin-top:1mm}
+ .term-report-page .report-authority-signature img{max-width:24mm;max-height:12mm}
  .term-report-page .report-signatures{margin-top:6mm;gap:5mm}
  .term-report-page .report-signatory{min-height:17mm}
  .term-report-page .report-signature-assets{height:12mm;margin-bottom:1mm}
@@ -131,7 +137,7 @@ include '../includes/header.php';
  .term-report-page .report-brand{grid-template-columns:18mm minmax(0,1fr) 18mm;gap:2mm;font-size:7pt}
  .term-report-page .report-brand img{max-width:16mm;max-height:16mm}
  .term-report-page .student-photo{width:15mm;height:17mm}
- .term-report-page .school-name{font-size:24pt;font-weight:800;line-height:1;overflow-wrap:anywhere}
+ .term-report-page .school-name{font-size:var(--school-name-print-size,18pt);font-weight:800;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:clip}
  .term-report-page .report-title{font-size:7pt;margin-top:1mm}
  .term-report-page .school-contact{font-size:6pt;margin-top:.5mm}
  .term-report-page .student-name{font-size:10pt;padding:1mm}
@@ -158,7 +164,7 @@ body.print-one .term-report-page .report-paper:not(.print-active){display:none}
     </div>
     <?php if ($error): ?><div class="alert alert-warning"><?php echo htmlspecialchars($error); ?></div>
     <?php elseif (!$reports): ?><div class="alert alert-info">No term results have been released for you yet.</div>
-    <?php else: foreach ($reports as $index => $report): $reportId = 'term-report-' . $index; ?>
+    <?php else: foreach ($reports as $index => $report): $reportId = 'term-report-' . $index; $schoolNameLength = max(1, function_exists('mb_strlen') ? mb_strlen($report['school']['name']) : strlen($report['school']['name'])); $schoolNamePrintSize = min(18, max(10, 18 * 32 / $schoolNameLength)); ?>
         <article class="report-paper" id="<?php echo $reportId; ?>">
             <?php $watermark = $assetUrl($report['school']['logo_path']); if ($watermark): ?><div class="report-watermark" aria-hidden="true"><img src="<?php echo htmlspecialchars($watermark); ?>" alt=""></div><?php endif; ?>
             <div class="report-content">
@@ -170,7 +176,7 @@ body.print-one .term-report-page .report-paper:not(.print-active){display:none}
             </div>
             <header class="report-brand">
                 <div><?php $logo = $assetUrl($report['school']['logo_path']); if ($logo): ?><img src="<?php echo htmlspecialchars($logo); ?>" alt="School logo"><?php endif; ?></div>
-                <div><h2 class="school-name"><?php echo htmlspecialchars($report['school']['name']); ?></h2><div class="school-contact"><?php if ($report['school']['address'] !== ''): ?><div><?php echo htmlspecialchars($report['school']['address']); ?></div><?php endif; ?><?php if ($report['school']['phone'] !== ''): ?><div><?php echo htmlspecialchars($report['school']['phone']); ?></div><?php endif; ?></div><div class="report-title">STUDENT ACADEMIC REPORT CARD</div></div>
+                <div><h2 class="school-name" style="--school-name-print-size:<?php echo number_format($schoolNamePrintSize, 1, '.', ''); ?>pt"><?php echo htmlspecialchars($report['school']['name']); ?></h2><div class="school-contact"><?php if ($report['school']['address'] !== ''): ?><div><?php echo htmlspecialchars($report['school']['address']); ?></div><?php endif; ?><?php if ($report['school']['phone'] !== ''): ?><div><?php echo htmlspecialchars($report['school']['phone']); ?></div><?php endif; ?></div><div class="report-title">STUDENT ACADEMIC REPORT CARD</div></div>
                 <div><?php $photo = $assetUrl($report['student']['passport']); if ($photo): ?><img class="student-photo" src="<?php echo htmlspecialchars($photo); ?>" alt="Student photograph"><?php endif; ?></div>
             </header>
             <h3 class="student-name"><?php echo htmlspecialchars($report['student']['name']); ?></h3>
@@ -225,9 +231,13 @@ body.print-one .term-report-page .report-paper:not(.print-active){display:none}
                 <?php foreach (['psychomotor' => 'Psychomotor skills', 'locomotor' => 'Locomotor skills'] as $domain => $heading): if (!$report['ratings'][$domain]) continue; ?><div><h4><?php echo $heading; ?></h4><table><tbody><?php foreach ($report['ratings'][$domain] as $rating): ?><tr><td><?php echo htmlspecialchars($rating['label']); ?></td><td><?php echo (int)$rating['score']; ?> / 5</td></tr><?php endforeach; ?></tbody></table></div><?php endforeach; ?>
             </section><?php endif; ?>
             <?php if (trim($report['class_teacher_remark']) !== ''): ?><div class="report-comment"><strong>Class teacher's remark:</strong> <?php echo nl2br(htmlspecialchars($report['class_teacher_remark'])); ?></div><?php endif; ?>
-            <div class="report-approval-assets" aria-label="Principal signature and school stamp">
-                <?php $signature = $assetUrl($report['school']['signatory_signature_path']); if ($signature): ?><img src="<?php echo htmlspecialchars($signature); ?>" alt="Principal signature"><?php endif; ?>
-                <?php $stamp = $assetUrl($report['school']['stamp_path']); if ($stamp): ?><img class="report-stamp" src="<?php echo htmlspecialchars($stamp); ?>" alt="School stamp"><?php endif; ?>
+            <?php $signature = $assetUrl($report['school']['signatory_signature_path']); $stamp = $assetUrl($report['school']['stamp_path']); ?>
+            <?php if (trim($report['authority_remark']) !== '' || $signature !== ''): ?><div class="report-comment report-authority-remark">
+                <?php if (trim($report['authority_remark']) !== ''): ?><strong><?php echo htmlspecialchars($report['signatory']['title']); ?>'s remark:</strong> <?php echo nl2br(htmlspecialchars($report['authority_remark'])); ?><?php endif; ?>
+                <?php if ($signature !== ''): ?><div class="report-authority-signature"><span class="report-approval-label"><?php echo htmlspecialchars($report['signatory']['title']); ?> signature:</span><img src="<?php echo htmlspecialchars($signature); ?>" alt="<?php echo htmlspecialchars($report['signatory']['title']); ?> signature"></div><?php endif; ?>
+            </div><?php endif; ?>
+            <div class="report-approval-assets" aria-label="School stamp">
+                <?php if ($stamp !== ''): ?><img class="report-stamp" src="<?php echo htmlspecialchars($stamp); ?>" alt="School stamp"><?php endif; ?>
             </div>
             <div class="report-footer"><?php echo htmlspecialchars($report['school']['name']); ?> · <?php echo htmlspecialchars($report['session']); ?> · <?php echo htmlspecialchars(termLabel($report['term'])); ?></div>
             </div>

@@ -43,8 +43,21 @@ if (!file_exists($users_file)) {
 }
 
 // Check if user is logged in
+function isPublicExamSession(): bool {
+    if (empty($_SESSION['public_exam_access'])) return false;
+    $expiresAt = (int)($_SESSION['public_exam_access_expires_at'] ?? 0);
+    if ($expiresAt <= time()) {
+        unset($_SESSION['user_id'], $_SESSION['email'], $_SESSION['full_name'], $_SESSION['role'], $_SESSION['subject_code'], $_SESSION['public_exam_access'], $_SESSION['public_exam_access_expires_at']);
+        return false;
+    }
+    return ($_SESSION['role'] ?? null) === 'student'
+        && isset($_SESSION['user_id'])
+        && !empty($_SESSION['subject_code']);
+}
+
 function isLoggedIn() {
-    return isset($_SESSION['user_id']) && isset($_SESSION['role']);
+    if (isPublicExamSession()) return false;
+    return isset($_SESSION['user_id']) && isset($_SESSION['role']) && empty($_SESSION['public_exam_access']);
 }
 
 // Get current user role
@@ -179,7 +192,7 @@ function getSchoolLogo() {
 // Redirect to login if not logged in
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: login.php');
+        header('Location: ../login.php');
         exit();
     }
 }
