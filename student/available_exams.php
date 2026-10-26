@@ -8,6 +8,17 @@ if ((!$public_exam_access && !isLoggedIn()) || getUserRole() !== 'student') {
     exit();
 }
 
+if (!$public_exam_access) {
+    ?>
+    <div class="alert alert-primary border-0 shadow-sm p-4">
+        <h5 class="alert-heading"><i class="fas fa-lock me-2"></i>No subject exam selected</h5>
+        <p class="mb-3">Your dashboard is open. To start an exam, enter the subject code provided for that published subject.</p>
+        <a class="btn btn-primary" href="../login.php?exam_access=1"><i class="fas fa-key me-2"></i>Enter Subject Code</a>
+    </div>
+    <?php
+    return;
+}
+
 $message = '';
 $available_exams = [];
 

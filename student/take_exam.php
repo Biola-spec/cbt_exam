@@ -3,7 +3,11 @@ require_once '../config/database.php';
 require_once '../config/session.php'; // Added this to ensure session functions are available
 
 $public_exam_access = isPublicExamSession();
-if ((!$public_exam_access && !isLoggedIn()) || getUserRole() !== 'student') {
+if (!$public_exam_access || getUserRole() !== 'student') {
+    if (isLoggedIn() && getUserRole() === 'student') {
+        header('Location: dashboard.php?tab=available');
+        exit();
+    }
     header('Location: ../login.php');
     exit();
 }

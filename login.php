@@ -7,8 +7,11 @@ header("Cache-Control: no-cache, no-store, must-revalidate"); // HTTP 1.1
 header("Pragma: no-cache"); // HTTP 1.0
 header("Expires: 0"); // Proxies
 
-// If already logged in, redirect to appropriate dashboard
-if (isLoggedIn()) {
+$student_exam_access_mode = isset($_GET['exam_access']) && $_GET['exam_access'] === '1'
+    && isLoggedIn() && getUserRole() === 'student';
+
+// Keep dashboard users signed in when they open the subject-code exam entry screen.
+if (isLoggedIn() && !$student_exam_access_mode) {
     redirectBasedOnRole();
 }
 
@@ -178,7 +181,7 @@ $body_class = 'login-page-bg';
                     echo '<span class="login-school-name">' . htmlspecialchars(getSchoolName()) . '</span>';
                     ?>
                 </h2>
-                <p class="mb-0 mt-2 text-white-50">Sign in to access your account</p>
+                <p class="mb-0 mt-2 text-white-50"><?php echo $student_exam_access_mode ? 'Enter the code for the published subject exam' : 'Sign in to access your account'; ?></p>
             </div>
             <div class="card-body">
                 <?php if ($error): ?>
@@ -189,13 +192,15 @@ $body_class = 'login-page-bg';
                 <?php endif; ?>
                 
                 <ul class="nav nav-tabs" id="loginTabs" role="tablist">
+                    <?php if (!$student_exam_access_mode): ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link active" id="staff-tab" data-bs-toggle="tab" data-bs-target="#staff" type="button" role="tab">
                             <i class="fas fa-user-tie me-1"></i> Staff Login
                         </button>
                     </li>
+                    <?php endif; ?>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" type="button" role="tab">
+                        <button class="nav-link <?php echo $student_exam_access_mode ? 'active' : ''; ?>" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" type="button" role="tab">
                             <i class="fas fa-user-graduate me-1"></i> Student Login
                         </button>
                     </li>
@@ -203,6 +208,7 @@ $body_class = 'login-page-bg';
                 
                 <div class="tab-content mt-4" id="loginTabsContent">
                     <!-- Staff Login Form -->
+                    <?php if (!$student_exam_access_mode): ?>
                     <div class="tab-pane fade show active" id="staff" role="tabpanel">
                         <form method="POST" autocomplete="off">
                             <input type="hidden" name="is_student" value="0">
@@ -230,9 +236,10 @@ $body_class = 'login-page-bg';
                             </div>
                         </form>
                     </div>
+                    <?php endif; ?>
                     
                     <!-- Student Login Form -->
-                    <div class="tab-pane fade" id="student" role="tabpanel">
+                    <div class="tab-pane fade <?php echo $student_exam_access_mode ? 'show active' : ''; ?>" id="student" role="tabpanel">
                         <form method="POST" autocomplete="off">
                             <input type="hidden" name="is_student" value="1">
                             <div class="mb-3">
@@ -248,8 +255,9 @@ $body_class = 'login-page-bg';
                                     <span class="input-group-text"><i class="fas fa-book"></i></span>
                                     <input type="text" class="form-control" id="subject_code" name="subject_code" placeholder="Optional: enter subject code" autocomplete="off" readonly>
                                 </div>
-                                <div class="form-text">Use a subject code to access its published exam. Leave it blank and enter your admin-issued password to open your dashboard.</div>
+                                <div class="form-text"><?php echo $student_exam_access_mode ? 'This opens only the published exam assigned to your class for this subject.' : 'Use a subject code to access its published exam. Leave it blank and enter your admin-issued password to open your dashboard.'; ?></div>
                             </div>
+                            <?php if (!$student_exam_access_mode): ?>
                             <div class="mb-3">
                                 <label for="student_password" class="form-label">Admin-issued Password</label>
                                 <div class="input-group">
@@ -257,11 +265,15 @@ $body_class = 'login-page-bg';
                                     <input type="password" class="form-control" id="student_password" name="password" placeholder="Enter password for dashboard access" autocomplete="off" readonly>
                                 </div>
                             </div>
+                            <?php endif; ?>
                             <div class="d-grid">
                                 <button type="submit" class="btn btn-success btn-lg">
                                     <i class="fas fa-sign-in-alt me-1"></i> Sign In as Student
                                 </button>
                             </div>
+                            <?php if ($student_exam_access_mode): ?>
+                            <div class="text-center mt-3"><a href="student/dashboard.php">Return to dashboard</a></div>
+                            <?php endif; ?>
                         </form>
                     </div>
                 </div>
