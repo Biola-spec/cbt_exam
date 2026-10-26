@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" role="img" aria-label="Classroom board and desks illustration">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f1efff"/><stop offset="1" stop-color="#f0f6ff"/></linearGradient></defs>
+  <rect width="600" height="180" rx="18" fill="url(#bg)"/>
+  <circle cx="126" cy="48" r="20" fill="#e6f1c9"/><circle cx="473" cy="132" r="24" fill="#e4e0fa"/>
+  <rect x="229" y="36" width="142" height="76" rx="7" fill="#2f3da8"/>
+  <rect x="237" y="44" width="126" height="60" rx="3" fill="#e6f1c9"/>
+  <path d="M263 75h30m-15-15v30m31-19 8-8 8 8m-8-8v22" fill="none" stroke="#3d9b4a" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M253 126h94m-81-14v14m68-14v14" stroke="#3d4ec0" stroke-width="5" stroke-linecap="round"/>
+</svg>

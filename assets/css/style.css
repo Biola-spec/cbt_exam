@@ -582,10 +582,10 @@ small, .small { letter-spacing: 0; }
 .admin-shortcut-image {
     display: block;
     width: 100%;
-    height: auto;
-    aspect-ratio: 600 / 260;
+    height: 88px;
+    aspect-ratio: 600 / 180;
     object-fit: cover;
-    background: #eef2ff;
+    background: #f1efff;
 }
 .admin-shortcut-content { display: flex; min-height: 124px; flex: 1; width: 100%; flex-direction: column; align-items: flex-start; padding: 1rem 1.05rem 1.05rem; text-align: left; }
 .admin-shortcut-title { display: block; margin-bottom: .32rem; color: #0b2545; font-family: "Segoe UI Variable Display", "Aptos Display", "Segoe UI", sans-serif; font-size: 1.06rem; font-weight: 740; letter-spacing: -.025em; line-height: 1.3; }

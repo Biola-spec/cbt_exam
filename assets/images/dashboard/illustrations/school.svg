@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 180" role="img" aria-label="School building illustration">
+  <defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f1efff"/><stop offset="1" stop-color="#f4f8e9"/></linearGradient></defs>
+  <rect width="600" height="180" rx="18" fill="url(#bg)"/>
+  <circle cx="146" cy="47" r="20" fill="#e6f1c9"/><circle cx="464" cy="136" r="23" fill="#e4e0fa"/>
+  <path d="m228 75 72-40 72 40v61H228z" fill="#fff" stroke="#3d4ec0" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M217 77h166l-83-49z" fill="#3d9b4a" stroke="#2f7d3b" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="285" y="99" width="30" height="37" rx="4" fill="#e6f1c9" stroke="#3d4ec0" stroke-width="3"/>
+  <path d="M245 90h21v19h-21zm89 0h21v19h-21z" fill="#3db8d8"/>
+  <path d="M300 28V17m0 0 12 5-12 5" fill="none" stroke="#e23b2c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M210 143h180" stroke="#aaa2d2" stroke-width="5" stroke-linecap="round"/>
+</svg>
