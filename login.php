@@ -204,20 +204,20 @@ $body_class = 'login-page-bg';
                 <div class="tab-content mt-4" id="loginTabsContent">
                     <!-- Staff Login Form -->
                     <div class="tab-pane fade show active" id="staff" role="tabpanel">
-                        <form method="POST">
+                        <form method="POST" autocomplete="off">
                             <input type="hidden" name="is_student" value="0">
                             <div class="mb-3">
                                 <label for="staff_email" class="form-label">Email Address</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                                    <input type="email" class="form-control" id="staff_email" name="email" placeholder="Enter your email" required autocomplete="off">
+                                    <input type="email" class="form-control" id="staff_email" name="email" placeholder="Enter your email" required autocomplete="off" readonly>
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label for="staff_password" class="form-label">Password</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                    <input type="password" class="form-control" id="staff_password" name="password" placeholder="Enter your password" required autocomplete="off">
+                                    <input type="password" class="form-control" id="staff_password" name="password" placeholder="Enter your password" required autocomplete="off" readonly>
                                     <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('staff_password')">
                                         <i class="fas fa-eye"></i>
                                     </button>
@@ -233,20 +233,20 @@ $body_class = 'login-page-bg';
                     
                     <!-- Student Login Form -->
                     <div class="tab-pane fade" id="student" role="tabpanel">
-                        <form method="POST">
+                        <form method="POST" autocomplete="off">
                             <input type="hidden" name="is_student" value="1">
                             <div class="mb-3">
                                 <label for="student_email" class="form-label">Email Address</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-envelope"></i></span>
-                                    <input type="email" class="form-control" id="student_email" name="email" placeholder="Enter your email" required autocomplete="off">
+                                    <input type="email" class="form-control" id="student_email" name="email" placeholder="Enter your email" required autocomplete="off" readonly>
                                 </div>
                             </div>
                             <div class="mb-3">
                                 <label for="subject_code" class="form-label">Subject Code (exam access only)</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-book"></i></span>
-                                    <input type="text" class="form-control" id="subject_code" name="subject_code" placeholder="Optional: enter subject code" autocomplete="off">
+                                    <input type="text" class="form-control" id="subject_code" name="subject_code" placeholder="Optional: enter subject code" autocomplete="off" readonly>
                                 </div>
                                 <div class="form-text">Use a subject code to access its published exam. Leave it blank and enter your admin-issued password to open your dashboard.</div>
                             </div>
@@ -254,7 +254,7 @@ $body_class = 'login-page-bg';
                                 <label for="student_password" class="form-label">Admin-issued Password</label>
                                 <div class="input-group">
                                     <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                    <input type="password" class="form-control" id="student_password" name="password" placeholder="Enter password for dashboard access" autocomplete="current-password">
+                                    <input type="password" class="form-control" id="student_password" name="password" placeholder="Enter password for dashboard access" autocomplete="off" readonly>
                                 </div>
                             </div>
                             <div class="d-grid">
@@ -286,6 +286,21 @@ function togglePasswordVisibility(fieldId) {
         icon.classList.add('fa-eye');
     }
 }
+
+// Browsers may restore previously entered credentials when returning to this page.
+window.addEventListener('pageshow', function () {
+    ['staff_email', 'staff_password', 'student_email', 'subject_code', 'student_password'].forEach(function (id) {
+        const field = document.getElementById(id);
+        if (field) {
+            field.value = '';
+            field.readOnly = true;
+            field.addEventListener('focus', function unlockField() {
+                field.readOnly = false;
+                field.removeEventListener('focus', unlockField);
+            }, { once: true });
+        }
+    });
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>
