@@ -2,7 +2,7 @@
 
     <footer>
         <div class="container text-center">
-            <p class="mb-0">&copy; 2025 <?php echo isset($_SESSION['school_name']) ? htmlspecialchars($_SESSION['school_name']) : 'CBT Exam System'; ?>. All rights reserved.</p>
+            <p class="mb-0">&copy; 2025 <?php echo htmlspecialchars(getSchoolName()); ?>. All rights reserved.</p>
             <p class="mb-0 text-muted"><small>Developed By Ahmad Abiola</small></p>
         </div>
     </footer>

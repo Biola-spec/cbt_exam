@@ -1,35 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 260" fill="none">
   <defs>
-    <linearGradient id="exams-bg" x1="0" y1="0" x2="600" y2="260" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#071A33"/><stop offset=".55" stop-color="#0B2545"/><stop offset="1" stop-color="#164E75"/>
+    <linearGradient id="ex-bg" x1="0" y1="0" x2="600" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EEF2FF"/><stop offset="1" stop-color="#F8FAFC"/>
     </linearGradient>
-    <linearGradient id="exams-glow" x1="430" y1="20" x2="580" y2="180" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#38BDF8" stop-opacity=".45"/><stop offset="1" stop-color="#38BDF8" stop-opacity="0"/>
+    <linearGradient id="ex-top" x1="220" y1="40" x2="380" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7A88E8"/><stop offset="1" stop-color="#2F3DA8"/>
     </linearGradient>
-    <linearGradient id="exams-screen" x1="188" y1="48" x2="430" y2="210" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#F8FCFF"/><stop offset="1" stop-color="#E8F6FF"/>
+    <linearGradient id="ex-left" x1="180" y1="80" x2="300" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#24308A"/><stop offset="1" stop-color="#1A2468"/>
     </linearGradient>
+    <linearGradient id="ex-right" x1="300" y1="80" x2="430" y2="220" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3D4EC0"/><stop offset="1" stop-color="#2F3DA8"/>
+    </linearGradient>
+    <radialGradient id="ex-ball" cx="50%" cy="35%" r="60%">
+      <stop stop-color="#FF7A6E"/><stop offset="1" stop-color="#C62828"/>
+    </radialGradient>
+    <filter id="ex-sh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#2F3DA8" flood-opacity=".18"/>
+    </filter>
   </defs>
-  <rect width="600" height="260" rx="0" fill="url(#exams-bg)"/>
-  <circle cx="520" cy="46" r="92" fill="url(#exams-glow)"/>
-  <circle cx="72" cy="214" r="78" fill="#38BDF8" fill-opacity=".12"/>
-  <path d="M40 40h20M40 52h12" stroke="#7DD3FC" stroke-opacity=".35" stroke-width="3" stroke-linecap="round"/>
-  <rect x="176" y="42" width="248" height="168" rx="18" fill="#0F3A5C"/>
-  <rect x="188" y="54" width="224" height="136" rx="12" fill="url(#exams-screen)"/>
-  <rect x="204" y="70" width="92" height="10" rx="5" fill="#0B2545"/>
-  <rect x="204" y="90" width="168" height="8" rx="4" fill="#C5E4F4"/>
-  <rect x="204" y="106" width="148" height="8" rx="4" fill="#D7EBF6"/>
-  <rect x="204" y="132" width="70" height="34" rx="10" fill="#0B2545"/>
-  <path d="M218 149h8M218 149l3 3 7-8" stroke="#7DD3FC" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="284" y="136" width="88" height="8" rx="4" fill="#94A3B8"/>
-  <rect x="284" y="152" width="62" height="8" rx="4" fill="#C5E4F4"/>
-  <path d="M158 210h284c8 0 12 8 7 14H151c-5-6-1-14 7-14Z" fill="#38BDF8"/>
-  <rect x="258" y="218" width="84" height="6" rx="3" fill="#7DD3FC"/>
-  <rect x="78" y="78" width="64" height="64" rx="18" fill="#38BDF8"/>
-  <circle cx="110" cy="110" r="18" stroke="#071A33" stroke-width="5"/>
-  <path d="M110 100v12l8 5" stroke="#071A33" stroke-width="4" stroke-linecap="round"/>
-  <rect x="468" y="92" width="54" height="72" rx="12" fill="#fff" fill-opacity=".12" stroke="#7DD3FC" stroke-opacity=".45"/>
-  <rect x="480" y="108" width="30" height="6" rx="3" fill="#7DD3FC"/>
-  <rect x="480" y="122" width="22" height="6" rx="3" fill="#BAE6FD"/>
-  <rect x="480" y="136" width="26" height="6" rx="3" fill="#BAE6FD"/>
+  <rect width="600" height="260" fill="url(#ex-bg)"/>
+  <ellipse cx="300" cy="228" rx="170" ry="16" fill="#2F3DA8" opacity=".12"/>
+  <!-- isometric clipboard cube -->
+  <g filter="url(#ex-sh)">
+    <path d="M300 52 L430 112 L300 172 L170 112 Z" fill="url(#ex-top)"/>
+    <path d="M170 112 L300 172 L300 228 L170 168 Z" fill="url(#ex-left)"/>
+    <path d="M300 172 L430 112 L430 168 L300 228 Z" fill="url(#ex-right)"/>
+    <path d="M300 72 L390 114 L300 156 L210 114 Z" fill="#F8FAFF" opacity=".92"/>
+    <path d="M232 110 L368 110" stroke="#2F3DA8" stroke-width="6" stroke-linecap="round" opacity=".35"/>
+    <path d="M240 126 L352 126" stroke="#3DB8D8" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+    <path d="M248 142 L336 142" stroke="#3D9B4A" stroke-width="6" stroke-linecap="round" opacity=".5"/>
+  </g>
+  <!-- 3D check cube -->
+  <g transform="translate(78,88)">
+    <path d="M50 8 L98 32 L50 56 L2 32 Z" fill="#6FDF7C"/>
+    <path d="M2 32 L50 56 L50 92 L2 68 Z" fill="#2E7D32"/>
+    <path d="M50 56 L98 32 L98 68 L50 92 Z" fill="#3D9B4A"/>
+    <path d="M32 50 L44 62 L70 36" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- red sphere -->
+  <g transform="translate(468,86)">
+    <ellipse cx="42" cy="92" rx="34" ry="8" fill="#2F3DA8" opacity=".12"/>
+    <circle cx="42" cy="48" r="38" fill="url(#ex-ball)"/>
+    <ellipse cx="30" cy="34" rx="14" ry="8" fill="#fff" opacity=".35"/>
+  </g>
 </svg>

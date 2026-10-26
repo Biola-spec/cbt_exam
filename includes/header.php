@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($_SESSION['school_name']) ? htmlspecialchars($_SESSION['school_name']) : 'CBT Exam System'; ?></title>
+    <title><?php echo htmlspecialchars(getSchoolName()); ?></title>
     
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <!-- CKEditor Math Plugin CSS -->
@@ -36,8 +39,7 @@
                         echo '<img src="' . htmlspecialchars($logo_src) . '" alt="Logo" style="height: 30px; margin-right: 10px;">';
                     }
                 }
-                $school_name = isset($_SESSION['school_name']) ? $_SESSION['school_name'] : 'CBT Exam System';
-                echo '<span>' . htmlspecialchars($school_name) . '</span>';
+                echo '<span>' . htmlspecialchars(getSchoolName()) . '</span>';
                 ?>
             </a>
             
@@ -84,4 +86,4 @@
             </div>
         </div>
     </nav>
-    <div class="container mt-4">
+    <div class="container mt-4">

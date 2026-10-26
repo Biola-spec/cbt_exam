@@ -28,6 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $resit_start_time = trim($_POST['resit_start_time'] ?? '');
         $resit_end_time = trim($_POST['resit_end_time'] ?? '');
         $venue = trim($_POST['venue'] ?? '');
+        $penalty_percentage = filter_var($_POST['penalty_percentage'] ?? null, FILTER_VALIDATE_FLOAT);
 
         try {
             $mysqli->begin_transaction();
@@ -51,6 +52,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             if ($decision === 'approve') {
+                if ($penalty_percentage === false || $penalty_percentage < 0 || $penalty_percentage > 100) {
+                    throw new Exception('Penalty percentage must be between 0 and 100.');
+                }
                 if ($resit_date === '' || $resit_start_time === '' || $resit_end_time === '' || $venue === '') {
                     throw new Exception('Date, start time, end time, and venue are required for approval.');
                 }
@@ -88,10 +92,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $mysqli->prepare("UPDATE resit_requests
                                           SET status = 'approved', admin_note = ?, resit_date = ?,
                                               resit_start_time = ?, resit_end_time = ?, venue = ?,
+                                              penalty_percentage = ?,
                                               approved_by = ?, reviewed_at = NOW(),
                                               resit_exam_id = ?, resit_exam_subject_id = ?
                                           WHERE id = ?");
-                $stmt->bind_param('sssssiiii', $admin_note, $resit_date, $resit_start_time, $resit_end_time, $venue, $admin_id, $resit_exam_id, $resit_exam_subject_id, $request_id);
+                $stmt->bind_param('sssssdiiii', $admin_note, $resit_date, $resit_start_time, $resit_end_time, $venue, $penalty_percentage, $admin_id, $resit_exam_id, $resit_exam_subject_id, $request_id);
                 $stmt->execute();
                 $stmt->close();
                 $mysqli->commit();
@@ -199,10 +204,12 @@ try {
                                         <div class="col-md-3"><input type="time" name="resit_end_time" class="form-control form-control-sm"></div>
                                         <div class="col-md-7"><input type="text" name="venue" class="form-control form-control-sm" placeholder="Venue"></div>
                                         <div class="col-md-5"><input type="text" name="admin_note" class="form-control form-control-sm" placeholder="Note (optional)"></div>
+                                        <div class="col-md-5"><label class="form-label small mb-1">Penalty (%)</label><input type="number" name="penalty_percentage" class="form-control form-control-sm" min="0" max="100" step="0.01" value="0" required></div>
                                         <div class="col-12 d-flex gap-2"><button name="decision" value="approve" class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i> Approve & Schedule</button><button name="decision" value="reject" class="btn btn-outline-danger btn-sm"><i class="fas fa-times me-1"></i> Reject</button></div>
                                     </form>
                                 <?php else: ?>
                                     <div><?php echo $request['resit_date'] ? htmlspecialchars(date('M j, Y', strtotime($request['resit_date']))) : '—'; ?></div>
+                                    <?php if ($request['status'] === 'approved'): ?><div class="small">Penalty: <?php echo number_format((float)$request['penalty_percentage'], 2); ?>%</div><?php endif; ?>
                                     <div class="small text-muted"><?php echo $request['resit_start_time'] ? htmlspecialchars(date('g:i A', strtotime($request['resit_start_time'])) . ' - ' . date('g:i A', strtotime($request['resit_end_time'])) . ' · ' . $request['venue']) : ''; ?></div>
                                     <?php if ($request['status'] === 'approved' && (int)$request['resit_question_count'] === 0): ?><div class="small text-warning mt-1">Awaiting teacher question setup</div><?php elseif ($request['status'] === 'approved' && !$request['resit_subject_published']): ?><div class="small text-success mt-1">Questions ready — available to the approved student</div><?php endif; ?>
                                 <?php endif; ?>

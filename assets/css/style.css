@@ -158,45 +158,60 @@ body {
     animation: fadeIn 0.4s ease-out;
 }
 
-/* Cohesive navy and sky visual system */
+/* School-logo palette: royal blue, cyan, green, rose */
 :root {
-    --brand-navy: #0b2545;
-    --brand-navy-deep: #071a33;
-    --brand-navy-mid: #123a5c;
-    --brand-sky: #38bdf8;
-    --brand-sky-bright: #7dd3fc;
-    --brand-sky-soft: #e8f6ff;
-    --ink: #12263a;
-    --muted: #5b7388;
+    --brand-navy: #2f3da8;
+    --brand-navy-deep: #1a2468;
+    --brand-navy-mid: #3d4ec0;
+    --brand-sky: #3db8d8;
+    --brand-sky-bright: #7be0f0;
+    --brand-sky-soft: #eef8fc;
+    --brand-green: #3d9b4a;
+    --brand-green-soft: #e8f7ea;
+    --brand-red: #e23b2c;
+    --brand-red-soft: #fdecea;
+    --ink: #1a2468;
+    --muted: #4d5780;
     --surface: #ffffff;
-    --canvas: #eef5fa;
-    --line: #d7e4ee;
+    --canvas: #eef2ff;
+    --line: #d7dcf0;
     --radius-xl: 22px;
-    --shadow-soft: 0 14px 36px rgba(7, 26, 51, .08);
+    --shadow-soft: 0 14px 36px rgba(26, 36, 104, .08);
+    --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    --font-display: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif;
 }
 
-html { min-height: 100%; }
+html {
+    min-height: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
 body {
     min-height: 100vh;
     padding-top: 0;
     color: var(--ink);
     background: var(--canvas);
-    font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-family: var(--font-body);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: .01em;
     line-height: 1.55;
 }
 
 .navbar {
     margin: 0;
     padding: .8rem 0;
-    background: linear-gradient(110deg, var(--brand-navy-deep) 0%, var(--brand-navy) 62%, #0f3558 100%) !important;
-    box-shadow: 0 8px 24px rgba(7, 26, 51, .18);
+    background: linear-gradient(110deg, var(--brand-navy-deep) 0%, var(--brand-navy) 62%, #24308a 100%) !important;
+    box-shadow: 0 8px 24px rgba(26, 36, 104, .22);
 }
 .navbar .container { max-width: 1320px; }
-.navbar-brand { color: #fff !important; font-weight: 750; letter-spacing: -.025em; }
+.navbar-brand { color: #fff !important; font-family: var(--font-display); font-weight: 700; letter-spacing: 0; }
+.navbar-brand span { font-size: .95rem; font-weight: 700; line-height: 1.25; }
 .navbar-brand img { width: 36px; height: 36px; object-fit: contain; border-radius: 10px; background: #fff; padding: 3px; }
-.navbar .nav-link { color: rgba(255,255,255,.78) !important; font-weight: 550; border-radius: 9px; padding: .55rem .85rem !important; transition: .18s ease; }
-.navbar .nav-link:hover, .navbar .nav-link:focus { color: #fff !important; background: rgba(56,189,248,.15); }
-.navbar .btn-link.text-danger { color: #bae6fd !important; }
+.navbar .nav-link { color: rgba(255,255,255,.9) !important; font-weight: 600; border-radius: 9px; padding: .55rem .85rem !important; transition: .18s ease; }
+.navbar .nav-link:hover, .navbar .nav-link:focus { color: #fff !important; background: rgba(61,184,216,.18); }
+.navbar .btn-link.text-danger { color: #ffb4ac !important; }
 
 body > .container, body > div.container { max-width: 1320px; padding-top: 1.6rem; padding-bottom: 2.5rem; }
 .card {
@@ -561,7 +576,7 @@ small, .small { letter-spacing: 0; }
 .admin-shortcut-art {
     display: block;
     width: 100%;
-    background: linear-gradient(160deg, #0b2545, #164e75);
+    background: linear-gradient(160deg, #eef2ff, #f8fafc);
 }
 .admin-shortcut-image {
     display: block;
@@ -569,7 +584,7 @@ small, .small { letter-spacing: 0; }
     height: auto;
     aspect-ratio: 600 / 260;
     object-fit: cover;
-    background: #0b2545;
+    background: #eef2ff;
 }
 .admin-shortcut-content { display: flex; min-height: 124px; flex: 1; width: 100%; flex-direction: column; align-items: flex-start; padding: 1rem 1.05rem 1.05rem; text-align: left; }
 .admin-shortcut-title { display: block; margin-bottom: .32rem; color: #0b2545; font-family: "Segoe UI Variable Display", "Aptos Display", "Segoe UI", sans-serif; font-size: 1.06rem; font-weight: 740; letter-spacing: -.025em; line-height: 1.3; }

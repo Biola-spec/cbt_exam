@@ -229,7 +229,7 @@ $body_class = 'login-page-bg';
                         echo '<i class="fas fa-graduation-cap me-2"></i>';
                     }
                     
-                    echo isset($_SESSION['school_name']) ? htmlspecialchars($_SESSION['school_name']) : 'CBT Exam System';
+                    echo htmlspecialchars(getSchoolName());
                     ?>
                 </h2>
                 <p class="mb-0 mt-2 text-white-50">Sign in to access your account</p>

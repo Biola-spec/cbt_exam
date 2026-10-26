@@ -24,10 +24,12 @@ try {
     
     // Get exam attempt details with class information
     $stmt = $mysqli->prepare("SELECT ea.*, e.title as exam_title, e.is_published AS exam_published, es.is_published AS subject_published,
-                          c.name as class_name, s.name as subject_name, c.marks_per_question
+                          c.name as class_name, s.name as subject_name, c.marks_per_question,
+                          rr.penalty_percentage, rr.id AS resit_request_id
                           FROM exam_attempts ea
                           JOIN exams e ON ea.exam_id = e.id
                           JOIN exam_subjects es ON ea.exam_subject_id = es.id
+                          LEFT JOIN resit_requests rr ON rr.id = es.resit_request_id AND rr.student_id = ea.student_id AND rr.status = 'approved'
                           JOIN classes c ON es.class_id = c.id
                           JOIN subjects s ON es.subject_id = s.id
                           WHERE ea.id = ? AND ea.student_id = ?");
@@ -73,7 +75,10 @@ try {
     $marks_per_question = (float)$attempt['marks_per_question'];
 
     // Calculate score based on objective class marks plus teacher-awarded theory marks.
-    $total_score = (float)$attempt['score'];
+    $resit_score = (float)$attempt['score'];
+    $penalty_percentage = $attempt['resit_request_id'] !== null ? (float)$attempt['penalty_percentage'] : 0.0;
+    $deduction_score = $resit_score * ($penalty_percentage / 100);
+    $total_score = $resit_score - $deduction_score;
     $max_possible_score = ($objective_questions * $marks_per_question) + $theory_total_marks;
 
     // Calculate percentage based on total questions (not just answered)
@@ -206,8 +211,18 @@ try {
                                     <div class="row text-center">
                                         <div class="col-md-4 mb-3">
                                             <h5 class="text-primary"><?php echo number_format($total_score, 2); ?> / <?php echo number_format($max_possible_score, 2); ?></h5>
-                                            <p class="mb-0">Score (Correct Answers)</p>
+                                            <p class="mb-0">Final Score</p>
                                         </div>
+                                        <?php if ($attempt['resit_request_id'] !== null): ?>
+                                        <div class="col-md-4 mb-3">
+                                            <h5 class="text-primary"><?php echo number_format($resit_score, 2); ?> / <?php echo number_format($max_possible_score, 2); ?></h5>
+                                            <p class="mb-0">Resit Score</p>
+                                        </div>
+                                        <div class="col-md-4 mb-3">
+                                            <h5 class="text-danger">-<?php echo number_format($deduction_score, 2); ?> (<?php echo number_format($penalty_percentage, 2); ?>%)</h5>
+                                            <p class="mb-0">Penalty Deduction</p>
+                                        </div>
+                                        <?php endif; ?>
                                         <div class="col-md-4 mb-3">
                                             <h5 class="text-primary"><?php echo $answered_questions; ?> / <?php echo $total_questions; ?></h5>
                                             <p class="mb-0">Answered / Total Questions</p>
