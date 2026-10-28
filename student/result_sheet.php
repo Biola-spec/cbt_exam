@@ -72,11 +72,11 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
                     <td><?php echo htmlspecialchars($subject['subject_name']); ?></td>
                     <?php if ($subject['score_released']): ?>
                         <td class="numeric"><?php echo number_format((float)$subject['score'], 2); ?> / <?php echo number_format((float)$subject['max_score'], 2); ?><br><small><?php echo number_format((float)$subject['percentage'], 2); ?>%</small></td>
-                        <td><?php echo htmlspecialchars($subject['grade']['grade_letter'] ?? '—'); ?></td>
+                        <td><?php echo htmlspecialchars($subject['grade']['grade_letter'] ?? '-'); ?></td>
                         <td><?php echo htmlspecialchars($subject['grade']['remark'] ?? 'Grade not configured'); ?></td>
                         <td><?php echo htmlspecialchars($subject['status']); ?></td>
                     <?php else: ?>
-                        <td>—</td><td>—</td><td>—</td><td class="status-pending"><?php echo htmlspecialchars($subject['status']); ?></td>
+                        <td>-</td><td>-</td><td>-</td><td class="status-pending"><?php echo htmlspecialchars($subject['status']); ?></td>
                     <?php endif; ?>
                 </tr>
             <?php endforeach; ?>
@@ -89,7 +89,7 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
         <span><strong>Passed:</strong> <?php echo (int)$summary['passed']; ?></span>
         <span><strong>Failed:</strong> <?php echo (int)$summary['failed']; ?></span>
         <span><strong>Total score:</strong> <?php echo number_format((float)$summary['total'], 2); ?></span>
-        <span><strong>Average:</strong> <?php echo $summary['average'] === null ? '—' : number_format((float)$summary['average'], 2) . '%'; ?></span>
+        <span><strong>Average:</strong> <?php echo $summary['average'] === null ? '-' : number_format((float)$summary['average'], 2) . '%'; ?></span>
         <?php if (!$summary['all_released']): ?><span class="text-muted">Some subjects have no released result yet.</span><?php endif; ?>
     </section>
 </main>

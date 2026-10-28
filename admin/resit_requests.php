@@ -208,10 +208,10 @@ try {
                                         <div class="col-12 d-flex gap-2"><button name="decision" value="approve" class="btn btn-success btn-sm"><i class="fas fa-check me-1"></i> Approve & Schedule</button><button name="decision" value="reject" class="btn btn-outline-danger btn-sm"><i class="fas fa-times me-1"></i> Reject</button></div>
                                     </form>
                                 <?php else: ?>
-                                    <div><?php echo $request['resit_date'] ? htmlspecialchars(date('M j, Y', strtotime($request['resit_date']))) : '—'; ?></div>
+                                    <div><?php echo $request['resit_date'] ? htmlspecialchars(date('M j, Y', strtotime($request['resit_date']))) : '-'; ?></div>
                                     <?php if ($request['status'] === 'approved'): ?><div class="small">Penalty: <?php echo number_format((float)$request['penalty_percentage'], 2); ?>%</div><?php endif; ?>
                                     <div class="small text-muted"><?php echo $request['resit_start_time'] ? htmlspecialchars(date('g:i A', strtotime($request['resit_start_time'])) . ' - ' . date('g:i A', strtotime($request['resit_end_time'])) . ' · ' . $request['venue']) : ''; ?></div>
-                                    <?php if ($request['status'] === 'approved' && (int)$request['resit_question_count'] === 0): ?><div class="small text-warning mt-1">Awaiting teacher question setup</div><?php elseif ($request['status'] === 'approved' && !$request['resit_subject_published']): ?><div class="small text-success mt-1">Questions ready — available to the approved student</div><?php endif; ?>
+                                    <?php if ($request['status'] === 'approved' && (int)$request['resit_question_count'] === 0): ?><div class="small text-warning mt-1">Awaiting teacher question setup</div><?php elseif ($request['status'] === 'approved' && !$request['resit_subject_published']): ?><div class="small text-success mt-1">Questions ready - available to the approved student</div><?php endif; ?>
                                 <?php endif; ?>
                             </td>
                         </tr>

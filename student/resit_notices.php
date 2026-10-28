@@ -38,7 +38,7 @@ try {
                 <h4 class="alert-heading fw-bold mb-2">
                     <?php echo $notice['status'] === 'approved' ? 'RESIT APPROVED' : ($notice['status'] === 'rejected' ? 'RESIT REQUEST DECLINED' : 'RESIT REQUEST NOTICE'); ?>
                 </h4>
-                <p class="mb-1"><strong><?php echo htmlspecialchars($notice['subject_name']); ?></strong> — <?php echo htmlspecialchars($notice['exam_title']); ?></p>
+                <p class="mb-1"><strong><?php echo htmlspecialchars($notice['subject_name']); ?></strong> - <?php echo htmlspecialchars($notice['exam_title']); ?></p>
                 <?php if ($notice['status'] === 'approved'): ?>
                     <p class="mb-1"><strong>Date:</strong> <?php echo htmlspecialchars(date('l, F j, Y', strtotime($notice['resit_date']))); ?></p>
                     <p class="mb-1"><strong>Time:</strong> <?php echo htmlspecialchars(date('g:i A', strtotime($notice['resit_start_time'])) . ' - ' . date('g:i A', strtotime($notice['resit_end_time']))); ?></p>

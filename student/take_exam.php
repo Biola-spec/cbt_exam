@@ -718,7 +718,6 @@ if (!empty($questions)) {
         .calc-keys button.btn-sci:hover {
             background: rgba(59, 130, 246, 0.4);
             color: #fff;
-            transform: scale(1.05);
         }
         /* operator keys */
         .calc-keys button.btn-op {
@@ -729,7 +728,6 @@ if (!empty($questions)) {
         .calc-keys button.btn-op:hover {
             background: rgba(245, 158, 11, 0.4);
             color: #fff;
-            transform: scale(1.05);
         }
         /* number keys */
         .calc-keys button.btn-num {
@@ -740,7 +738,6 @@ if (!empty($questions)) {
         .calc-keys button.btn-num:hover {
             background: rgba(255, 255, 255, 0.18);
             color: #fff;
-            transform: scale(1.05);
         }
         /* action keys */
         .calc-keys button.btn-ac {
@@ -754,36 +751,33 @@ if (!empty($questions)) {
             transform: scale(1.05);
         }
         .calc-keys button.btn-del {
-            background: rgba(236, 72, 153, 0.2);
-            color: #f472b6;
-            border: 1px solid rgba(236, 72, 153, 0.3);
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
         .calc-keys button.btn-del:hover {
-            background: rgba(236, 72, 153, 0.4);
+            background: rgba(239, 68, 68, 0.4);
             color: #fff;
-            transform: scale(1.05);
         }
         .calc-keys button.btn-eq {
-            background: linear-gradient(135deg, #10b981, #059669);
+            background: #16835e;
             color: #fff;
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
         .calc-keys button.btn-eq:hover {
-            background: linear-gradient(135deg, #34d399, #059669);
-            transform: scale(1.05);
+            background: #126b4d;
             box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
         }
         #toggleCalc {
-            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            background: var(--brand-navy);
             border: none;
             width: 60px;
             height: 60px;
             font-size: 24px;
             box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
-            transition: all 0.3s ease;
+            transition: background-color 0.16s ease, box-shadow 0.16s ease;
         }
         #toggleCalc:hover {
-            transform: scale(1.1) rotate(5deg);
             box-shadow: 0 6px 24px rgba(59, 130, 246, 0.6);
         }
     </style>

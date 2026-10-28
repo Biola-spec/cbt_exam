@@ -207,19 +207,19 @@ body.print-one .term-report-page .report-paper:not(.print-active){display:none}
                         <td class="numeric"><?php echo $printedSubjectIndex; ?></td>
                         <td class="subject-cell"><?php echo htmlspecialchars($subject['name']); ?></td>
                         <?php foreach ($report['components'] as $component): $componentScore = $subject['scores'][$component['type']][$component['number']] ?? null; ?>
-                            <td class="numeric"><?php echo $componentScore === null ? '—' : htmlspecialchars(rtrim(rtrim(number_format($componentScore, 2, '.', ''), '0'), '.')); ?></td>
+                            <td class="numeric"><?php echo $componentScore === null ? '-' : htmlspecialchars(rtrim(rtrim(number_format($componentScore, 2, '.', ''), '0'), '.')); ?></td>
                         <?php endforeach; ?>
-                        <td class="numeric fw-semibold"><?php echo $subject['has_score'] ? number_format($subject['total'], 2) : '—'; ?></td>
-                        <td class="numeric fw-semibold"><?php echo htmlspecialchars($subject['grade'] ?: '—'); ?></td>
-                        <td class="remark-cell"><?php echo htmlspecialchars($subject['grade_remark'] ?: '—'); ?></td>
+                        <td class="numeric fw-semibold"><?php echo $subject['has_score'] ? number_format($subject['total'], 2) : '-'; ?></td>
+                        <td class="numeric fw-semibold"><?php echo htmlspecialchars($subject['grade'] ?: '-'); ?></td>
+                        <td class="remark-cell"><?php echo htmlspecialchars($subject['grade_remark'] ?: '-'); ?></td>
                     </tr><?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
             <section class="report-summary" aria-label="Term summary">
-                <div><strong>Total score</strong><?php echo $report['summary']['maximum'] > 0 ? number_format($report['summary']['total'], 2) . ' / ' . number_format($report['summary']['maximum'], 2) : '—'; ?></div>
-                <div><strong>Average score</strong><?php echo $report['summary']['average'] === null ? '—' : number_format($report['summary']['average'], 1) . '%'; ?></div>
-                <div><strong>Overall grade</strong><?php echo htmlspecialchars($report['summary']['grade'] ?: '—'); ?></div>
+                <div><strong>Total score</strong><?php echo $report['summary']['maximum'] > 0 ? number_format($report['summary']['total'], 2) . ' / ' . number_format($report['summary']['maximum'], 2) : '-'; ?></div>
+                <div><strong>Average score</strong><?php echo $report['summary']['average'] === null ? '-' : number_format($report['summary']['average'], 1) . '%'; ?></div>
+                <div><strong>Overall grade</strong><?php echo htmlspecialchars($report['summary']['grade'] ?: '-'); ?></div>
                 <div><strong>Subjects</strong><?php echo (int)$report['summary']['subjects']; ?></div>
             </section>
             <?php if ($report['attendance']['school_days_open'] > 0): ?><section class="report-attendance" aria-label="Attendance summary">

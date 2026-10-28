@@ -57,7 +57,31 @@ function isPublicExamSession(): bool {
 
 function isLoggedIn() {
     if (isPublicExamSession()) return false;
-    return isset($_SESSION['user_id']) && isset($_SESSION['role']) && empty($_SESSION['public_exam_access']);
+    if (!isset($_SESSION['user_id'], $_SESSION['role']) || !empty($_SESSION['public_exam_access'])) return false;
+
+    // A student whose account was removed by an administrator must lose access
+    // even if their browser still has an older authenticated session.
+    if ($_SESSION['role'] === 'student') {
+        static $studentAccountChecks = [];
+        $studentId = (int)$_SESSION['user_id'];
+        if (!array_key_exists($studentId, $studentAccountChecks)) {
+            require_once __DIR__ . '/database.php';
+            $db = getDBConnection();
+            if (!$db) return false;
+            $stmt = $db->prepare("SELECT id FROM users WHERE id=? AND role='student' LIMIT 1");
+            if (!$stmt) return false;
+            $stmt->bind_param('i', $studentId);
+            $stmt->execute();
+            $studentAccountChecks[$studentId] = (bool)$stmt->get_result()->fetch_row();
+            $stmt->close();
+        }
+        if (!$studentAccountChecks[$studentId]) {
+            unset($_SESSION['user_id'], $_SESSION['email'], $_SESSION['full_name'], $_SESSION['role'], $_SESSION['class_id']);
+            return false;
+        }
+    }
+
+    return true;
 }
 
 // Get current user role

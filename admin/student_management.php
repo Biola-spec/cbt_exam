@@ -433,7 +433,7 @@ try {
         <div class="modal fade" id="bulkPasswordConfirmModal" tabindex="-1" aria-labelledby="bulkPasswordConfirmTitle" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content border-0 shadow-lg overflow-hidden">
-                    <div class="text-center px-4 pt-4 pb-3" style="background: linear-gradient(135deg, #fff8e6, #fff);">
+                    <div class="text-center px-4 pt-4 pb-3" style="background: #fff;">
                         <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width: 76px; height: 76px; background: #fff0c2; color: #9a6700;">
                             <i class="fas fa-key fa-2x"></i>
                         </div>

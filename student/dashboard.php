@@ -12,6 +12,14 @@ if (getUserRole() !== 'student') {
 
 $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'available';
 $body_class = 'student-dashboard-page';
+$candidateType = 'student';
+$candidateCheckDb = getDBConnection();
+if ($candidateCheckDb) {
+    $candidateCheck = $candidateCheckDb->prepare('SELECT candidate_type FROM entrance_applications WHERE user_id=? LIMIT 1');
+    $candidateUserId = (int)getUserId(); $candidateCheck->bind_param('i', $candidateUserId); $candidateCheck->execute();
+    $candidateType = $candidateCheck->get_result()->fetch_assoc()['candidate_type'] ?? 'student'; $candidateCheck->close();
+}
+$isTeacherInterviewCandidate = $candidateType === 'teacher';
 $releasedTermResults = 0;
 try {
     $notificationDb = getDBConnection();
@@ -27,7 +35,7 @@ try {
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h1 class="dashboard-title"><i class="fas fa-user-graduate me-2"></i> Student Dashboard</h1>
+                <h1 class="dashboard-title"><i class="fas fa-user-graduate me-2"></i> <?php echo $isTeacherInterviewCandidate ? 'Teacher Interview Portal' : 'Student Dashboard'; ?></h1>
                 <p class="mb-0">Welcome, <?php echo htmlspecialchars(getUserName()); ?></p>
             </div>
             <div class="col-md-6 text-md-end">
@@ -67,10 +75,10 @@ try {
                 <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
                     <i class="fas fa-poll me-2"></i> My Examination Results
                 </a>
-                <a href="term_results.php" class="list-group-item list-group-item-action">
+                <?php if (!$isTeacherInterviewCandidate): ?><a href="term_results.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-award me-2"></i> Academic Term Results
                     <?php if ($releasedTermResults > 0): ?><span class="badge bg-success float-end"><?php echo $releasedTermResults; ?></span><?php endif; ?>
-                </a>
+                </a><?php endif; ?>
                 <form method="POST" action="../logout.php" class="list-group-item list-group-item-action p-0">
                     <button type="submit" class="btn btn-link text-danger w-100 text-start px-3 py-2 border-0 text-decoration-none" style="display: block; background: none; box-shadow: none;">
                         <i class="fas fa-sign-out-alt me-2"></i> Logout

@@ -492,7 +492,7 @@ updateSubjectOptions();
                             <?php else: ?>
                                 <td colspan="3" class="text-muted"><?php echo $attempt ? 'Score pending marking' : 'No submitted score'; ?></td>
                                 <td><span class="badge bg-<?php echo $attempt ? 'warning text-dark' : 'secondary'; ?>"><?php echo $attempt ? 'Pending' : 'Not Taken'; ?></span></td>
-                                <td class="text-muted">—</td>
+                                <td class="text-muted">-</td>
                             <?php endif; ?>
                             <td>
                                 <?php $resit_request = $resit_requests[$student['student_id']] ?? null; ?>
@@ -584,7 +584,7 @@ updateSubjectOptions();
 }
 
 .resit-modal-header {
-    background: linear-gradient(135deg, #1d4ed8 0%, #4338ca 100%);
+    background: var(--brand-navy);
     padding: 1.25rem 1.5rem;
 }
 

@@ -170,28 +170,13 @@ try {
                         <h1 class="display-5 text-primary fw-bold mb-3">Exam Completed</h1>
                         <p class="lead mb-4">Your result will appear in My Examination Results after publication and marking are complete.</p>
                     <?php elseif ($passed): ?>
-                        <!-- Success Animation -->
-                        <div class="mb-4">
-                            <div class="success-animation">
-                                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
-                                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
-                                    <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
-                                </svg>
-                            </div>
-                        </div>
+                        <div class="exam-outcome-icon text-success mb-4" aria-hidden="true"><i class="fas fa-circle-check"></i></div>
                         
                         <h1 class="display-4 text-success fw-bold mb-3">Congratulations!</h1>
                         <p class="lead mb-4">You have successfully completed the exam.</p>
                         
-                        <!-- Jumping Student Animation -->
-                        <div class="mb-4">
-                            <div class="jumping-student">😊</div>
-                        </div>
                     <?php else: ?>
-                        <!-- Sad Student Animation -->
-                        <div class="mb-4">
-                            <div class="sad-student">😢</div>
-                        </div>
+                        <div class="exam-outcome-icon text-primary mb-4" aria-hidden="true"><i class="fas fa-circle-info"></i></div>
                         
                         <h1 class="display-4 text-primary fw-bold mb-3">Exam Completed</h1>
                         <p class="lead mb-4">You have finished the exam. Better luck next time!</p>
