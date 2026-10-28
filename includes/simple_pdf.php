@@ -71,7 +71,8 @@ function resultPdfBuild(array $sheet): string {
             foreach ($lines as $lineIndex => $line) $addText($page, $x, $y - $lineIndex * 11, $line, 8.5, false);
             $x += $widths[$col];
         }
-        $drawLine($page, 38, $y - 7, 557, $y - 7);
+        // Place the row border below every wrapped line, not just below the first baseline.
+        $drawLine($page, 38, $y - $rowHeight + 5, 557, $y - $rowHeight + 5);
         $y -= $rowHeight;
     }
     if ($y < 95) $startPage($page, $y, false);
