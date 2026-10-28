@@ -141,6 +141,10 @@ try {
         $resit_schema_available = $resit_column_check && $resit_column_check->num_rows > 0;
         $resit_request_select = $resit_schema_available ? 'es.resit_request_id' : 'NULL';
         $regular_exam_filter = "es.class_id = {$student_class_id} AND e.is_published = 1 AND es.is_published = 1";
+        if (!$public_exam_access) {
+            $safeStudentId = (int)$current_user_id;
+            $regular_exam_filter = "(({$regular_exam_filter} AND NOT EXISTS (SELECT 1 FROM entrance_exams x WHERE x.exam_subject_id=es.id)) OR (e.is_published=1 AND es.is_published=1 AND EXISTS (SELECT 1 FROM entrance_applications ea JOIN entrance_exams root_ee ON root_ee.id=ea.entrance_exam_id JOIN exam_subjects root_es ON root_es.id=root_ee.exam_subject_id JOIN entrance_exams target_ee ON target_ee.exam_subject_id=es.id JOIN exam_subjects target_es ON target_es.id=target_ee.exam_subject_id WHERE ea.user_id={$safeStudentId} AND ea.status IN ('pending','admitted') AND root_es.exam_id=target_es.exam_id)))";
+        }
         if ($public_exam_access) {
             $regular_exam_filter .= " AND s.subject_code = ?";
         }

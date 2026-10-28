@@ -46,6 +46,19 @@ try {
         header('Location: my_exams.php');
         exit();
     }
+
+    // Entrance exam questions are editable only by their assigned teacher (or an admin).
+    $entranceCheck = $mysqli->prepare("SELECT teacher_id FROM entrance_exams WHERE exam_subject_id = ? LIMIT 1");
+    if ($entranceCheck) {
+        $entranceCheck->bind_param('i', $exam_subject['exam_subject_id']);
+        $entranceCheck->execute();
+        $entranceAssignment = $entranceCheck->get_result()->fetch_assoc();
+        $entranceCheck->close();
+        if ($entranceAssignment && getUserRole() === 'teacher' && (int)$entranceAssignment['teacher_id'] !== (int)getUserId()) {
+            http_response_code(403);
+            exit('This entrance exam is assigned to another teacher.');
+        }
+    }
     
     // Get all comprehension passages for this exam subject
     $stmt = $mysqli->prepare("SELECT id, passage_title, passage_content, start_question_number, end_question_number FROM comprehension_passages WHERE exam_subject_id = ? ORDER BY start_question_number");

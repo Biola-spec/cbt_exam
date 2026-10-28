@@ -6,7 +6,7 @@ if (!isset($mysqli)) {
 
 // Fetch all exams for the dropdown
 $exams = [];
-$exam_res = $mysqli->query("SELECT id, title FROM exams ORDER BY created_at DESC");
+$exam_res = $mysqli->query("SELECT e.id, e.title FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.created_at DESC");
 if ($exam_res) {
     while ($row = $exam_res->fetch_assoc()) {
         $exams[] = $row;

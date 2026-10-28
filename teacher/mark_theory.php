@@ -57,7 +57,14 @@ try {
         $stmt = $mysqli->prepare("SELECT id FROM teacher_allocations WHERE teacher_id = ? AND class_id = ? AND subject_id = ? LIMIT 1");
         $stmt->bind_param("iii", $current_user_id, $attempt['class_id'], $attempt['subject_id']);
         $stmt->execute();
-        if (!$stmt->get_result()->fetch_assoc()) {
+        $hasRegularAllocation = (bool)$stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $stmt = $mysqli->prepare("SELECT 1 FROM entrance_exams WHERE exam_subject_id=? AND teacher_id=? LIMIT 1");
+        $stmt->bind_param('ii', $attempt['exam_subject_id'], $current_user_id);
+        $stmt->execute();
+        $hasEntranceAssignment = (bool)$stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$hasRegularAllocation && !$hasEntranceAssignment) {
             header('Location: dashboard.php?tab=results');
             exit();
         }

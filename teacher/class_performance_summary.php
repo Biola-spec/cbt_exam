@@ -44,7 +44,7 @@ try {
                           FROM exams e
                           JOIN exam_subjects es ON e.id = es.exam_id
                           JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
-                          WHERE ta.teacher_id = ?
+                          WHERE ta.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                           ORDER BY e.title");
     $stmt->bind_param("i", $current_user_id);
     $stmt->execute();
@@ -67,7 +67,7 @@ try {
             // Build query based on whether an exam is selected
             if ($selected_exam_id > 0) {
                 // Check if the selected exam is allocated to this teacher
-                $check_exam_stmt = $mysqli->prepare("SELECT COUNT(*) as count FROM exam_subjects es JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id WHERE ta.teacher_id = ? AND es.class_id = ? AND es.exam_id = ?");
+                $check_exam_stmt = $mysqli->prepare("SELECT COUNT(*) as count FROM exam_subjects es JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id WHERE ta.teacher_id = ? AND es.class_id = ? AND es.exam_id = ? AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)");
                 $check_exam_stmt->bind_param("iii", $current_user_id, $selected_class_id, $selected_exam_id);
                 $check_exam_stmt->execute();
                 $check_exam_result = $check_exam_stmt->get_result();
@@ -88,7 +88,7 @@ try {
                             JOIN classes c ON es.class_id = c.id
                             JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
                             WHERE es.class_id = ? AND ta.teacher_id = ? AND ea.exam_id = ?
-                            AND ea.submitted_at IS NOT NULL
+                            AND ea.submitted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                             GROUP BY s.id, s.name
                             ORDER BY s.name";
 
@@ -115,7 +115,7 @@ try {
                         JOIN classes c ON es.class_id = c.id
                         JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
                         WHERE es.class_id = ? AND ta.teacher_id = ?
-                        AND ea.submitted_at IS NOT NULL
+                        AND ea.submitted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                         GROUP BY s.id, s.name
                         ORDER BY s.name";
 

@@ -29,7 +29,7 @@ try {
     }
     
     // Get all exams
-    $stmt = $mysqli->prepare("SELECT id, title FROM exams ORDER BY title");
+    $stmt = $mysqli->prepare("SELECT e.id, e.title FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.title");
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -50,7 +50,7 @@ try {
                     JOIN subjects s ON es.subject_id = s.id
                     JOIN classes c ON es.class_id = c.id
                     WHERE es.class_id = ? AND ea.exam_id = ?
-                    AND ea.submitted_at IS NOT NULL
+                    AND ea.submitted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                     GROUP BY s.id, s.name
                     ORDER BY s.name";
             
@@ -68,7 +68,7 @@ try {
                     JOIN subjects s ON es.subject_id = s.id
                     JOIN classes c ON es.class_id = c.id
                     WHERE es.class_id = ?
-                    AND ea.submitted_at IS NOT NULL
+                    AND ea.submitted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                     GROUP BY s.id, s.name
                     ORDER BY s.name";
             

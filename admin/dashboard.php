@@ -137,6 +137,9 @@ try {
                 <a href="dashboard.php?tab=students" class="list-group-item list-group-item-action <?php echo $active_tab === 'students' ? 'active' : ''; ?>">
                     <i class="fas fa-user-graduate me-2"></i> Students
                 </a>
+                <a href="entrance_admissions.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-user-check me-2"></i> Entrance admissions
+                </a>
                 <a href="add_teacher.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-user-plus me-2"></i> Add Teacher
                 </a>

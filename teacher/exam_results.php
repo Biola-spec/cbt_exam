@@ -49,7 +49,7 @@ try {
             JOIN subjects s ON es.subject_id = s.id
             JOIN users u ON ea.student_id = u.id
             JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
-            WHERE ta.teacher_id = ? AND ea.submitted_at IS NOT NULL";
+            WHERE ta.teacher_id = ? AND ea.submitted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)";
     
     $params = array($current_user_id);
     $types = "i";

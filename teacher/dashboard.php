@@ -82,6 +82,9 @@ try {
                 <a href="dashboard.php?tab=exams" class="list-group-item list-group-item-action <?php echo $active_tab === 'exams' ? 'active' : ''; ?>">
                     <i class="fas fa-file-alt me-2"></i> My Exams
                 </a>
+                <a href="entrance_exams.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-user-graduate me-2"></i> Entrance Exams
+                </a>
                 <a href="dashboard.php?tab=results" class="list-group-item list-group-item-action <?php echo $active_tab === 'results' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-bar me-2"></i> Exam Results
                 </a>
@@ -129,7 +132,7 @@ try {
                                               FROM exams e
                                               JOIN exam_subjects es ON e.id = es.exam_id
                                               JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
-                                              WHERE ta.teacher_id = ?
+                                              WHERE ta.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                                               ORDER BY e.created_at DESC");
                         $stmt->bind_param("i", $current_user_id); // Use the variable instead of function call
                         $stmt->execute();

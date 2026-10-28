@@ -9,6 +9,27 @@ if ((!$public_exam_access && !isLoggedIn()) || getUserRole() !== 'student') {
 }
 
 if (!$public_exam_access) {
+    $db = getDBConnection();
+    $candidateId = (int)getUserId();
+    $appStmt = $db->prepare("SELECT ea.id,ea.status,e.id AS exam_id,e.title,e.description,c.name AS class_name,COUNT(DISTINCT ee.exam_subject_id) AS subject_count,(SELECT COUNT(DISTINCT a.exam_subject_id) FROM exam_attempts a JOIN exam_subjects done_es ON done_es.id=a.exam_subject_id JOIN entrance_exams done_ee ON done_ee.exam_subject_id=done_es.id WHERE a.student_id=? AND done_es.exam_id=e.id AND a.submitted_at IS NOT NULL) AS completed_subjects,(SELECT COUNT(DISTINCT a.exam_subject_id) FROM exam_attempts a JOIN exam_subjects active_es ON active_es.id=a.exam_subject_id JOIN entrance_exams active_ee ON active_ee.exam_subject_id=active_es.id WHERE a.student_id=? AND active_es.exam_id=e.id AND a.submitted_at IS NULL) AS in_progress_subjects FROM entrance_applications ea JOIN entrance_exams root_ee ON root_ee.id=ea.entrance_exam_id JOIN exam_subjects root_es ON root_es.id=root_ee.exam_subject_id JOIN exams e ON e.id=root_es.exam_id JOIN classes c ON c.id=ea.target_class_id JOIN entrance_exams ee ON ee.exam_subject_id IN (SELECT x.exam_subject_id FROM entrance_exams x JOIN exam_subjects xs ON xs.id=x.exam_subject_id WHERE xs.exam_id=e.id) JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE ea.user_id=? AND ea.status IN ('pending','admitted') AND e.is_published=1 GROUP BY ea.id,ea.status,e.id,e.title,e.description,c.name HAVING subject_count=SUM(es.is_published)");
+    $appStmt->bind_param('iii',$candidateId,$candidateId,$candidateId); $appStmt->execute(); $candidateExams=$appStmt->get_result()->fetch_all(MYSQLI_ASSOC); $appStmt->close();
+    $statusStmt=$db->prepare('SELECT status FROM entrance_applications WHERE user_id=?'); $statusStmt->bind_param('i',$candidateId); $statusStmt->execute(); $candidateStatus=$statusStmt->get_result()->fetch_assoc()['status']??null; $statusStmt->close();
+    if ($candidateStatus !== null) {
+        if ($candidateStatus === 'rejected') {
+            echo '<div class="alert alert-danger">Your entrance application was not admitted. You can still view any results already released below.</div>';
+        } else {
+            echo '<h5>Entrance Examination</h5><p class="text-muted">This exam is for admission consideration. Your account will join the class only after the admin admits you.</p>';
+            if (!$candidateExams) echo '<div class="alert alert-info">Your entrance exam is not fully published yet. Check back later.</div>';
+            foreach ($candidateExams as $exam) {
+                $completed=(int)$exam['completed_subjects']; $total=(int)$exam['subject_count']; $done=$completed >= $total; $label=$done?'View Entrance Results':((int)$exam['in_progress_subjects']>0?'Continue Entrance Exam':'Start Entrance Exam');
+                $url='take_entrance_exam.php?exam_id='.(int)$exam['exam_id'];
+                echo '<div class="card mb-3"><div class="card-body"><h5 class="card-title">'.htmlspecialchars($exam['title']).'</h5><p class="mb-2">'.htmlspecialchars($exam['class_name']).' · '.(int)$exam['subject_count'].' subjects in one sitting</p><p class="small text-muted">'.(int)$exam['completed_subjects'].' of '.(int)$exam['subject_count'].' subject sections completed</p><a class="btn btn-primary" href="'.htmlspecialchars($url).'">'.htmlspecialchars($label).'</a></div></div>';
+            }
+            if ($candidateStatus === 'admitted') echo '<div class="alert alert-success">You have been admitted. Your class access is now active. <a href="../login.php?exam_access=1" class="alert-link">Open a regular published exam</a>.</div>';
+        }
+        echo '<a class="btn btn-outline-primary" href="dashboard.php?tab=results">View examination results</a>';
+        return;
+    }
     ?>
     <div class="alert alert-primary border-0 shadow-sm p-4">
         <h5 class="alert-heading"><i class="fas fa-lock me-2"></i>No subject exam selected</h5>
@@ -95,6 +116,7 @@ try {
                WHERE 1 = 1" . $exam_visibility_filter . "
                AND es.class_id = ?
                " . $student_subject_filter . "
+               AND NOT EXISTS (SELECT 1 FROM entrance_exams entrance_filter WHERE entrance_filter.exam_subject_id=es.id)
                ORDER BY e.published_at DESC";
 
     $stmt = $mysqli->prepare($query);

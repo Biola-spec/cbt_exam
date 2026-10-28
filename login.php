@@ -123,6 +123,7 @@ function authenticateStudentWithSubjectCode($email, $subject_code) {
         JOIN exam_subjects es ON es.subject_id = s.id AND es.class_id = u.class_id AND es.is_published = 1
         JOIN exams e ON e.id = es.exam_id AND e.is_published = 1
         WHERE u.email = ? AND u.role = 'student' AND u.class_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
         LIMIT 1");
     if (!$stmt) return false;
     $stmt->bind_param('ss', $subject_code, $email);

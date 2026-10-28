@@ -114,7 +114,7 @@ try {
     $mysqli = getDBConnection();
     if ($mysqli) {
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, e.result_session_id, e.result_term, e.result_component_type, e.result_component_number, e.description, e.is_published, e.published_at, e.created_by, e.created_at FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.created_at DESC");
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
@@ -174,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 }
                 
                 // Refresh exams list
-                $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+                $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, e.result_session_id, e.result_term, e.result_component_type, e.result_component_number, e.description, e.is_published, e.published_at, e.created_by, e.created_at FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.created_at DESC");
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $exams = [];
@@ -210,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 $message = 'Exam updated successfully';
                 
                 // Refresh exams list
-                $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+                $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, e.result_session_id, e.result_term, e.result_component_type, e.result_component_number, e.description, e.is_published, e.published_at, e.created_by, e.created_at FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.created_at DESC");
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $exams = [];
@@ -351,7 +351,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             }
             
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, e.result_session_id, e.result_term, e.result_component_type, e.result_component_number, e.description, e.is_published, e.published_at, e.created_by, e.created_at FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.created_at DESC");
             $stmt->execute();
             $result = $stmt->get_result();
             $exams = [];
@@ -434,7 +434,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             $message = 'Exam deleted successfully';
             
             // Refresh exams list
-            $stmt = $mysqli->prepare("SELECT id, title, academic_session, result_session_id, result_term, result_component_type, result_component_number, description, is_published, published_at, created_by, created_at FROM exams ORDER BY created_at DESC");
+            $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, e.result_session_id, e.result_term, e.result_component_type, e.result_component_number, e.description, e.is_published, e.published_at, e.created_by, e.created_at FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.created_at DESC");
             $stmt->execute();
             $result = $stmt->get_result();
             $exams = [];

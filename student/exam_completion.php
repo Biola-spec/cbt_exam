@@ -42,6 +42,15 @@ try {
         exit();
     }
 
+    $entranceExamGroupId = 0;
+    $entranceGroupStmt = $mysqli->prepare("SELECT root_es.exam_id FROM entrance_applications ea JOIN entrance_exams root_ee ON root_ee.id=ea.entrance_exam_id JOIN exam_subjects root_es ON root_es.id=root_ee.exam_subject_id WHERE ea.user_id=? AND ea.status IN ('pending','admitted') AND root_es.exam_id=? LIMIT 1");
+    if ($entranceGroupStmt) {
+        $entranceGroupStmt->bind_param('ii', $_SESSION['user_id'], $attempt['exam_id']);
+        $entranceGroupStmt->execute();
+        $entranceExamGroupId = (int)($entranceGroupStmt->get_result()->fetch_assoc()['exam_id'] ?? 0);
+        $entranceGroupStmt->close();
+    }
+
     // Get the actual number of questions and marks in this exam
     $stmt = $mysqli->prepare("SELECT COUNT(*) as total,
                           SUM(CASE WHEN COALESCE(question_type, 'objective') = 'objective' THEN 1 ELSE 0 END) as objective_total,
@@ -263,6 +272,9 @@ try {
                     </div>
                     
                     <div class="mt-4">
+                        <?php if ($entranceExamGroupId > 0): ?>
+                            <a href="take_entrance_exam.php?exam_id=<?php echo $entranceExamGroupId; ?>" class="btn btn-success btn-lg mb-3"><i class="fas fa-arrow-right me-2"></i>Continue entrance exam</a><br>
+                        <?php endif; ?>
                         <?php if ($result_is_released): ?>
                             <a href="result_sheet.php?exam_id=<?php echo (int)$attempt['exam_id']; ?>" class="btn btn-primary btn-lg"><i class="fas fa-poll me-2"></i>View Results Sheet</a>
                             <a href="print_exam_result.php?attempt_id=<?php echo (int)$attempt_id; ?>" class="btn btn-outline-success btn-lg ms-2" target="_blank"><i class="fas fa-list-check me-2"></i>View Questions &amp; Answers</a>

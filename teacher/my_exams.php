@@ -27,7 +27,7 @@ try {
               FROM exams e
               JOIN exam_subjects es ON e.id = es.exam_id
               JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
-              WHERE ta.teacher_id = ?";
+              WHERE ta.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)";
     
     if ($exam_id > 0) {
         $query .= " AND e.id = ?";

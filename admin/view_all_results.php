@@ -29,7 +29,7 @@ function getStudentsByClass($mysqli, $class_id) {
                                      FROM users u 
                                      JOIN exam_attempts ea ON u.id = ea.student_id
                                      JOIN exam_subjects es ON ea.exam_subject_id = es.id
-                                     WHERE u.role = 'student' AND es.class_id = ?
+                                     WHERE u.role = 'student' AND es.class_id = ? AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                                      ORDER BY u.full_name");
             $stmt->bind_param("i", $class_id);
         } else {
@@ -65,7 +65,7 @@ try {
     $students = getStudentsByClass($mysqli, $selected_class_id);
     
     // Get all exams
-    $stmt = $mysqli->prepare("SELECT id, title FROM exams ORDER BY title");
+    $stmt = $mysqli->prepare("SELECT e.id, e.title FROM exams e WHERE NOT EXISTS (SELECT 1 FROM entrance_exams ee JOIN exam_subjects es ON es.id=ee.exam_subject_id WHERE es.exam_id=e.id) ORDER BY e.title");
     $stmt->execute();
     $result = $stmt->get_result();
     while ($row = $result->fetch_assoc()) {
@@ -82,7 +82,7 @@ try {
             JOIN classes c ON es.class_id = c.id
             JOIN subjects s ON es.subject_id = s.id
             JOIN users u ON ea.student_id = u.id
-            WHERE ea.submitted_at IS NOT NULL";
+            WHERE ea.submitted_at IS NOT NULL AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)";
     
     $params = array();
     $types = "";
