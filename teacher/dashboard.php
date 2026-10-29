@@ -40,8 +40,7 @@ try {
                 <h1 class="dashboard-title"><i class="fas fa-chalkboard-teacher me-2"></i> Teacher Dashboard</h1>
                 <p class="mb-0">Manage your exams and questions</p>
                 <div class="dashboard-profile-welcome">
-                    <?php if (!empty($user_photo)): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="<?php echo htmlspecialchars(getUserName()); ?> passport photograph" class="dashboard-profile-photo" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><i class="fas fa-user-circle fa-3x" aria-hidden="true" hidden></i>
-                    <?php else: ?><i class="fas fa-user-circle fa-3x" aria-hidden="true"></i><?php endif; ?>
+                    <?php if (!empty($user_photo)): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="<?php echo htmlspecialchars(getUserName()); ?> passport photograph" class="dashboard-profile-photo" onerror="this.hidden=true"><?php endif; ?>
                     <span>Signed in as <strong><?php echo htmlspecialchars(getUserName()); ?></strong></span>
                 </div>
             </div>

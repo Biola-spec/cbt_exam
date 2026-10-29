@@ -97,15 +97,13 @@
                         
                         <li class="nav-item d-lg-none">
                             <span class="nav-link text-light border-bottom pb-2 mb-2 d-flex align-items-center gap-2">
-                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><i class="fas fa-user-circle" aria-hidden="true" hidden></i>
-                                <?php else: ?><i class="fas fa-user-circle me-1" aria-hidden="true"></i><?php endif; ?>
+                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo" onerror="this.hidden=true"><?php endif; ?>
                                 <?php echo htmlspecialchars(getUserName()); ?>
                             </span>
                         </li>
                         <li class="nav-item">
                             <span class="nav-link text-light border-start ms-2 ps-3 d-none d-lg-inline-flex align-items-center gap-2">
-                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><i class="fas fa-user-circle" aria-hidden="true" hidden></i>
-                                <?php else: ?><i class="fas fa-user-circle" aria-hidden="true"></i><?php endif; ?>
+                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo" onerror="this.hidden=true"><?php endif; ?>
                                 <?php echo htmlspecialchars(getUserName()); ?>
                             </span>
                         </li>
