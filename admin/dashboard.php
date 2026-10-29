@@ -71,7 +71,7 @@ try {
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h1 class="dashboard-title"><i class="fas fa-tachometer-alt me-2"></i> Admin Dashboard</h1>
+                <h1 class="dashboard-title">Admin Dashboard</h1>
                 <p class="mb-0">Manage your CBT Exam System</p>
                 <div class="dashboard-profile-welcome">
                     <?php if (!empty($user_photo)): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="<?php echo htmlspecialchars(getUserName()); ?> passport photograph" class="dashboard-profile-photo" onerror="this.hidden=true"><?php endif; ?>

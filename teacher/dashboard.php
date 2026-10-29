@@ -37,7 +37,7 @@ try {
     <div class="container">
         <div class="row align-items-center">
             <div class="col-md-6">
-                <h1 class="dashboard-title"><i class="fas fa-chalkboard-teacher me-2"></i> Teacher Dashboard</h1>
+                <h1 class="dashboard-title">Teacher Dashboard</h1>
                 <p class="mb-0">Manage your exams and questions</p>
                 <div class="dashboard-profile-welcome">
                     <?php if (!empty($user_photo)): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="<?php echo htmlspecialchars(getUserName()); ?> passport photograph" class="dashboard-profile-photo" onerror="this.hidden=true"><?php endif; ?>
