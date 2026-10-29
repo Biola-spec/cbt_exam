@@ -43,11 +43,8 @@ function completedResitScores(mysqli $mysqli, int $classId, int $subjectId, int 
     while($row=$res->fetch_assoc()) {
         $type=$row['result_component_type']; $number=(int)$row['result_component_number']; $studentId=(int)$row['student_id'];
         if(!isset($maxScores[$type][$number]) || isset($scores[$studentId][$type][$number])) continue;
-        $examMaximum=((int)$row['objective_questions']*(float)$row['marks_per_question'])+(float)$row['theory_total_marks'];
-        if($examMaximum<=0)$examMaximum=(int)$row['total_questions']*(float)$row['marks_per_question'];
-        if($examMaximum<=0)continue;
         $creditedScore=(float)$row['score']*(1-((float)$row['penalty_percentage']/100));
-        $scores[$studentId][$type][$number]=round(min($maxScores[$type][$number],($creditedScore/$examMaximum)*$maxScores[$type][$number]),2);
+        $scores[$studentId][$type][$number]=round($creditedScore,2);
     }
     $stmt->close();
     return $scores;
@@ -190,11 +187,8 @@ if ($isAssigned && $selectedSession) {
     while($row=$importRes->fetch_assoc()) {
         $studentKey=(int)$row['student_id']; $type=$row['result_component_type']; $number=(int)$row['result_component_number'];
         if(!isset($maxScores[$type][$number]) || (int)$row['is_resit']===1 || isset($resitScores[$studentKey][$type][$number]) || array_key_exists($number,$saved[$studentKey][$type] ?? []) || isset($importedScores[$studentKey][$type][$number])) continue;
-        $examMaximum=((int)$row['objective_questions']*(float)$row['marks_per_question'])+(float)$row['theory_total_marks'];
-        if($examMaximum<=0)$examMaximum=(int)$row['total_questions']*(float)$row['marks_per_question'];
-        if($examMaximum<=0)continue;
         $creditedScore=(float)$row['score']*(1-((float)$row['penalty_percentage']/100));
-        $importedScores[$studentKey][$type][$number]=round(min($maxScores[$type][$number],($creditedScore/$examMaximum)*$maxScores[$type][$number]),2);
+        $importedScores[$studentKey][$type][$number]=round($creditedScore,2);
     }
     $stmt->close();
 }
