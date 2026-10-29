@@ -38,7 +38,7 @@ $saveSignatoryUpload = static function (): ?string {
 
 try {
     $mysqli = getDBConnection();
-    $teacherResult = $mysqli->query("SELECT id, full_name, role FROM users WHERE role IN ('teacher','admin') ORDER BY full_name");
+    $teacherResult = $mysqli->query("SELECT id, full_name, role FROM users WHERE role IN ('teacher','admin','admin_teacher') ORDER BY full_name");
     while ($teacher = $teacherResult->fetch_assoc()) {
         $teacherOptions[] = $teacher;
         $validTeacherIds[] = (int)$teacher['id'];

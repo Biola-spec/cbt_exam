@@ -463,74 +463,37 @@ try {
 
         <!-- Add Student Form -->
         <div class="card mb-4">
-            <div class="card-header bg-white border-bottom py-3">
-                <h5 class="mb-0 text-primary fw-bold"><i class="fas fa-user-plus me-2"></i>Quick Registration</h5>
+            <div class="card-header bg-white border-bottom px-4 py-3">
+                <h5 class="mb-0 text-primary fw-bold"><i class="fas fa-user-plus me-2"></i>Register a student</h5>
+                <small class="text-muted">Add the student’s account, class and profile photo.</small>
             </div>
             <div class="card-body p-4">
-                <form method="POST" enctype="multipart/form-data">
+                <form method="POST" enctype="multipart/form-data" class="registration-form">
                     <input type="hidden" name="action" value="add_student">
                     <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
-                    <div class="row mb-3">
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Full Name</label>
-                                <input type="text" class="form-control form-control-lg" name="full_name" required placeholder="Enter student's full name">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Admission Number</label>
-                                <input type="text" class="form-control form-control-lg" name="admission_number" maxlength="100" placeholder="Optional school ID">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Gmail Address</label>
-                                <input type="email" class="form-control form-control-lg" name="email" required placeholder="student.name@gmail.com">
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Student Password</label>
-                                <input type="password" class="form-control form-control-lg" name="student_password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
-                                <div class="form-text">Share this password with the student for dashboard access.</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Class</label>
-                                <select class="form-select form-select-lg" name="class_id" <?php echo !$has_class_id || empty($classes) ? 'disabled' : ''; ?> required>
-                                    <option value="">Select Class...</option>
-                                    <?php foreach ($classes as $c): ?>
-                                        <option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="mb-3">
-                                <label class="form-label fw-bold">Passport Photograph</label>
-                                <input type="file" class="form-control form-control-lg" id="add_student_passport" name="passport" accept="image/*" required>
-                                <div id="add_passport_preview_container" class="mt-2" style="display: none;">
-                                    <img id="add_passport_preview" src="" alt="Passport Preview" style="max-height: 120px; border-radius: 8px; border: 1px solid #ddd; padding: 4px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <div class="mb-3 w-100">
-                                <button type="submit" class="btn btn-primary btn-lg w-100" <?php echo !$has_class_id ? 'disabled' : ''; ?> style="height: calc(3.5rem + 2px);">
-                                    <i class="fas fa-user-plus me-2"></i>Enroll Student
-                                </button>
-                            </div>
-                        </div>
+                    <div class="registration-section-title"><span>Student details</span><small>Fields marked with * are required.</small></div>
+                    <div class="row g-3">
+                        <div class="col-md-6"><label class="form-label" for="student_full_name">Full name *</label><input type="text" class="form-control" id="student_full_name" name="full_name" required autocomplete="name" placeholder="e.g. Ada Okafor"></div>
+                        <div class="col-md-6"><label class="form-label" for="student_admission_number">Admission number</label><input type="text" class="form-control" id="student_admission_number" name="admission_number" maxlength="100" placeholder="Optional school ID"></div>
+                        <div class="col-md-6"><label class="form-label" for="student_email">Email address *</label><input type="email" class="form-control" id="student_email" name="email" required autocomplete="email" placeholder="student@school.com"></div>
+                        <div class="col-md-6"><label class="form-label" for="student_password">Password *</label><input type="password" class="form-control" id="student_password" name="student_password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><div class="form-text">Share this password with the student for dashboard access.</div></div>
+                        <div class="col-md-6"><label class="form-label" for="student_class">Class *</label><select class="form-select" id="student_class" name="class_id" <?php echo !$has_class_id || empty($classes) ? 'disabled' : ''; ?> required><option value="">Select a class</option><?php foreach ($classes as $c): ?><option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option><?php endforeach; ?></select></div>
+                        <div class="col-md-6"><label class="form-label" for="add_student_passport">Profile photo *</label><div class="student-photo-upload"><div class="student-photo-preview" id="add_passport_placeholder"><i class="fas fa-camera"></i></div><img class="student-photo-preview d-none" id="add_passport_preview" src="" alt="Passport preview"><div class="flex-grow-1"><input type="file" class="form-control" id="add_student_passport" name="passport" accept="image/*" required><div class="form-text">Choose a clear passport photograph.</div></div></div></div>
+                        <div class="col-12 d-flex justify-content-end mt-4"><button type="submit" class="btn btn-primary px-4" <?php echo !$has_class_id ? 'disabled' : ''; ?>><i class="fas fa-user-plus me-2"></i>Register student</button></div>
                     </div>
                 </form>
             </div>
         </div>
 
         <style>
+        .registration-form .form-label { font-weight: 600; color: #243247; margin-bottom: .45rem; }
+        .registration-form .form-control, .registration-form .form-select { min-height: 46px; border-color: #d8e0e9; border-radius: 10px; }
+        .registration-form .form-control:focus, .registration-form .form-select:focus { border-color: #4f7df3; box-shadow: 0 0 0 .2rem rgba(79,125,243,.14); }
+        .registration-section-title { display: flex; flex-direction: column; margin-bottom: 1.1rem; }
+        .registration-section-title span { font-weight: 700; color: #243247; }
+        .registration-section-title small { color: #748196; margin-top: .15rem; }
+        .student-photo-upload { display: flex; align-items: center; gap: 1rem; padding: .65rem; min-height: 78px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; }
+        .student-photo-preview { width: 58px; height: 58px; flex: 0 0 58px; display: grid; place-items: center; object-fit: cover; border-radius: 50%; background: #e8eef8; color: #58709b; font-size: 1.2rem; }
         @media print {
             @page { size: A4 portrait; margin: 6mm; }
             body:has(#bulk-password-print-area) #student-directory-print { display: none !important; visibility: hidden !important; }
@@ -751,8 +714,9 @@ function generateIndividualStudentPassword() {
         var preview = document.getElementById('add_passport_preview');
         if (preview) {
           preview.src = e.target.result;
-          var container = document.getElementById('add_passport_preview_container');
-          if (container) container.style.display = 'block';
+          preview.classList.remove('d-none');
+          var placeholder = document.getElementById('add_passport_placeholder');
+          if (placeholder) placeholder.classList.add('d-none');
         }
       }
       if (this.files && this.files[0]) {

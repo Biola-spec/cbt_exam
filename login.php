@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             $user = authenticateUser($email, $password);
             
-            if ($user && ($user['role'] == 'admin' || $user['role'] == 'teacher')) {
+            if ($user && in_array($user['role'], ['admin', 'teacher', 'admin_teacher'], true)) {
                 // Set session variables
                 session_regenerate_id(true);
                 unset($_SESSION['public_exam_access'], $_SESSION['public_exam_access_expires_at'], $_SESSION['subject_code']);

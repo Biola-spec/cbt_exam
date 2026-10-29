@@ -86,7 +86,9 @@ function isLoggedIn() {
 
 // Get current user role
 function getUserRole() {
-    return isset($_SESSION['role']) ? $_SESSION['role'] : null;
+    // Combined staff accounts inherit administrator scope; admin accounts are
+    // already permitted through the teacher tools and teacher assignment flows.
+    return ($_SESSION['role'] ?? null) === 'admin_teacher' ? 'admin' : ($_SESSION['role'] ?? null);
 }
 
 // Get current user name
@@ -97,6 +99,22 @@ function getUserName() {
 // Get current user ID
 function getUserId() {
     return isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null;
+}
+
+// Upgrade older installations the first time a combined staff role is saved.
+function ensureCombinedStaffRoleSupport($mysqli) {
+    static $checked = false;
+    if ($checked) return true;
+    $column = $mysqli->query("SHOW COLUMNS FROM users LIKE 'role'");
+    $definition = $column ? $column->fetch_assoc() : null;
+    if (!$definition) return false;
+    if (strpos($definition['Type'], "'admin_teacher'") !== false) {
+        $checked = true;
+        return true;
+    }
+    if (!$mysqli->query("ALTER TABLE users MODIFY role ENUM('admin','teacher','student','admin_teacher') NOT NULL")) return false;
+    $checked = true;
+    return true;
 }
 
 // Get school name with caching

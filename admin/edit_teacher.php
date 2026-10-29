@@ -25,7 +25,7 @@ try {
     $mysqli = getDBConnection();
     
     // Load the teacher
-    $stmt = $mysqli->prepare("SELECT id, email, full_name, role FROM users WHERE id = ? AND (role = 'teacher' OR role = 'admin')");
+    $stmt = $mysqli->prepare("SELECT id, email, full_name, role FROM users WHERE id = ? AND role IN ('teacher','admin','admin_teacher')");
     $stmt->bind_param("i", $teacher_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -41,9 +41,11 @@ try {
         $full_name = trim($_POST['full_name']);
         $email = trim($_POST['email']);
         $password = $_POST['password'];
-        $role = $_POST['role'] ?? 'teacher';
+        $submitted_roles = isset($_POST['roles']) && is_array($_POST['roles']) ? $_POST['roles'] : [];
+        $selected_roles = array_values(array_unique(array_intersect(['teacher', 'admin'], $submitted_roles)));
+        $role = count($selected_roles) === 2 ? 'admin_teacher' : ($selected_roles[0] ?? '');
         
-        if (!empty($full_name) && !empty($email)) {
+        if (!empty($full_name) && !empty($email) && $role !== '') {
             // Validate email format
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $message = 'Please enter a valid email address';
@@ -58,6 +60,9 @@ try {
                     $message = 'This email is already used by another teacher';
                 } else {
                     // Update teacher details
+                    if ($role === 'admin_teacher' && !ensureCombinedStaffRoleSupport($mysqli)) {
+                        throw new RuntimeException('Database role upgrade failed. Apply database/upgrade_multi_role.sql and try again.');
+                    }
                     if (!empty($password)) {
                         // Update with new password
                         $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -102,6 +107,7 @@ try {
                         // Update the teacher variable for display
                         $teacher['full_name'] = $full_name;
                         $teacher['email'] = $email;
+                        $teacher['role'] = $role;
                     } else {
                         $message = 'Error updating teacher: ' . $stmt->error;
                     }
@@ -153,12 +159,14 @@ try {
                         </div>
 
                         <div class="mb-3">
-                            <label for="role" class="form-label">User Role</label>
-                            <select class="form-select" id="role" name="role" required>
-                                <option value="teacher" <?php echo $teacher['role'] === 'teacher' ? 'selected' : ''; ?>>Teacher (Question Setter)</option>
-                                <option value="admin" <?php echo $teacher['role'] === 'admin' ? 'selected' : ''; ?>>Administrator (Full Access)</option>
-                            </select>
-                            <div class="form-text">Warning: Promoting a teacher to Admin gives them full system control.</div>
+                            <fieldset>
+                                <legend class="form-label">Account roles</legend>
+                                <div class="d-flex flex-wrap gap-4">
+                                    <label class="form-check-label"><input class="form-check-input me-2" type="checkbox" name="roles[]" value="teacher" <?php echo in_array($teacher['role'], ['teacher','admin_teacher'], true) ? 'checked' : ''; ?>>Teacher</label>
+                                    <label class="form-check-label"><input class="form-check-input me-2" type="checkbox" name="roles[]" value="admin" <?php echo in_array($teacher['role'], ['admin','admin_teacher'], true) ? 'checked' : ''; ?>>Admin</label>
+                                </div>
+                            </fieldset>
+                            <div class="form-text">Select Teacher, Admin, or both.</div>
                         </div>
                         
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">

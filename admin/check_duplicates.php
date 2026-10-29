@@ -3,7 +3,7 @@ require_once '../config/database.php';
 require_once '../config/session.php';
 
 // Only allow admin access
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || getUserRole() !== 'admin') {
     header('Location: ../auth/login.php');
     exit();
 }

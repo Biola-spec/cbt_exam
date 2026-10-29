@@ -27,7 +27,7 @@ CREATE TABLE `users` (
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   `full_name` varchar(255) NOT NULL,
-  `role` enum('admin','teacher','student') NOT NULL,
+  `role` enum('admin','teacher','student','admin_teacher') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

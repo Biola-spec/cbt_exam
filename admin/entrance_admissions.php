@@ -136,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $classes = $db->query('SELECT id,name FROM classes ORDER BY name')->fetch_all(MYSQLI_ASSOC);
-$teachers = $db->query("SELECT id,full_name,role FROM users WHERE role IN ('teacher','admin') ORDER BY full_name")->fetch_all(MYSQLI_ASSOC);
+$teachers = $db->query("SELECT id,full_name,role FROM users WHERE role IN ('teacher','admin','admin_teacher') ORDER BY full_name")->fetch_all(MYSQLI_ASSOC);
 $subjects = $db->query('SELECT id,name FROM subjects ORDER BY name')->fetch_all(MYSQLI_ASSOC);
 $classSubjectIds = [];
 $classSubjectResult = $db->query('SELECT class_id,subject_id FROM subject_class_link');

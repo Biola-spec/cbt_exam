@@ -22,6 +22,10 @@
     }
     ?>
     <link href="<?php echo $base_url; ?>assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>" rel="stylesheet">
+    <style>
+        .user-profile-photo { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; }
+        @media (max-width: 991.98px) { .user-profile-photo { width: 28px; height: 28px; } }
+    </style>
 </head>
 <body class="<?php echo isset($body_class) ? htmlspecialchars($body_class) : ''; ?>">
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -50,6 +54,27 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <?php if (isLoggedIn()): ?>
+                        <?php
+                        // The session stores identity only; load the current profile photo from the users table.
+                        $user_photo = '';
+                        if (getUserId()) {
+                            require_once __DIR__ . '/../config/database.php';
+                            $photo_db = getDBConnection();
+                            if ($photo_db) {
+                                $photo_stmt = $photo_db->prepare('SELECT passport FROM users WHERE id = ? LIMIT 1');
+                                if ($photo_stmt) {
+                                    $photo_user_id = (int)getUserId();
+                                    $photo_stmt->bind_param('i', $photo_user_id);
+                                    $photo_stmt->execute();
+                                    $photo_row = $photo_stmt->get_result()->fetch_assoc();
+                                    $photo_stmt->close();
+                                    if (!empty($photo_row['passport'])) {
+                                        $user_photo = $base_url . ltrim($photo_row['passport'], '/');
+                                    }
+                                }
+                            }
+                        }
+                        ?>
                         <?php if (getUserRole() === 'admin'): ?>
                             <li class="nav-item">
                                 <a class="nav-link" href="<?php echo $base_url; ?>admin/dashboard.php">Admin Dashboard</a>
@@ -65,10 +90,18 @@
                         <?php endif; ?>
                         
                         <li class="nav-item d-lg-none">
-                            <span class="nav-link text-light border-bottom pb-2 mb-2"><i class="fas fa-user me-2"></i><?php echo htmlspecialchars(getUserName()); ?></span>
+                            <span class="nav-link text-light border-bottom pb-2 mb-2 d-flex align-items-center gap-2">
+                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo">
+                                <?php else: ?><i class="fas fa-user-circle me-1" aria-hidden="true"></i><?php endif; ?>
+                                <?php echo htmlspecialchars(getUserName()); ?>
+                            </span>
                         </li>
                         <li class="nav-item">
-                            <span class="nav-link text-light border-start ms-2 ps-3 d-none d-lg-inline"><?php echo htmlspecialchars(getUserName()); ?></span>
+                            <span class="nav-link text-light border-start ms-2 ps-3 d-none d-lg-inline-flex align-items-center gap-2">
+                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo">
+                                <?php else: ?><i class="fas fa-user-circle" aria-hidden="true"></i><?php endif; ?>
+                                <?php echo htmlspecialchars(getUserName()); ?>
+                            </span>
                         </li>
                         <li class="nav-item">
                             <form method="POST" action="<?php echo $base_url; ?>logout.php" class="d-block d-lg-inline">

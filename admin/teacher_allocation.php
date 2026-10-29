@@ -190,7 +190,7 @@ try {
                 }
 
                 // Delete the user from users table (allow admin or teacher)
-                $stmt = $mysqli->prepare("DELETE FROM users WHERE id = ? AND role IN ('teacher', 'admin')");
+                $stmt = $mysqli->prepare("DELETE FROM users WHERE id = ? AND role IN ('teacher', 'admin', 'admin_teacher')");
                 $stmt->bind_param("i", $teacher_id);
                 
                 if ($stmt->execute()) {
@@ -230,7 +230,7 @@ try {
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
     $letter = isset($_GET['letter']) ? trim($_GET['letter']) : '';
     
-    $teachers_query = "SELECT id, email, full_name, role FROM users WHERE role IN ('teacher', 'admin')";
+    $teachers_query = "SELECT id, email, full_name, role FROM users WHERE role IN ('teacher', 'admin', 'admin_teacher')";
     $teachers_params = [];
     $teachers_types = "";
     
@@ -462,8 +462,8 @@ try {
                                                         <td><strong><?php echo htmlspecialchars($staff['full_name']); ?></strong></td>
                                                         <td><?php echo htmlspecialchars($staff['email']); ?></td>
                                                         <td>
-                                                            <span class="badge <?php echo $staff['role'] === 'admin' ? 'bg-danger' : 'bg-success'; ?>">
-                                                                <?php echo ucfirst($staff['role']); ?>
+                                                            <span class="badge <?php echo in_array($staff['role'], ['admin', 'admin_teacher'], true) ? 'bg-danger' : 'bg-success'; ?>">
+                                                                <?php echo $staff['role'] === 'admin_teacher' ? 'Teacher & Admin' : ucfirst($staff['role']); ?>
                                                             </span>
                                                         </td>
                                                         <td class="text-center no-print">
