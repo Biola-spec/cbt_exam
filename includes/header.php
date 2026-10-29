@@ -24,6 +24,8 @@
     <link href="<?php echo $base_url; ?>assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>" rel="stylesheet">
     <style>
         .user-profile-photo { width: 32px; height: 32px; object-fit: cover; border-radius: 50%; }
+        .dashboard-profile-photo { width: 52px; height: 52px; object-fit: cover; border-radius: 50%; border: 2px solid rgba(255,255,255,.8); background: #e8eef8; }
+        .dashboard-profile-welcome { display: inline-flex; align-items: center; gap: .75rem; margin-top: .75rem; }
         @media (max-width: 991.98px) { .user-profile-photo { width: 28px; height: 28px; } }
     </style>
 </head>
@@ -69,7 +71,11 @@
                                     $photo_row = $photo_stmt->get_result()->fetch_assoc();
                                     $photo_stmt->close();
                                     if (!empty($photo_row['passport'])) {
-                                        $user_photo = $base_url . ltrim($photo_row['passport'], '/');
+                                        $stored_photo = str_replace('\\', '/', trim($photo_row['passport']));
+                                        while (strpos($stored_photo, '../') === 0) $stored_photo = substr($stored_photo, 3);
+                                        if (strpos($stored_photo, 'uploads/') === 0 && is_file(__DIR__ . '/../' . $stored_photo)) {
+                                            $user_photo = $base_url . $stored_photo;
+                                        }
                                     }
                                 }
                             }
@@ -91,14 +97,14 @@
                         
                         <li class="nav-item d-lg-none">
                             <span class="nav-link text-light border-bottom pb-2 mb-2 d-flex align-items-center gap-2">
-                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo">
+                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><i class="fas fa-user-circle" aria-hidden="true" hidden></i>
                                 <?php else: ?><i class="fas fa-user-circle me-1" aria-hidden="true"></i><?php endif; ?>
                                 <?php echo htmlspecialchars(getUserName()); ?>
                             </span>
                         </li>
                         <li class="nav-item">
                             <span class="nav-link text-light border-start ms-2 ps-3 d-none d-lg-inline-flex align-items-center gap-2">
-                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo">
+                                <?php if ($user_photo): ?><img src="<?php echo htmlspecialchars($user_photo); ?>" alt="Profile photo" class="user-profile-photo" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><i class="fas fa-user-circle" aria-hidden="true" hidden></i>
                                 <?php else: ?><i class="fas fa-user-circle" aria-hidden="true"></i><?php endif; ?>
                                 <?php echo htmlspecialchars(getUserName()); ?>
                             </span>
