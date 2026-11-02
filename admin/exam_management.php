@@ -74,6 +74,78 @@ function parseExamResultComponent($value): array {
     return [isset($parts[0]) ? (string)$parts[0] : '', isset($parts[1]) ? (int)$parts[1] : 0];
 }
 
+function backfillLinkedExamScores(mysqli $mysqli, int $examId, int $classId, int $sessionId, int $term, string $componentType, int $componentNumber): int {
+    $importedCount = 0;
+    $mysqli->begin_transaction();
+    try {
+        $periodStmt = $mysqli->prepare("INSERT INTO result_periods (class_id,session_id,term,status) VALUES (?,?,?,'draft') ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)");
+        $periodStmt->bind_param('iii', $classId, $sessionId, $term);
+        $periodStmt->execute();
+        $periodId = (int)$mysqli->insert_id;
+        $periodStmt->close();
+
+        $periodStmt = $mysqli->prepare('SELECT status FROM result_periods WHERE id=?');
+        $periodStmt->bind_param('i', $periodId);
+        $periodStmt->execute();
+        $periodStatus = $periodStmt->get_result()->fetch_assoc()['status'] ?? '';
+        $periodStmt->close();
+        if (!in_array($periodStatus, ['draft', 'recalled'], true)) {
+            $mysqli->commit();
+            return 0;
+        }
+
+        $teachersBySubject = [];
+        $teacherStmt = $mysqli->prepare('SELECT subject_id, MIN(teacher_id) AS teacher_id FROM teacher_allocations WHERE class_id=? GROUP BY subject_id');
+        $teacherStmt->bind_param('i', $classId);
+        $teacherStmt->execute();
+        $teacherResult = $teacherStmt->get_result();
+        while ($teacherRow = $teacherResult->fetch_assoc()) $teachersBySubject[(int)$teacherRow['subject_id']] = (int)$teacherRow['teacher_id'];
+        $teacherStmt->close();
+
+        $attemptStmt = $mysqli->prepare("SELECT es.subject_id, ea.student_id, ea.score, COALESCE(rr.penalty_percentage,0) AS penalty_percentage
+            FROM exam_subjects es
+            JOIN (SELECT student_id, exam_subject_id, MAX(id) AS attempt_id FROM exam_attempts WHERE submitted_at IS NOT NULL GROUP BY student_id, exam_subject_id) latest ON latest.exam_subject_id=es.id
+            JOIN exam_attempts ea ON ea.id=latest.attempt_id
+            LEFT JOIN resit_requests rr ON rr.id=es.resit_request_id AND rr.status='approved'
+            WHERE es.exam_id=? AND es.class_id=? AND ea.score IS NOT NULL AND (rr.id IS NULL OR rr.student_id=ea.student_id)");
+        $attemptStmt->bind_param('ii', $examId, $classId);
+        $attemptStmt->execute();
+        $attemptResult = $attemptStmt->get_result();
+        $scoreStmt = $mysqli->prepare('INSERT INTO term_scores (period_id,student_id,subject_id,teacher_id) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)');
+        $scoreLookup = $mysqli->prepare('SELECT id,release_status FROM term_scores WHERE period_id=? AND student_id=? AND subject_id=?');
+        $itemStmt = $mysqli->prepare('INSERT INTO term_score_items (term_score_id,component_type,component_number,score) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE score=VALUES(score)');
+        while ($attempt = $attemptResult->fetch_assoc()) {
+            $subjectId = (int)$attempt['subject_id'];
+            if (!isset($teachersBySubject[$subjectId])) continue;
+            $studentId = (int)$attempt['student_id'];
+            $teacherId = $teachersBySubject[$subjectId];
+            $score = round((float)$attempt['score'] * (1 - ((float)$attempt['penalty_percentage'] / 100)), 2);
+            $scoreStmt->bind_param('iiii', $periodId, $studentId, $subjectId, $teacherId);
+            $scoreStmt->execute();
+            $termScoreId = (int)$mysqli->insert_id;
+            if (!$termScoreId) {
+                $scoreLookup->bind_param('iii', $periodId, $studentId, $subjectId);
+                $scoreLookup->execute();
+                $scoreRow = $scoreLookup->get_result()->fetch_assoc();
+                if (!$scoreRow || !in_array($scoreRow['release_status'], ['draft', 'recalled'], true)) continue;
+                $termScoreId = (int)$scoreRow['id'];
+            }
+            $itemStmt->bind_param('isid', $termScoreId, $componentType, $componentNumber, $score);
+            $itemStmt->execute();
+            if ($itemStmt->affected_rows > 0) $importedCount++;
+        }
+        $attemptStmt->close();
+        $scoreStmt->close();
+        $scoreLookup->close();
+        $itemStmt->close();
+        $mysqli->commit();
+        return $importedCount;
+    } catch (Throwable $error) {
+        $mysqli->rollback();
+        throw $error;
+    }
+}
+
 // Handle AJAX request for subjects based on class
 if (isset($_GET['action']) && $_GET['action'] == 'get_subjects' && isset($_GET['class_id'])) {
     header('Content-Type: application/json');
@@ -281,7 +353,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'link_
             $stmt->bind_param('iiiisi', $examId, $classId, $sessionId, $termValue, $componentType, $componentNumber);
             $stmt->execute();
             $stmt->close();
-            $message = 'Report-card component saved for every subject in this class under the exam.';
+            try {
+                $importedCount = backfillLinkedExamScores($mysqli, $examId, $classId, $sessionId, $termValue, $componentType, $componentNumber);
+                $message = 'Report-card component saved for every subject in this class under the exam.' . ($importedCount ? " $importedCount previous exam score(s) were filled into the score sheet." : ' No previous submitted scores were available to import.');
+            } catch (Throwable $error) {
+                error_log('Linked exam score backfill failed: ' . $error->getMessage());
+                $message = 'Report-card component saved, but previous scores could not be filled automatically. Open the teacher score sheet to review the link.';
+            }
         } else {
             $message = 'Add a subject for this class to the exam before setting a class-specific component.';
         }
