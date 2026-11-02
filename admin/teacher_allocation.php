@@ -4,6 +4,7 @@ require_once '../config/session.php';
 
 $message = '';
 $teachers = [];
+$staff_members = [];
 $classes = [];
 $subjects = [];
 $allocations = [];
@@ -226,9 +227,27 @@ try {
         }
     }
     
-    // Load teachers/admins with filtering
+    // Keep the allocation selector complete; filters apply only to the staff table.
+    $stmt = $mysqli->prepare("SELECT id, email, full_name, role FROM users WHERE role IN ('teacher', 'admin', 'admin_teacher') ORDER BY full_name");
+    if ($stmt) {
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $teachers[] = $row;
+        }
+        $stmt->close();
+    }
+
+    // Load staff with optional name/email and first-letter filtering.
     $search = isset($_GET['search']) ? trim($_GET['search']) : '';
-    $letter = isset($_GET['letter']) ? trim($_GET['letter']) : '';
+    $letter = isset($_GET['letter']) ? strtoupper(trim($_GET['letter'])) : '';
+    $section = isset($_GET['section']) ? $_GET['section'] : 'staff';
+    if (!in_array($section, ['staff', 'allocate', 'allocations'], true)) {
+        $section = 'staff';
+    }
+    if (!preg_match('/^[A-Z]$/', $letter)) {
+        $letter = '';
+    }
     
     $teachers_query = "SELECT id, email, full_name, role FROM users WHERE role IN ('teacher', 'admin', 'admin_teacher')";
     $teachers_params = [];
@@ -259,7 +278,7 @@ try {
         $stmt->execute();
         $result = $stmt->get_result();
         while ($row = $result->fetch_assoc()) {
-            $teachers[] = $row;
+            $staff_members[] = $row;
         }
         $stmt->close();
     } else {
@@ -324,6 +343,90 @@ try {
                 <div class="no-print d-flex justify-content-end mb-3">
                     <button type="button" class="btn btn-outline-primary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print / Save Teacher Information</button>
                 </div>
+                <nav class="nav nav-pills gap-2 mb-3 no-print" aria-label="Teacher page sections">
+                    <a class="nav-link <?php echo $section === 'staff' ? 'active' : ''; ?>" href="dashboard.php?tab=teachers&amp;section=staff"><i class="fas fa-users me-1"></i> Staff</a>
+                    <a class="nav-link <?php echo $section === 'allocate' ? 'active' : ''; ?>" href="dashboard.php?tab=teachers&amp;section=allocate"><i class="fas fa-user-plus me-1"></i> New Allocation</a>
+                    <a class="nav-link <?php echo $section === 'allocations' ? 'active' : ''; ?>" href="dashboard.php?tab=teachers&amp;section=allocations"><i class="fas fa-tasks me-1"></i> Current Allocations</a>
+                </nav>
+                <section aria-label="Staff management" <?php echo $section !== 'staff' ? 'hidden' : ''; ?>>
+                <form method="GET" action="dashboard.php" class="card card-body bg-light mb-3 no-print" id="staff-search">
+                    <input type="hidden" name="tab" value="teachers">
+                    <input type="hidden" name="section" value="staff">
+                    <label for="staff-search-input" class="form-label fw-bold mb-2">Find a teacher or staff member</label>
+                    <div class="input-group">
+                        <input type="search" class="form-control" id="staff-search-input" name="search" value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Search by name or email">
+                        <button class="btn btn-primary" type="submit"><i class="fas fa-search me-1"></i>Search</button>
+                        <?php if ($search !== '' || $letter !== ''): ?>
+                            <a class="btn btn-outline-secondary" href="dashboard.php?tab=teachers">Clear</a>
+                        <?php endif; ?>
+                    </div>
+                    <div class="d-flex flex-wrap align-items-center gap-1 mt-3" aria-label="Filter staff by first letter">
+                        <span class="small text-muted me-1">First letter:</span>
+                        <a class="btn btn-sm <?php echo $letter === '' ? 'btn-primary' : 'btn-outline-primary'; ?>" href="dashboard.php?tab=teachers<?php echo $search !== '' ? '&search=' . rawurlencode($search) : ''; ?>">All</a>
+                        <?php foreach (range('A', 'Z') as $alphabet_letter): ?>
+                            <a class="btn btn-sm <?php echo $letter === $alphabet_letter ? 'btn-primary' : 'btn-outline-primary'; ?>" href="dashboard.php?tab=teachers&amp;letter=<?php echo $alphabet_letter; ?><?php echo $search !== '' ? '&amp;search=' . rawurlencode($search) : ''; ?>"><?php echo $alphabet_letter; ?></a>
+                        <?php endforeach; ?>
+                    </div>
+                </form>
+                <!-- Staff Management Table -->
+                    <div class="card">
+                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="fas fa-users-cog me-2"></i>Staff Management (Teachers & Admins)</h6>
+                            <a href="add_teacher.php" class="btn btn-sm btn-outline-light no-print">
+                                <i class="fas fa-user-plus me-1"></i>Add New Staff
+                            </a>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-striped mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Full Name</th>
+                                            <th>Email/Username</th>
+                                            <th>Role</th>
+                                            <th class="text-center no-print">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (count($staff_members) > 0): ?>
+                                            <?php foreach ($staff_members as $staff): ?>
+                                                <tr>
+                                                    <td><strong><?php echo htmlspecialchars($staff['full_name']); ?></strong></td>
+                                                    <td><?php echo htmlspecialchars($staff['email']); ?></td>
+                                                    <td>
+                                                        <span class="badge <?php echo in_array($staff['role'], ['admin', 'admin_teacher'], true) ? 'bg-danger' : 'bg-success'; ?>">
+                                                            <?php echo $staff['role'] === 'admin_teacher' ? 'Teacher & Admin' : ucfirst($staff['role']); ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="text-center no-print">
+                                                        <div class="btn-group btn-group-sm">
+                                                            <a href="edit_teacher.php?id=<?php echo $staff['id']; ?>" class="btn btn-primary" title="Edit Staff Member">
+                                                                <i class="fas fa-user-edit"></i> Edit
+                                                            </a>
+                                                            <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this staff member? All their allocations will be removed.');">
+                                                                <input type="hidden" name="action" value="delete_teacher">
+                                                                <input type="hidden" name="teacher_id" value="<?php echo $staff['id']; ?>">
+                                                                <button type="submit" class="btn btn-outline-danger" title="Delete Staff Member">
+                                                                    <i class="fas fa-trash"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <tr>
+                                                <td colspan="4" class="text-center py-3">No staff members found.</td>
+                                            </tr>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+                <section aria-label="New teacher allocation" <?php echo $section !== 'allocate' ? 'hidden' : ''; ?>>
                 <div class="row">
                     <!-- Allocation Form -->
                     <div class="col-md-4">
@@ -377,7 +480,7 @@ try {
                                             <?php echo $editing_allocation ? 'Update Allocation' : 'Add Allocation'; ?>
                                         </button>
                                         <?php if ($editing_allocation): ?>
-                                            <a href="teacher_allocation.php" class="btn btn-secondary">Cancel</a>
+                                            <a href="dashboard.php?tab=teachers&amp;section=allocate" class="btn btn-secondary">Cancel</a>
                                         <?php endif; ?>
                                     </div>
                                 </form>
@@ -385,8 +488,11 @@ try {
                         </div>
                     </div>
 
-                    <!-- Current Allocations Table -->
-                    <div class="col-md-8 admin-print-area" id="teacher-information-print">
+                    </div>
+                </section>
+
+                <!-- Current Allocations Table -->
+                <section class="admin-print-area" id="teacher-information-print" aria-label="Current subject allocations" <?php echo $section !== 'allocations' ? 'hidden' : ''; ?>>
                         <div class="card mb-4">
                             <div class="card-header bg-primary text-white">
                                 <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Current Subject Allocations</h6>
@@ -411,7 +517,7 @@ try {
                                                         <td><?php echo htmlspecialchars($allocation['subject_name']); ?></td>
                                                         <td class="text-center no-print">
                                                             <div class="btn-group btn-group-sm">
-                                                                <a href="dashboard.php?tab=teachers&action=edit&id=<?php echo $allocation['id']; ?>" class="btn btn-info text-white" title="Edit Allocation">
+                        <a href="dashboard.php?tab=teachers&amp;section=allocate&amp;action=edit&amp;id=<?php echo $allocation['id']; ?>" class="btn btn-info text-white" title="Edit Allocation">
                                                                     <i class="fas fa-edit"></i>
                                                                 </a>
                                                                 <form method="POST" class="d-inline" onsubmit="return confirm('Delete this allocation?');">
@@ -436,64 +542,8 @@ try {
                             </div>
                         </div>
 
-                        <!-- Staff Management Table -->
-                        <div class="card">
-                            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0"><i class="fas fa-users-cog me-2"></i>Staff Management (Teachers & Admins)</h6>
-                                <a href="add_teacher.php" class="btn btn-sm btn-outline-light no-print">
-                                    <i class="fas fa-user-plus me-1"></i>Add New Staff
-                                </a>
-                            </div>
-                            <div class="card-body p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-bordered table-striped mb-0">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th>Full Name</th>
-                                                <th>Email/Username</th>
-                                                <th>Role</th>
-                                                <th class="text-center no-print">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <?php if (count($teachers) > 0): ?>
-                                                <?php foreach ($teachers as $staff): ?>
-                                                    <tr>
-                                                        <td><strong><?php echo htmlspecialchars($staff['full_name']); ?></strong></td>
-                                                        <td><?php echo htmlspecialchars($staff['email']); ?></td>
-                                                        <td>
-                                                            <span class="badge <?php echo in_array($staff['role'], ['admin', 'admin_teacher'], true) ? 'bg-danger' : 'bg-success'; ?>">
-                                                                <?php echo $staff['role'] === 'admin_teacher' ? 'Teacher & Admin' : ucfirst($staff['role']); ?>
-                                                            </span>
-                                                        </td>
-                                                        <td class="text-center no-print">
-                                                            <div class="btn-group btn-group-sm">
-                                                                <a href="edit_teacher.php?id=<?php echo $staff['id']; ?>" class="btn btn-primary" title="Edit Staff Member">
-                                                                    <i class="fas fa-user-edit"></i> Edit
-                                                                </a>
-                                                                <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this staff member? All their allocations will be removed.');">
-                                                                    <input type="hidden" name="action" value="delete_teacher">
-                                                                    <input type="hidden" name="teacher_id" value="<?php echo $staff['id']; ?>">
-                                                                    <button type="submit" class="btn btn-outline-danger" title="Delete Staff Member">
-                                                                        <i class="fas fa-trash"></i>
-                                                                    </button>
-                                                                </form>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                <?php endforeach; ?>
-                                            <?php else: ?>
-                                                <tr>
-                                                    <td colspan="4" class="text-center py-3">No staff members found.</td>
-                                                </tr>
-                                            <?php endif; ?>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
+                </section>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const classSelect = document.getElementById('class_id');
@@ -544,4 +594,4 @@ document.addEventListener('DOMContentLoaded', function() {
     classSelect.dispatchEvent(event);
     <?php endif; ?>
 });
-</script>
+</script>
