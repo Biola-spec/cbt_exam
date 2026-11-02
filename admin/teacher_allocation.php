@@ -336,6 +336,17 @@ try {
 
 
 
+<style>
+.teacher-management { color: var(--ink); }
+.teacher-management .teacher-section-tabs { gap: .45rem; padding: .35rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.teacher-management .teacher-section-tabs .nav-link { padding: .62rem 1rem; border-radius: 8px; color: var(--muted); font-weight: 700; }
+.teacher-management .teacher-section-tabs .nav-link:hover { color: var(--brand-navy); background: var(--brand-sky-soft); }
+.teacher-management .teacher-section-tabs .nav-link.active { color: #fff; background: var(--brand-navy); }
+.teacher-management .teacher-section-header { color: var(--brand-navy-deep); background: var(--brand-sky-soft); border-bottom: 1px solid var(--line); }
+.teacher-management .teacher-section-heading { margin: 0; color: var(--brand-navy-deep); font-family: var(--font-display); font-size: 1.2rem; font-weight: 800; line-height: 1.35; }
+.teacher-management .form-label { color: var(--brand-navy-deep); font-weight: 700; }
+</style>
+
                 <?php if ($message): ?>
                     <div class="alert alert-info"><?php echo htmlspecialchars($message); ?></div>
                 <?php endif; ?>
@@ -343,7 +354,8 @@ try {
                 <div class="no-print d-flex justify-content-end mb-3">
                     <button type="button" class="btn btn-outline-primary" onclick="window.print()"><i class="fas fa-print me-1"></i> Print / Save Teacher Information</button>
                 </div>
-                <nav class="nav nav-pills gap-2 mb-3 no-print" aria-label="Teacher page sections">
+                <div class="teacher-management">
+                <nav class="nav teacher-section-tabs mb-3 no-print" aria-label="Teacher page sections">
                     <a class="nav-link <?php echo $section === 'staff' ? 'active' : ''; ?>" href="dashboard.php?tab=teachers&amp;section=staff"><i class="fas fa-users me-1"></i> Staff</a>
                     <a class="nav-link <?php echo $section === 'allocate' ? 'active' : ''; ?>" href="dashboard.php?tab=teachers&amp;section=allocate"><i class="fas fa-user-plus me-1"></i> New Allocation</a>
                     <a class="nav-link <?php echo $section === 'allocations' ? 'active' : ''; ?>" href="dashboard.php?tab=teachers&amp;section=allocations"><i class="fas fa-tasks me-1"></i> Current Allocations</a>
@@ -370,9 +382,9 @@ try {
                 </form>
                 <!-- Staff Management Table -->
                     <div class="card">
-                        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0"><i class="fas fa-users-cog me-2"></i>Staff Management (Teachers & Admins)</h6>
-                            <a href="add_teacher.php" class="btn btn-sm btn-outline-light no-print">
+                        <div class="card-header teacher-section-header d-flex justify-content-between align-items-center">
+                            <h2 class="teacher-section-heading"><i class="fas fa-users-cog me-2"></i>Staff Management</h2>
+                            <a href="add_teacher.php" class="btn btn-sm btn-primary no-print">
                                 <i class="fas fa-user-plus me-1"></i>Add New Staff
                             </a>
                         </div>
@@ -432,7 +444,7 @@ try {
                     <div class="col-md-4">
                         <div class="card bg-light">
                             <div class="card-body">
-                                <h5><?php echo $editing_allocation ? 'Edit Allocation' : 'New Allocation'; ?></h5>
+                                <h2 class="teacher-section-heading mb-3"><?php echo $editing_allocation ? 'Edit Allocation' : 'New Allocation'; ?></h2>
                                 <form method="POST">
                                     <input type="hidden" name="action" value="<?php echo $editing_allocation ? 'edit' : 'add'; ?>">
                                     <?php if ($editing_allocation): ?>
@@ -494,8 +506,8 @@ try {
                 <!-- Current Allocations Table -->
                 <section class="admin-print-area" id="teacher-information-print" aria-label="Current subject allocations" <?php echo $section !== 'allocations' ? 'hidden' : ''; ?>>
                         <div class="card mb-4">
-                            <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Current Subject Allocations</h6>
+                            <div class="card-header teacher-section-header">
+                                <h2 class="teacher-section-heading"><i class="fas fa-tasks me-2"></i>Current Subject Allocations</h2>
                             </div>
                             <div class="card-body p-0">
                                 <div class="table-responsive">
@@ -544,6 +556,7 @@ try {
 
 
                 </section>
+                </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const classSelect = document.getElementById('class_id');
