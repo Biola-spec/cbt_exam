@@ -116,14 +116,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('i',$periodId); $stmt->execute(); $period=$stmt->get_result()->fetch_assoc(); $stmt->close();
             $stmt=$mysqli->prepare("SELECT COUNT(*) AS released_count FROM term_scores WHERE period_id=? AND subject_id=? AND release_status='approved'");
             $stmt->bind_param('ii',$periodId,$subjectId); $stmt->execute(); $releasedCount=(int)$stmt->get_result()->fetch_assoc()['released_count']; $stmt->close();
-            $releasedStudents=[];
-            if($releasedCount>0) {
-                $stmt=$mysqli->prepare("SELECT student_id FROM term_scores WHERE period_id=? AND subject_id=? AND release_status='approved'");
-                $stmt->bind_param('ii',$periodId,$subjectId); $stmt->execute(); $releasedRes=$stmt->get_result();
-                while($releasedRow=$releasedRes->fetch_assoc())$releasedStudents[(int)$releasedRow['student_id']]=true;
-                $stmt->close();
-            }
-
             $existingComponentValues=[];
             $stmt=$mysqli->prepare('SELECT ts.student_id,tsi.component_type,tsi.component_number,tsi.score FROM term_scores ts JOIN term_score_items tsi ON tsi.term_score_id=ts.id WHERE ts.period_id=? AND ts.subject_id=?');
             $stmt->bind_param('ii',$periodId,$subjectId); $stmt->execute(); $existingRes=$stmt->get_result();
@@ -132,20 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $componentValues=[]; $studentCompleteness=[]; $complete=true;
             foreach ($studentIds as $studentId) {
-                if(isset($releasedStudents[$studentId])) continue;
                 $studentCompleteness[$studentId]=true;
                 foreach (['ca'=>$caCount,'exam'=>$examCount] as $type=>$count) {
                     for ($number=1;$number<=$count;$number++) {
-                        if (array_key_exists($number,$lockedLinkedScores[$studentId][$type] ?? [])) {
-                            $lockedValue=$lockedLinkedScores[$studentId][$type][$number];
-                            if ($lockedValue===null && array_key_exists($number,$existingComponentValues[$studentId][$type] ?? [])) $lockedValue=(float)$existingComponentValues[$studentId][$type][$number];
-                            if ($lockedValue===null) {
-                                $componentValues[$studentId][$type][$number]=null; $complete=false; $studentCompleteness[$studentId]=false;
-                            } else {
-                                $componentValues[$studentId][$type][$number]=(float)$lockedValue;
-                            }
-                            continue;
-                        }
                         $raw=$_POST['scores'][$studentId][$type][$number] ?? '';
                         if ($raw === '') { $componentValues[$studentId][$type][$number]=null; $complete=false; $studentCompleteness[$studentId]=false; continue; }
                         if (!is_numeric($raw) || (float)$raw<0 || (float)$raw>$maxScores[$type][$number]) throw new RuntimeException('A score is outside its configured maximum.');
@@ -153,14 +134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
             }
-            foreach($authoritativeResitScores as $studentId=>$components) foreach($components as $type=>$items) foreach($items as $number=>$score) {
-                $componentValues[$studentId][$type][$number]=$score;
-            }
             $scoreStmt=$mysqli->prepare('INSERT INTO term_scores (period_id,student_id,subject_id,teacher_id) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE teacher_id=VALUES(teacher_id)');
             $componentStmt=$mysqli->prepare('INSERT INTO term_score_items (term_score_id,component_type,component_number,score) VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE score=VALUES(score)');
             $releaseStmt=$mysqli->prepare('UPDATE term_scores SET release_status=?,released_by=NULL,released_at=NULL WHERE id=?');
             foreach($studentIds as $studentId) {
-                if(isset($releasedStudents[$studentId])) continue;
                 $scoreStmt->bind_param('iiii',$periodId,$studentId,$subjectId,$teacherId); $scoreStmt->execute();
                 $scoreId=(int)$mysqli->insert_id;
                 if (!$scoreId) {
@@ -288,9 +265,9 @@ include '../includes/header.php';
     <form method="post" class="card" id="term-score-print-area"><div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2"><div><h5 class="mb-1"><?php echo htmlspecialchars($chosenAllocation['class_name'].' · '.$chosenAllocation['subject_name']);?></h5><span class="text-muted"><?php echo htmlspecialchars(termLabel($term));?> · <?php echo (int)$config['ca_count'];?> CA and <?php echo (int)$config['exam_count'];?> exam components</span></div><div class="d-flex align-items-center gap-2"><span class="badge bg-<?php echo strtolower($status)==='approved'?'success':(strtolower($status)==='submitted'?'warning text-dark':'secondary');?>"><?php echo htmlspecialchars($status);?></span><button type="button" class="btn btn-outline-primary btn-sm no-print" onclick="window.print()"><i class="fas fa-print me-1"></i> Print / Save PDF</button></div></div>
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(termResultsCsrfToken());?>"><input type="hidden" name="session_id" value="<?php echo $selectedSession;?>"><input type="hidden" name="class_id" value="<?php echo $classId;?>"><input type="hidden" name="subject_id" value="<?php echo $subjectId;?>"><input type="hidden" name="term" value="<?php echo $term;?>">
         <div class="table-responsive"><table class="table table-bordered table-sm align-middle mb-0"><thead class="table-light"><tr><th style="min-width:220px">Student</th><?php for($i=1;$i<=(int)$config['ca_count'];$i++):?><th><?php echo htmlspecialchars($labels['ca'][$i]);?><small class="d-block text-muted">/<?php echo htmlspecialchars((string)$maxScores['ca'][$i]);?></small></th><?php endfor;?><?php for($i=1;$i<=(int)$config['exam_count'];$i++):?><th><?php echo htmlspecialchars($labels['exam'][$i]);?><small class="d-block text-muted">/<?php echo htmlspecialchars((string)$maxScores['exam'][$i]);?></small></th><?php endfor;?><th style="min-width:140px">Release status</th></tr></thead><tbody>
-        <?php foreach($students as $student):$studentId=(int)$student['id'];$rowReleaseStatus=$releaseStates[$studentId]??'draft';?><tr><th><?php echo htmlspecialchars($student['full_name']);?></th><?php foreach(['ca'=>(int)$config['ca_count'],'exam'=>(int)$config['exam_count']] as $type=>$count):for($i=1;$i<=$count;$i++):$hasResit=isset($resitScores[$studentId][$type][$i]);$isLinkedTaken=array_key_exists($i,$lockedLinkedScores[$studentId][$type]??[]);$hasSaved=array_key_exists($i,$saved[$studentId][$type]??[]);$value=$hasResit?$resitScores[$studentId][$type][$i]:($isLinkedTaken&&$lockedLinkedScores[$studentId][$type][$i]!==null?$lockedLinkedScores[$studentId][$type][$i]:($hasSaved?$saved[$studentId][$type][$i]:($importedScores[$studentId][$type][$i]??'')));$wasImported=!$hasResit&&!$hasSaved&&isset($importedScores[$studentId][$type][$i]);?><td><input class="form-control form-control-sm" style="min-width:76px" type="number" min="0" max="<?php echo htmlspecialchars((string)$maxScores[$type][$i]);?>" step="0.01" name="scores[<?php echo $studentId;?>][<?php echo $type;?>][<?php echo $i;?>]" value="<?php echo htmlspecialchars((string)$value);?>" <?php echo $rowReleaseStatus==='approved'?'disabled':(($hasResit||$isLinkedTaken)?'readonly':'');?> aria-label="<?php echo htmlspecialchars($student['full_name'].' '.$labels[$type][$i]);?>" <?php echo $hasResit?'title="Final linked score from the completed resit, after penalty."':($isLinkedTaken?'title="Locked because the student has submitted the linked exam."':($wasImported?'title="Imported from the linked CBT exam."':''));?>></td><?php endfor;endforeach;?><td><?php if($rowReleaseStatus==='approved'):?><span class="badge bg-success">Released</span><?php elseif($rowReleaseStatus==='submitted'):?><span class="badge bg-primary">Awaiting admin</span><?php elseif($rowReleaseStatus==='recalled'):?><span class="badge bg-secondary">Recalled</span><?php else:?><span class="badge bg-light text-dark">Not submitted</span><?php endif;?></td></tr><?php endforeach;?>
+        <?php foreach($students as $student):$studentId=(int)$student['id'];$rowReleaseStatus=$releaseStates[$studentId]??'draft';?><tr><th><?php echo htmlspecialchars($student['full_name']);?></th><?php foreach(['ca'=>(int)$config['ca_count'],'exam'=>(int)$config['exam_count']] as $type=>$count):for($i=1;$i<=$count;$i++):$hasResit=isset($resitScores[$studentId][$type][$i]);$isLinkedTaken=array_key_exists($i,$lockedLinkedScores[$studentId][$type]??[]);$hasSaved=array_key_exists($i,$saved[$studentId][$type]??[]);$value=$hasResit?$resitScores[$studentId][$type][$i]:($isLinkedTaken&&$lockedLinkedScores[$studentId][$type][$i]!==null?$lockedLinkedScores[$studentId][$type][$i]:($hasSaved?$saved[$studentId][$type][$i]:($importedScores[$studentId][$type][$i]??'')));$wasImported=!$hasResit&&!$hasSaved&&isset($importedScores[$studentId][$type][$i]);?><td><input class="form-control form-control-sm" style="min-width:76px" type="number" min="0" max="<?php echo htmlspecialchars((string)$maxScores[$type][$i]);?>" step="0.01" name="scores[<?php echo $studentId;?>][<?php echo $type;?>][<?php echo $i;?>]" value="<?php echo htmlspecialchars((string)$value);?>" aria-label="<?php echo htmlspecialchars($student['full_name'].' '.$labels[$type][$i]);?>" <?php echo $wasImported?'title="Imported from the linked CBT exam; editable."':'';?>></td><?php endfor;endforeach;?><td><?php if($rowReleaseStatus==='approved'):?><span class="badge bg-success">Released</span><?php elseif($rowReleaseStatus==='submitted'):?><span class="badge bg-primary">Awaiting admin</span><?php elseif($rowReleaseStatus==='recalled'):?><span class="badge bg-secondary">Recalled</span><?php else:?><span class="badge bg-light text-dark">Not submitted</span><?php endif;?></td></tr><?php endforeach;?>
         </tbody></table></div>
-        <?php if($hasReleasedScores):?><div class="card-footer small text-muted no-print">Released student rows are locked. Ask the administrator to recall a result before correcting that student’s scores. Other rows remain editable.<div class="d-flex gap-2 justify-content-end mt-2"><button class="btn btn-outline-primary" name="save_action" value="draft"><i class="fas fa-save me-1"></i> Save draft</button><button class="btn btn-success" name="save_action" value="submit"><i class="fas fa-paper-plane me-1"></i> Submit for approval</button></div></div><?php else:?><div class="card-footer d-flex gap-2 justify-content-end no-print"><button class="btn btn-outline-primary" name="save_action" value="draft"><i class="fas fa-save me-1"></i> Save draft</button><button class="btn btn-success" name="save_action" value="submit"><i class="fas fa-paper-plane me-1"></i> Submit for approval</button></div><?php endif;?></form>
+        <?php if($hasReleasedScores):?><div class="card-footer small text-muted no-print">Score fields are editable. Saving changes clears the existing release and returns the scores to draft or submits them for approval.<div class="d-flex gap-2 justify-content-end mt-2"><button class="btn btn-outline-primary" name="save_action" value="draft"><i class="fas fa-save me-1"></i> Save draft</button><button class="btn btn-success" name="save_action" value="submit"><i class="fas fa-paper-plane me-1"></i> Submit for approval</button></div></div><?php else:?><div class="card-footer d-flex gap-2 justify-content-end no-print"><button class="btn btn-outline-primary" name="save_action" value="draft"><i class="fas fa-save me-1"></i> Save draft</button><button class="btn btn-success" name="save_action" value="submit"><i class="fas fa-paper-plane me-1"></i> Submit for approval</button></div><?php endif;?></form>
     <?php endif;?>
 </main>
 <?php include '../includes/footer.php'; ?>
