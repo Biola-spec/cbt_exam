@@ -206,6 +206,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 $stmt = $mysqli->prepare("UPDATE classes SET name = ?, description = ?, marks_per_question = ? WHERE id = ?");
                 $stmt->bind_param("ssdi", $name, $description, $marks_per_question, $class_id);
                 $stmt->execute();
+                // Scores are stored on each attempt, so recalculate prior objective results
+                // immediately when a class changes its mark per question. Keep awarded theory marks.
+                $recalculate = $mysqli->prepare("UPDATE exam_attempts ea
+                    JOIN exam_subjects es ON es.id=ea.exam_subject_id
+                    SET ea.score = (
+                        SELECT COALESCE(SUM(CASE
+                            WHEN COALESCE(q.question_type,'objective')='objective' AND sa.is_correct=1 THEN ?
+                            WHEN q.question_type='theory' THEN COALESCE(sa.awarded_marks,0)
+                            ELSE 0 END),0)
+                        FROM student_answers sa JOIN questions q ON q.id=sa.question_id
+                        WHERE sa.attempt_id=ea.id
+                    )
+                    WHERE es.class_id=? AND ea.submitted_at IS NOT NULL");
+                $recalculate->bind_param('di', $marks_per_question, $class_id);
+                $recalculate->execute();
+                $recalculate->close();
                 $stmt = $mysqli->prepare('DELETE FROM class_teacher_assignments WHERE class_id=?');
                 $stmt->bind_param('i', $class_id);
                 $stmt->execute();

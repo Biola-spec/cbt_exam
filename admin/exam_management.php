@@ -225,7 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
     $academic_session = trim($_POST['academic_session'] ?? '');
-    if ($academic_session === '') $academic_session = null;
+    $validSessionNames = array_column($resultSessions, 'name');
+    if ($academic_session === '' || !in_array($academic_session, $validSessionNames, true)) $academic_session = null;
     if (!empty($title)) {
         $createTransaction = false;
         try {
@@ -270,7 +271,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
     $academic_session = trim($_POST['academic_session'] ?? '');
-    if ($academic_session === '') $academic_session = null;
+    $validSessionNames = array_column($resultSessions, 'name');
+    if ($academic_session === '' || !in_array($academic_session, $validSessionNames, true)) $academic_session = null;
     
     if ($exam_id > 0 && !empty($title)) {
         try {
@@ -303,30 +305,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'add_subject') {
     $exam_id = $_POST['exam_id'];
     $class_id = $_POST['class_id'];
-    $subject_id = $_POST['subject_id'];
+    $subject_ids = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['subject_ids'] ?? ($_POST['subject_id'] ?? []))))));
     // Use default time limit from school configuration if not provided
     $time_limit = isset($_POST['time_limit']) ? (int)$_POST['time_limit'] : 60;
     
-    if ($mysqli && !empty($exam_id) && !empty($class_id) && !empty($subject_id)) {
+    if ($mysqli && !empty($exam_id) && !empty($class_id) && !empty($subject_ids)) {
         try {
             $mysqli = getDBConnection();
             if ($mysqli) {
-                // Check if this combination already exists
-                $stmt = $mysqli->prepare("SELECT id FROM exam_subjects WHERE exam_id = ? AND class_id = ? AND subject_id = ?");
-                $stmt->bind_param("iii", $exam_id, $class_id, $subject_id);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                
-                if ($result->num_rows > 0) {
-                    $message = 'This subject is already added to the exam for the selected class.';
-                } else {
-                    // Add the subject to the exam with time limit
-                    $stmt = $mysqli->prepare("INSERT INTO exam_subjects (exam_id, class_id, subject_id, time_limit) VALUES (?, ?, ?, ?)");
-                    $stmt->bind_param("iiii", $exam_id, $class_id, $subject_id, $time_limit);
-                    $stmt->execute();
-                    $message = 'Subject added. Set the result component for this class in the class links below.';
+                $mysqli->begin_transaction();
+                $exists = $mysqli->prepare('SELECT 1 FROM subject_class_link WHERE class_id=? AND subject_id=?');
+                $check = $mysqli->prepare('SELECT 1 FROM exam_subjects WHERE exam_id=? AND class_id=? AND subject_id=?');
+                $insert = $mysqli->prepare('INSERT INTO exam_subjects (exam_id,class_id,subject_id,time_limit) VALUES (?,?,?,?)');
+                $added = 0; $skipped = 0;
+                foreach ($subject_ids as $subject_id) {
+                    $exists->bind_param('ii', $class_id, $subject_id); $exists->execute();
+                    if (!$exists->get_result()->fetch_row()) { $skipped++; continue; }
+                    $check->bind_param('iii', $exam_id, $class_id, $subject_id); $check->execute();
+                    if ($check->get_result()->fetch_row()) { $skipped++; continue; }
+                    $insert->bind_param('iiii', $exam_id, $class_id, $subject_id, $time_limit); $insert->execute(); $added++;
                 }
-                $stmt->close();
+                $exists->close(); $check->close(); $insert->close();
+                $mysqli->commit();
+                $message = $added . ' subject(s) added.' . ($skipped ? " $skipped already added or not linked to this class." : '') . ' Set the result component for this class in the class links below.';
             }
         } catch (Exception $e) {
             $message = 'Error adding subject to exam: ' . $e->getMessage();
@@ -444,6 +445,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
 }
 
 // Handle publish/unpublish exam subject
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'publish_all_subjects') {
+    $examId = (int)($_POST['exam_id'] ?? 0);
+    $publish = (int)($_POST['publish'] ?? 0) === 1;
+    if ($mysqli && $examId > 0) {
+        $stmt = $mysqli->prepare($publish
+            ? 'UPDATE exam_subjects SET is_published=1, published_at=COALESCE(published_at,NOW()) WHERE exam_id=?'
+            : 'UPDATE exam_subjects SET is_published=0, published_at=NULL WHERE exam_id=?');
+        $stmt->bind_param('i', $examId);
+        $stmt->execute();
+        $changed = $stmt->affected_rows;
+        $stmt->close();
+        $message = $publish ? 'All subjects in this exam are published.' : 'All subjects in this exam are unpublished.';
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'publish_subject') {
     $exam_subject_id = $_POST['exam_subject_id'];
     $is_published = $_POST['is_published'];
@@ -592,7 +608,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 <div class="col-md-4">
                     <div class="mb-3">
                         <label for="academic_session" class="form-label">Academic Session</label>
-                        <input type="text" class="form-control" id="academic_session" name="academic_session" maxlength="50" placeholder="e.g. 2026/2027">
+                        <select class="form-select" id="academic_session" name="academic_session" required>
+                            <option value="">Select academic session</option>
+                            <?php foreach ($resultSessions as $session): ?>
+                                <option value="<?php echo htmlspecialchars($session['name'], ENT_QUOTES); ?>" <?php echo !empty($session['is_current']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($session['name']); ?><?php echo !empty($session['is_current']) ? ' (Current)' : ''; ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div class="form-text">Choose a session configured in Academic Sessions.</div>
                     </div>
                 </div>
             </div>
@@ -618,6 +640,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                 <div class="d-flex justify-content-between align-items-center w-100">
                                     <span>
                                         <strong><?php echo htmlspecialchars($exam['title']); ?></strong>
+                                        <?php if (!empty($exam['academic_session'])): ?>
+                                            <span class="badge bg-info ms-2"><?php echo htmlspecialchars($exam['academic_session']); ?></span>
+                                        <?php else: ?>
+                                            <span class="badge bg-secondary ms-2">No session</span>
+                                        <?php endif; ?>
                                         <?php if ($exam['description']): ?>
                                             <small class="text-muted d-block"><?php echo htmlspecialchars($exam['description']); ?></small>
                                         <?php endif; ?>
@@ -752,11 +779,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                                 </div>
                                                 <div class="col-md-5">
                                                     <div class="mb-3">
-                                                        <label for="subject_id_<?php echo $exam['id']; ?>" class="form-label">Subject</label>
-                                                        <select class="form-select subject-select" id="subject_id_<?php echo $exam['id']; ?>" name="subject_id" required>
-                                                            <option value="">Select Subject</option>
-                                                            <!-- Subjects will be loaded dynamically -->
-                                                        </select>
+                                                        <label class="form-label">Subjects</label>
+                                                        <div class="subject-select" id="subject_id_<?php echo $exam['id']; ?>" aria-live="polite">
+                                                            <span class="text-muted small">Select a class to load subjects.</span>
+                                                        </div>
+                                                        <div class="form-text">Choose individual subjects or use Select all.</div>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-2">
@@ -793,9 +820,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                     }
                                     $stmt->close();
                                 }
+                                $publishedSubjectCount = count(array_filter($exam_subjects, static function ($subject) { return (int)$subject['is_published'] === 1; }));
+                                $draftSubjectCount = count($exam_subjects) - $publishedSubjectCount;
                                 ?>
                                 
                                 <?php if (count($exam_subjects) > 0): ?>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                        <div class="me-auto d-flex flex-wrap align-items-center gap-2">
+                                            <span class="badge bg-success"><?php echo $publishedSubjectCount; ?> published</span>
+                                            <span class="badge bg-secondary"><?php echo $draftSubjectCount; ?> unpublished</span>
+                                            <span class="small text-muted">of <?php echo count($exam_subjects); ?> subjects</span>
+                                        </div>
+                                        <form method="POST" class="d-inline">
+                                            <input type="hidden" name="action" value="publish_all_subjects">
+                                            <input type="hidden" name="exam_id" value="<?php echo (int)$exam['id']; ?>">
+                                            <input type="hidden" name="publish" value="1">
+                                            <button type="submit" class="btn btn-sm btn-success" <?php echo $draftSubjectCount === 0 ? 'disabled' : ''; ?>><i class="fas fa-eye me-1"></i><?php echo $draftSubjectCount === 0 ? 'All published' : 'Publish ' . $draftSubjectCount . ' remaining'; ?></button>
+                                        </form>
+                                        <form method="POST" class="d-inline" onsubmit="return confirm('Unpublish every subject in this exam?')">
+                                            <input type="hidden" name="action" value="publish_all_subjects">
+                                            <input type="hidden" name="exam_id" value="<?php echo (int)$exam['id']; ?>">
+                                            <input type="hidden" name="publish" value="0">
+                                            <button type="submit" class="btn btn-sm btn-outline-warning" <?php echo $publishedSubjectCount === 0 ? 'disabled' : ''; ?>><i class="fas fa-eye-slash me-1"></i>Unpublish <?php echo $publishedSubjectCount; ?> published</button>
+                                        </form>
+                                    </div>
                                     <div class="row row-cols-1 row-cols-md-2 g-3">
                                         <?php foreach ($exam_subjects as $exam_subject): ?>
                                             <div class="col">
@@ -946,7 +994,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         </div>
                         <div class="mb-3">
                             <label for="edit_session_<?php echo $exam['id']; ?>" class="form-label">Academic Session</label>
-                            <input type="text" class="form-control" id="edit_session_<?php echo $exam['id']; ?>" name="academic_session" maxlength="50" value="<?php echo htmlspecialchars($exam['academic_session'] ?? ''); ?>" placeholder="e.g. 2026/2027">
+                            <select class="form-select" id="edit_session_<?php echo $exam['id']; ?>" name="academic_session" required>
+                                <option value="">Select academic session</option>
+                                <?php foreach ($resultSessions as $session): ?>
+                                    <option value="<?php echo htmlspecialchars($session['name'], ENT_QUOTES); ?>" <?php echo ($exam['academic_session'] ?? '') === $session['name'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($session['name']); ?><?php echo !empty($session['is_current']) ? ' (Current)' : ''; ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -959,6 +1012,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     </div>
 <?php endforeach; ?>
 
+<style>
+.subject-select { border: 1px solid #d8e0e7; border-radius: .65rem; padding: .8rem; background: #f8fafc; min-height: 58px; }
+.subject-select .subject-picker-heading { display:flex; justify-content:space-between; align-items:center; gap:.75rem; padding:0 .15rem .65rem; margin-bottom:.65rem; border-bottom:1px solid #e2e8f0; }
+.subject-select .subject-picker-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:.55rem; max-height:245px; overflow-y:auto; padding:.1rem; }
+.subject-select .subject-option { position:relative; display:flex; align-items:center; gap:.7rem; min-height:52px; padding:.7rem .8rem; margin:0; border:1px solid #d8e0e7; border-radius:.55rem; background:#fff; cursor:pointer; transition:border-color .15s,background-color .15s,box-shadow .15s; }
+.subject-select .subject-option:hover { border-color:#80bdff; box-shadow:0 2px 8px rgba(35,75,110,.1); }
+.subject-select .subject-option:has(input:checked) { border-color:#167b70; background:#eaf6f3; box-shadow:inset 0 0 0 1px #167b70; }
+.subject-select .subject-option input { width:1.2rem; height:1.2rem; flex:0 0 auto; margin:0; cursor:pointer; accent-color:#167b70; }
+.subject-select .subject-option span { font-weight:500; line-height:1.25; }
+.subject-select .select-all-option { font-weight:600; }
+@media(max-width:575px) { .subject-select .subject-picker-grid { grid-template-columns:1fr; max-height:300px; } }
+</style>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // TELEPORT MODALS: Move all modals to the end of body to prevent backdrop/z-index issues
@@ -975,20 +1040,67 @@ document.addEventListener('DOMContentLoaded', function() {
             var examId = this.getAttribute('data-exam-id');
             var subjectSelect = document.getElementById('subject_id_' + examId);
             
-            // Clear existing options
-            subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+            // Clear existing checkboxes
+            subjectSelect.innerHTML = '<span class="text-muted small">Loading subjects…</span>';
             
             if (classId) {
                 // Fetch subjects for this class
                 fetch('exam_management.php?action=get_subjects&class_id=' + encodeURIComponent(classId))
                     .then(response => response.json())
                     .then(subjects => {
+                        var heading = document.createElement('div');
+                        heading.className = 'subject-picker-heading';
+                        var count = document.createElement('span');
+                        count.className = 'small text-muted';
+                        count.textContent = subjects.length + (subjects.length === 1 ? ' subject' : ' subjects');
+                        heading.appendChild(count);
+                        if (subjects.length) {
+                            var selectAllLabel = document.createElement('label');
+                            selectAllLabel.className = 'subject-option select-all-option py-1 px-2';
+                            var selectAll = document.createElement('input');
+                            selectAll.type = 'checkbox';
+                            selectAll.className = 'select-all-subjects';
+                            selectAll.setAttribute('aria-label', 'Select all subjects');
+                            var selectAllText = document.createElement('span');
+                            selectAllText.textContent = 'Select all';
+                            selectAllLabel.appendChild(selectAll);
+                            selectAllLabel.appendChild(selectAllText);
+                            heading.appendChild(selectAllLabel);
+                        }
+                        subjectSelect.innerHTML = '';
+                        subjectSelect.appendChild(heading);
+                        var grid = document.createElement('div');
+                        grid.className = 'subject-picker-grid';
                         subjects.forEach(function(subject) {
-                            var option = document.createElement('option');
-                            option.value = subject.id;
-                            option.textContent = subject.name;
-                            subjectSelect.appendChild(option);
+                            var row = document.createElement('label');
+                            row.className = 'subject-option';
+                            var checkbox = document.createElement('input');
+                            checkbox.type = 'checkbox';
+                            checkbox.className = 'subject-option-input';
+                            checkbox.name = 'subject_ids[]';
+                            checkbox.value = subject.id;
+                            checkbox.id = 'subject_' + examId + '_' + subject.id;
+                            var label = document.createElement('span');
+                            label.textContent = subject.name;
+                            row.appendChild(checkbox);
+                            row.appendChild(label);
+                            grid.appendChild(row);
                         });
+                        subjectSelect.appendChild(grid);
+                        if (!subjects.length) subjectSelect.innerHTML = '<span class="text-muted small">No subjects are linked to this class.</span>';
+
+                        var allToggle = subjectSelect.querySelector('.select-all-subjects');
+                        var subjectCheckboxes = Array.from(subjectSelect.querySelectorAll('.subject-option-input'));
+                        function syncSelectAll() {
+                            if (!allToggle) return;
+                            var checkedCount = subjectCheckboxes.filter(function(box) { return box.checked; }).length;
+                            allToggle.checked = checkedCount === subjectCheckboxes.length && checkedCount > 0;
+                            allToggle.indeterminate = checkedCount > 0 && checkedCount < subjectCheckboxes.length;
+                        }
+                        if (allToggle) allToggle.addEventListener('change', function() {
+                            subjectCheckboxes.forEach(function(box) { box.checked = allToggle.checked; });
+                        });
+                        subjectCheckboxes.forEach(function(box) { box.addEventListener('change', syncSelectAll); });
                     })
                     .catch(error => {
                         console.error('Error loading subjects:', error);
@@ -996,6 +1108,16 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             var form = this.closest('.result-component-form');
             if (form) loadResultComponents(form);
+        });
+    });
+
+    document.querySelectorAll('form').forEach(function(form) {
+        if (!form.querySelector('.subject-select')) return;
+        form.addEventListener('submit', function(event) {
+            if (!form.querySelector('.subject-select input[name="subject_ids[]"]:checked')) {
+                event.preventDefault();
+                alert('Select at least one subject.');
+            }
         });
     });
 
