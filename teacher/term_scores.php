@@ -22,6 +22,11 @@ $stmt = $mysqli->prepare('SELECT DISTINCT c.id AS class_id, c.name AS class_name
 $stmt->bind_param('i', $teacherId); $stmt->execute(); $allocationResult=$stmt->get_result(); $allocations=[];
 while ($row=$allocationResult->fetch_assoc()) $allocations[]=$row;
 $stmt->close();
+$classes=[];
+foreach ($allocations as $allocation) {
+    $allocationClassId=(int)$allocation['class_id'];
+    if (!isset($classes[$allocationClassId])) $classes[$allocationClassId]=$allocation['class_name'];
+}
 $isAssigned = false;
 foreach ($allocations as $allocation) if ((int)$allocation['class_id']===$classId && (int)$allocation['subject_id']===$subjectId) $isAssigned=true;
 
@@ -254,11 +259,29 @@ include '../includes/header.php';
     <?php if($message):?><div class="alert alert-info"><?php echo htmlspecialchars($message);?></div><?php endif;?>
     <form method="get" class="card card-body mb-3"><div class="row g-3 align-items-end">
         <div class="col-md-3"><label class="form-label" for="session_id">Session</label><select class="form-select" id="session_id" name="session_id" required><?php foreach($sessions as $session):?><option value="<?php echo (int)$session['id'];?>" <?php echo (int)$session['id']===$selectedSession?'selected':'';?>><?php echo htmlspecialchars($session['name'].((int)$session['is_current']?' · Current':''));?></option><?php endforeach;?></select></div>
-        <div class="col-md-3"><label class="form-label" for="class_id">Class and subject</label><select class="form-select" id="class_id" name="class_id" required><?php foreach($allocations as $allocation):?><option value="<?php echo (int)$allocation['class_id'];?>" data-subject="<?php echo (int)$allocation['subject_id'];?>" <?php echo (int)$allocation['class_id']===$classId && (int)$allocation['subject_id']===$subjectId?'selected':'';?>><?php echo htmlspecialchars($allocation['class_name'].' · '.$allocation['subject_name']);?></option><?php endforeach;?></select><input type="hidden" id="subject_id" name="subject_id" value="<?php echo $subjectId;?>"></div>
+        <div class="col-md-3"><label class="form-label" for="class_id">Class</label><select class="form-select" id="class_id" name="class_id" required><option value="">Select class</option><?php foreach($classes as $allocationClassId=>$className):?><option value="<?php echo $allocationClassId;?>" <?php echo $allocationClassId===$classId?'selected':'';?>><?php echo htmlspecialchars($className);?></option><?php endforeach;?></select></div>
+        <div class="col-md-3"><label class="form-label" for="subject_id">Subject</label><select class="form-select" id="subject_id" name="subject_id" required <?php echo $classId ? '' : 'disabled';?>><option value="">Select subject</option><?php foreach($allocations as $allocation):?><option value="<?php echo (int)$allocation['subject_id'];?>" data-class="<?php echo (int)$allocation['class_id'];?>" <?php echo (int)$allocation['class_id']===$classId && (int)$allocation['subject_id']===$subjectId?'selected':'';?>><?php echo htmlspecialchars($allocation['subject_name']);?></option><?php endforeach;?></select></div>
         <div class="col-md-3"><label class="form-label" for="term">Term</label><select class="form-select" id="term" name="term"><?php for($i=1;$i<=3;$i++):?><option value="<?php echo $i;?>" <?php echo $term===$i?'selected':'';?>><?php echo htmlspecialchars(termLabel($i));?></option><?php endfor;?></select></div>
         <div class="col-md-3"><button class="btn btn-primary w-100"><i class="fas fa-filter me-1"></i> Load score sheet</button></div>
     </div></form>
-    <script>document.getElementById('class_id').addEventListener('change',function(){document.getElementById('subject_id').value=this.options[this.selectedIndex].dataset.subject;});</script>
+    <script>
+    (function(){
+        const classSelect=document.getElementById('class_id');
+        const subjectSelect=document.getElementById('subject_id');
+        const subjectOptions=Array.from(subjectSelect.querySelectorAll('option[data-class]'));
+        function updateSubjects(keepSelection){
+            const previousSubject=keepSelection ? subjectSelect.value : '';
+            subjectSelect.innerHTML='<option value="">Select subject</option>';
+            subjectOptions.forEach(function(option){
+                if(option.dataset.class===classSelect.value) subjectSelect.appendChild(option);
+            });
+            subjectSelect.disabled=!classSelect.value;
+            if(previousSubject && subjectSelect.querySelector('option[value="'+previousSubject+'"]')) subjectSelect.value=previousSubject;
+        }
+        classSelect.addEventListener('change',function(){updateSubjects(false);});
+        updateSubjects(true);
+    })();
+    </script>
     <?php if(!$sessions):?><div class="alert alert-warning">The administrator has not created an academic session yet.</div>
     <?php elseif(!$allocations):?><div class="alert alert-warning">No class and subject have been assigned to you.</div>
     <?php elseif($chosenAllocation):?>
