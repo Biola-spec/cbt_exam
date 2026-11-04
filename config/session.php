@@ -323,87 +323,40 @@ function logout() {
     exit();
 }
 
-// Simple in-memory cache for user data
-static $users_cache = null;
-static $users_cache_time = 0;
-static $users_cache_expiry = 300; // 5 minutes
-
-// Authenticate user (file-based as workaround) with caching
+// Authenticate staff against the live database account.
 function authenticateUser($email, $password) {
-    global $users_file, $users_cache, $users_cache_time, $users_cache_expiry;
-    
-    // Check if we have a cached version of users data
-    $current_time = time();
-    if ($users_cache === null || ($current_time - $users_cache_time) > $users_cache_expiry) {
-        // Ensure users file exists with all default users
-        if (!file_exists($users_file)) {
-            createDefaultUsers();
-        }
-        
-        if (file_exists($users_file)) {
-            $users_cache = json_decode(file_get_contents($users_file), true);
-            $users_cache_time = $current_time;
-        } else {
-            $users_cache = [];
-        }
+    require_once __DIR__ . '/database.php';
+    $mysqli = getDBConnection();
+
+    // The database is authoritative for live accounts and password changes.
+    // In particular, do not require a teacher to have a class allocation to log in.
+    if ($mysqli) {
+        $stmt = $mysqli->prepare("SELECT id, email, password, full_name, role FROM users WHERE email = ? LIMIT 1");
+        if (!$stmt) return false;
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$user || !password_verify($password, $user['password'])) return false;
+        unset($user['password']);
+        return $user;
     }
-    
-    $users = $users_cache;
-    
-    if (isset($users[$email]) && password_verify($password, $users[$email]['password'])) {
-        // Get the actual database user ID
-        require_once __DIR__ . '/database.php';
-        $mysqli = getDBConnection();
-        
-        if ($mysqli) {
-            try {
-                // Ensure connection is still alive
-                try {
-                    if (!$mysqli->ping()) {
-                        // Try to reconnect
-                        $mysqli = getDBConnection();
-                    }
-                } catch (mysqli_sql_exception $e) {
-                    // Try to reconnect
-                    $mysqli = getDBConnection();
-                }
-                
-                if ($mysqli) {
-                    $stmt = $mysqli->prepare("SELECT id FROM users WHERE email = ?");
-                    $stmt->bind_param("s", $email);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    
-                    if ($row = $result->fetch_assoc()) {
-                        // Use the actual database user ID
-                        $user_id = $row['id'];
-                    } else {
-                        // If user not found in database, fallback to MD5 (for backward compatibility)
-                        $user_id = md5($email);
-                    }
-                    $stmt->close();
-                } else {
-                    // If database connection fails, fallback to MD5
-                    $user_id = md5($email);
-                }
-            } catch (Exception $e) {
-                // Log error but don't crash, fallback to MD5
-                error_log("Error authenticating user: " . $e->getMessage());
-                $user_id = md5($email);
-            }
-        } else {
-            // If database connection fails, fallback to MD5
-            $user_id = md5($email);
-        }
-        
-        return [
-            'id' => $user_id, // Use actual database ID instead of MD5
-            'email' => $email,
-            'full_name' => $users[$email]['full_name'],
-            'role' => $users[$email]['role']
-        ];
+
+    // Keep file-based sign-in available only during a database outage, for
+    // installations that still rely on the legacy users.json fallback.
+    global $users_file;
+    if (!file_exists($users_file)) return false;
+    $users = json_decode(file_get_contents($users_file), true);
+    if (!is_array($users) || !isset($users[$email]['password']) || !password_verify($password, $users[$email]['password'])) {
+        return false;
     }
-    
-    return false;
+
+    return [
+        'id' => md5($email),
+        'email' => $email,
+        'full_name' => $users[$email]['full_name'] ?? '',
+        'role' => $users[$email]['role'] ?? ''
+    ];
 }
 ?>
