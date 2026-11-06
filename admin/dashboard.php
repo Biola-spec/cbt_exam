@@ -16,6 +16,7 @@ $message = isset($_GET['message']) ? $_GET['message'] : '';
 // Count results for badge
 $results_count = 0;
 $pending_resit_count = 0;
+$student_count = 0;
 try {
     $mysqli = getDBConnection();
     $stmt = $mysqli->prepare("SELECT COUNT(*) as count FROM exam_attempts WHERE submitted_at IS NOT NULL");
@@ -23,6 +24,9 @@ try {
     $result = $stmt->get_result();
     $row = $result->fetch_assoc();
     $results_count = $row['count'];
+
+    $student_result = $mysqli->query("SELECT COUNT(*) AS count FROM users WHERE role = 'student'");
+    $student_count = (int)$student_result->fetch_assoc()['count'];
     
     // Check if this admin has any teaching allocations
     $has_allocations = false;
@@ -256,8 +260,9 @@ try {
                                 <a href="calendar_management.php" class="btn btn-outline-primary"><i class="far fa-calendar-alt me-2"></i>School calendar</a>
                             </div>
                             <div class="row g-3 admin-metrics">
-                                <div class="col-md-6"><a href="dashboard.php?tab=results" class="admin-metric-card"><span class="admin-metric-icon"><i class="fas fa-chart-bar"></i></span><span><small>SUBMITTED EXAM ATTEMPTS</small><strong><?php echo number_format((int)$results_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
-                                <div class="col-md-6"><a href="resit_requests.php" class="admin-metric-card"><span class="admin-metric-icon sky"><i class="fas fa-sync-alt"></i></span><span><small>RESIT REQUESTS TO REVIEW</small><strong><?php echo number_format((int)$pending_resit_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
+                                <div class="col-md-4"><a href="dashboard.php?tab=students" class="admin-metric-card"><span class="admin-metric-icon sky"><i class="fas fa-user-graduate"></i></span><span><small>STUDENTS</small><strong><?php echo number_format($student_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
+                                <div class="col-md-4"><a href="dashboard.php?tab=results" class="admin-metric-card"><span class="admin-metric-icon"><i class="fas fa-chart-bar"></i></span><span><small>SUBMITTED EXAM ATTEMPTS</small><strong><?php echo number_format((int)$results_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
+                                <div class="col-md-4"><a href="resit_requests.php" class="admin-metric-card"><span class="admin-metric-icon sky"><i class="fas fa-sync-alt"></i></span><span><small>RESIT REQUESTS TO REVIEW</small><strong><?php echo number_format((int)$pending_resit_count); ?></strong></span><i class="fas fa-external-link-alt admin-metric-arrow"></i></a></div>
                             </div>
                             <div class="admin-section-heading"><h3>Quick access</h3><span>Core administration</span></div>
                             <div class="row g-3 admin-shortcuts">
