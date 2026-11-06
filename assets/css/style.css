@@ -574,3 +574,130 @@ small, .small { letter-spacing: 0; }
     .admin-overview-intro .btn { width: 100%; }
     .admin-metric-card { padding: .9rem; gap: .7rem; }
 }
+
+/* Refined application-wide scale: compact, readable, and consistent. */
+body {
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    letter-spacing: 0;
+    line-height: 1.55;
+}
+h1, h2, h3, h4, h5, h6, .navbar-brand {
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    letter-spacing: -.01em;
+}
+h1 { font-size: clamp(1.65rem, 2.25vw, 2.1rem); font-weight: 700; }
+h2 { font-size: clamp(1.35rem, 1.8vw, 1.65rem); font-weight: 700; }
+h3 { font-size: 1.25rem; font-weight: 700; }
+h4 { font-size: 1.1rem; font-weight: 650; }
+h5 { font-size: 1rem; font-weight: 650; }
+h6 { font-size: .9rem; font-weight: 650; }
+
+.navbar { padding: .45rem 0; box-shadow: 0 3px 12px rgba(26,36,104,.14); }
+.navbar-brand { font-size: .98rem; }
+.navbar .nav-link { padding: .45rem .65rem !important; font-size: .9rem; }
+.dashboard-header {
+    min-height: 120px;
+    padding: 1.35rem 1.5rem;
+    margin-bottom: 1.25rem;
+    border-radius: 0 0 14px 14px;
+}
+.dashboard-header .dashboard-title { font-size: clamp(1.55rem, 2.2vw, 2rem); }
+.dashboard-header p { font-size: .9rem; }
+.dashboard-profile-photo { width: 40px; height: 40px; }
+.dashboard-profile-welcome { gap: .55rem; margin-top: .55rem; font-size: .86rem; }
+
+.card { border-radius: 11px; box-shadow: 0 3px 12px rgba(16,42,67,.04); }
+.card-header { padding: .8rem 1rem; }
+.card-body { padding: 1rem; }
+.admin-dashboard-page .card-header,
+.teacher-dashboard-page .card-header,
+.student-dashboard-page .card-header { padding: .8rem 1rem; }
+.admin-dashboard-page .card-header h4,
+.teacher-dashboard-page .card-header h4,
+.student-dashboard-page .card-header h4 { font-size: 1.05rem; }
+.admin-dashboard-page .row .card-body,
+.teacher-dashboard-page .row .card-body,
+.student-dashboard-page .row .card-body { padding: 1.1rem; }
+.admin-dashboard-page .list-group,
+.teacher-dashboard-page .list-group,
+.student-dashboard-page .list-group { padding: .4rem; }
+.admin-dashboard-page .list-group-item,
+.teacher-dashboard-page .list-group-item,
+.student-dashboard-page .list-group-item { padding: .58rem .62rem; border-radius: 7px !important; font-size: .84rem; }
+.admin-dashboard-page .list-group-item.active,
+.teacher-dashboard-page .list-group-item.active,
+.student-dashboard-page .list-group-item.active { box-shadow: 0 4px 10px rgba(11,37,69,.12); }
+
+.btn { min-height: 35px; border-radius: 6px; font-size: .88rem; font-weight: 600; }
+.btn-sm { min-height: 30px; font-size: .82rem; }
+.form-control, .form-select, .input-group-text { min-height: 38px; border-radius: 7px; font-size: .9rem; }
+.form-label { font-size: .88rem; font-weight: 600; }
+.table > :not(caption) > * > * { padding: .62rem .7rem; }
+.table thead th, .table th { font-size: .78rem; }
+.badge { padding: .35em .58em; font-size: .75em; }
+.alert { padding: .75rem .9rem; border-radius: 8px; }
+.stat-icon { width: 44px; height: 44px; border-radius: 9px; font-size: 1.2rem; }
+.admin-metric-card { min-height: 92px; padding: .9rem 1rem; border-radius: 11px; }
+.admin-metric-icon { width: 40px; height: 40px; border-radius: 10px; }
+.admin-overview-intro { padding: .95rem 1.05rem; border-radius: 12px; }
+
+/* Keep the admin page title banner compact and visually restrained. */
+.admin-dashboard-page .dashboard-header {
+    min-height: 0;
+    margin: .65rem 1.5rem 1rem;
+    padding: .85rem 1.1rem;
+    border-radius: 9px;
+}
+.admin-dashboard-page .dashboard-header .dashboard-title { margin-bottom: .15rem; font-size: 1.55rem; }
+.admin-dashboard-page .dashboard-header p { font-size: .84rem; }
+.admin-dashboard-page .dashboard-profile-welcome { margin-top: .4rem; }
+
+/* Compact overview shortcuts with small, crisp illustrations. */
+.admin-shortcuts { --bs-gutter-x: .8rem; --bs-gutter-y: .8rem; }
+.admin-shortcuts .col-sm-6 { display: flex; }
+.admin-shortcut {
+    min-height: 0;
+    flex-direction: row;
+    align-items: center;
+    gap: .8rem;
+    padding: .75rem;
+    border-color: #dce5ed;
+    border-radius: 10px;
+    box-shadow: 0 2px 7px rgba(16,42,67,.035);
+}
+.admin-shortcut:hover { transform: translateY(-1px); border-color: #94cfe8; box-shadow: 0 5px 12px rgba(16,42,67,.08); }
+.admin-shortcut-art {
+    display: grid;
+    width: 58px;
+    height: 58px;
+    flex: 0 0 58px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f3f7fa;
+}
+.admin-shortcut-image {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    object-fit: contain;
+    background: transparent;
+}
+.admin-shortcut-content { min-width: 0; min-height: 0; padding: 0; }
+.admin-shortcut-title { margin-bottom: .16rem; font-family: "Segoe UI", Tahoma, Arial, sans-serif; font-size: .92rem; font-weight: 650; letter-spacing: 0; }
+.admin-shortcut-description { min-height: 0; font-size: .82rem; line-height: 1.45; }
+.admin-shortcut-action { min-height: 0; gap: .35rem; margin-top: .45rem; padding: .28rem .48rem; border-radius: 5px; font-size: .74rem; }
+.admin-shortcut-action i { font-size: .6rem; }
+
+@media (max-width: 767.98px) {
+    .dashboard-header { min-height: 108px; padding: 1.1rem .9rem; border-radius: 0 0 12px 12px; }
+    .admin-dashboard-page .row .card-body,
+    .teacher-dashboard-page .row .card-body,
+    .student-dashboard-page .row .card-body { padding: .9rem; }
+    .admin-shortcut { gap: .6rem; padding: .65rem; }
+    .admin-shortcut-art { width: 48px; height: 48px; flex-basis: 48px; }
+    .admin-dashboard-page .dashboard-header { margin: .5rem .75rem .8rem; padding: .8rem; }
+    .admin-dashboard-page .dashboard-header .dashboard-title { font-size: 1.35rem; }
+}
