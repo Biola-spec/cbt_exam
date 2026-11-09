@@ -125,7 +125,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $message = $e instanceof mysqli_sql_exception ? 'That session already exists or the change could not be saved.' : $e->getMessage();
         }
         if (($_POST['return_to'] ?? '') === 'review' && isset($_POST['period_id'])) {
-            header('Location: term_results_view.php?period_id=' . (int)$_POST['period_id'] . '&message=' . rawurlencode($message));
+            header('Location: term_results_view.php?period_id=' . (int)$_POST['period_id'] . '&student_id=' . (int)($_POST['student_id'] ?? 0) . '&message=' . rawurlencode($message));
             exit();
         }
         $sessions = termResultsSessionRows($mysqli);
