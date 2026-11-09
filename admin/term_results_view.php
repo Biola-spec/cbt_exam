@@ -9,8 +9,20 @@ $periodId=(int)($_GET['period_id']??0);
 $period=null; $scores=[]; $error=''; $componentMaxima=['ca'=>[],'exam'=>[]];
 $releaseCounts=['approved'=>0,'submitted'=>0,'draft'=>0,'recalled'=>0];
 $message=trim($_GET['message']??'');
+$sessions=[]; $periodOptions=[]; $classes=[]; $students=[];
+$selectedSession=(int)($_GET['session_id']??0); $selectedTerm=(int)($_GET['term']??0);
+$selectedClass=(int)($_GET['class_id']??0); $selectedStudent=(int)($_GET['student_id']??0);
 try {
     if(!$mysqli) throw new RuntimeException('Database connection failed.');
+    $list=$mysqli->query('SELECT id,name FROM academic_sessions ORDER BY name DESC'); while($r=$list->fetch_assoc()) $sessions[]=$r;
+    $list=$mysqli->query('SELECT rp.id,rp.session_id,rp.class_id,rp.term,c.name AS class_name FROM result_periods rp JOIN classes c ON c.id=rp.class_id ORDER BY rp.session_id DESC,rp.term,c.name'); while($r=$list->fetch_assoc()) $periodOptions[]=$r;
+    if(!$selectedSession && $periodId) foreach($periodOptions as $p) if((int)$p['id']===$periodId){$selectedSession=(int)$p['session_id'];$selectedTerm=(int)$p['term'];$selectedClass=(int)$p['class_id'];break;}
+    if(!$selectedSession && $sessions) $selectedSession=(int)$sessions[0]['id'];
+    foreach($periodOptions as $p) if((int)$p['session_id']===$selectedSession && (!$selectedTerm || (int)$p['term']===$selectedTerm) && (!$selectedClass || (int)$p['class_id']===$selectedClass)) { $classes[(int)$p['class_id']]=$p['class_name']; }
+    if($selectedClass){$stmt=$mysqli->prepare("SELECT id,full_name FROM users WHERE role='student' AND class_id=? ORDER BY full_name");$stmt->bind_param('i',$selectedClass);$stmt->execute();$rs=$stmt->get_result();while($r=$rs->fetch_assoc())$students[]=$r;$stmt->close();}
+    if(isset($_GET['session_id']) || isset($_GET['term']) || isset($_GET['class_id'])) {
+        foreach($periodOptions as $p) if((int)$p['session_id']===$selectedSession && (!$selectedTerm || (int)$p['term']===$selectedTerm) && (!$selectedClass || (int)$p['class_id']===$selectedClass)) { $periodId=(int)$p['id']; break; }
+    }
     $stmt=$mysqli->prepare('SELECT rp.id,rp.session_id,rp.class_id,rp.term,rp.status,c.name AS class_name,s.name AS session_name,COALESCE(crs.ca_count,3) AS ca_count,COALESCE(crs.exam_count,1) AS exam_count
         FROM result_periods rp JOIN classes c ON c.id=rp.class_id JOIN academic_sessions s ON s.id=rp.session_id
         LEFT JOIN class_result_settings crs ON crs.class_id=rp.class_id AND crs.session_id=rp.session_id WHERE rp.id=?');
@@ -31,8 +43,8 @@ try {
         FROM term_scores ts JOIN users u ON u.id=ts.student_id JOIN subjects subj ON subj.id=ts.subject_id
         LEFT JOIN term_score_items tsi ON tsi.term_score_id=ts.id
         LEFT JOIN class_result_component_names cn ON cn.class_id=? AND cn.session_id=? AND cn.component_type=tsi.component_type AND cn.component_number=tsi.component_number
-        WHERE ts.period_id=? ORDER BY u.full_name,subj.name,tsi.component_type,tsi.component_number");
-    $stmt->bind_param('iii',$period['class_id'],$period['session_id'],$periodId);$stmt->execute();$res=$stmt->get_result();
+        WHERE ts.period_id=? AND (?=0 OR ts.student_id=?) ORDER BY u.full_name,subj.name,tsi.component_type,tsi.component_number");
+    $stmt->bind_param('iiiii',$period['class_id'],$period['session_id'],$periodId,$selectedStudent,$selectedStudent);$stmt->execute();$res=$stmt->get_result();
     while($row=$res->fetch_assoc()) {
         $key=$row['term_score_id'];
         if(!isset($scores[$key])) {
@@ -50,6 +62,7 @@ try {
     $expectedStmt=$mysqli->prepare("SELECT (SELECT COUNT(*) FROM users WHERE role='student' AND class_id=?) * (SELECT COUNT(DISTINCT subject_id) FROM teacher_allocations WHERE class_id=?) AS expected_rows");
     $expectedStmt->bind_param('ii',$period['class_id'],$period['class_id']);$expectedStmt->execute();
     $expectedRows=(int)$expectedStmt->get_result()->fetch_assoc()['expected_rows'];$expectedStmt->close();
+    if($selectedStudent) $expectedRows=$expectedRows?min(1,$expectedRows):0;
     $filledComponents=array_sum(array_column($scores,'filled'));
     $expectedComponents=$expectedRows*$requiredPerScore;
     $progressPercent=$expectedComponents?min(100,round($filledComponents/$expectedComponents*100)):0;
@@ -83,6 +96,14 @@ include '../includes/header.php';
 @media(max-width:767px){.term-review .review-heading{padding:1rem}.term-review h1{font-size:1.35rem}.term-review .review-actions{position:static}}
 </style>
 <main class="container-fluid py-4 term-review">
+    <form method="get" class="review-progress mb-3" aria-label="Choose results">
+        <div class="row g-3 align-items-end">
+            <div class="col-sm-6 col-lg-3"><label class="form-label" for="filter-session">Session</label><select class="form-select" id="filter-session" name="session_id" onchange="this.form.submit()"><option value="">Select session</option><?php foreach($sessions as $s):?><option value="<?php echo (int)$s['id'];?>" <?php echo (int)$s['id']===$selectedSession?'selected':'';?>><?php echo htmlspecialchars($s['name']);?></option><?php endforeach;?></select></div>
+            <div class="col-sm-6 col-lg-3"><label class="form-label" for="filter-term">Term</label><select class="form-select" id="filter-term" name="term" onchange="this.form.submit()"><option value="">Select term</option><?php foreach([1,2,3] as $t):$hasTerm=false;foreach($periodOptions as $p)if((int)$p['session_id']===$selectedSession&&(int)$p['term']===$t)$hasTerm=true;if($hasTerm):?><option value="<?php echo $t;?>" <?php echo $t===$selectedTerm?'selected':'';?>><?php echo htmlspecialchars(termLabel($t));?></option><?php endif;endforeach;?></select></div>
+            <div class="col-sm-6 col-lg-3"><label class="form-label" for="filter-class">Class</label><select class="form-select" id="filter-class" name="class_id" onchange="this.form.submit()"><option value="">Select class</option><?php foreach($classes as $id=>$name):?><option value="<?php echo $id;?>" <?php echo $id===$selectedClass?'selected':'';?>><?php echo htmlspecialchars($name);?></option><?php endforeach;?></select></div>
+            <div class="col-sm-6 col-lg-3"><label class="form-label" for="filter-student">Name</label><select class="form-select" id="filter-student" name="student_id" onchange="this.form.submit()"><option value="0">All students</option><?php foreach($students as $s):?><option value="<?php echo (int)$s['id'];?>" <?php echo (int)$s['id']===$selectedStudent?'selected':'';?>><?php echo htmlspecialchars($s['full_name']);?></option><?php endforeach;?></select></div>
+        </div>
+    </form>
     <header class="review-heading d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
         <div><div class="review-kicker">Academic results / Review</div><h1><?php echo $period?htmlspecialchars($period['class_name'].' · '.termLabel((int)$period['term'])):'Review term result';?></h1><p class="review-meta"><?php echo $period?htmlspecialchars($period['session_name'].' session · '.count($scores).' student-subject rows'):'';?></p></div>
         <div class="d-flex align-items-center gap-2"><a class="btn btn-outline-secondary" href="term_results.php<?php echo $period?'?session_id='.(int)$period['session_id']:'';?>"><i class="fas fa-arrow-left me-1"></i> Results overview</a><?php if($period):?><span class="review-status submitted">Individual release</span><?php endif;?></div>
