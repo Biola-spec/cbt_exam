@@ -660,9 +660,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                         <?php endif; ?>
                                         <?php $examTermLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term']; ?>
                                         <span class="badge bg-primary ms-1"><?php echo htmlspecialchars($examTermLabels[(int)($exam['result_term'] ?? 0)] ?? 'No term'); ?></span>
-                                        <?php if ($exam['description']): ?>
-                                            <small class="text-muted d-block"><?php echo htmlspecialchars($exam['description']); ?></small>
-                                        <?php endif; ?>
                                     </span>
                                     <span>
                                         <?php if ($exam['is_published']): ?>

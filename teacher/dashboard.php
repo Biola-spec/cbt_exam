@@ -157,7 +157,7 @@ try {
                         <div class="card-body">
                             <?php if (count($exams) > 0): ?>
                                 <div class="table-responsive">
-                                    <table class="table table-hover">
+                                    <table class="table table-hover align-middle teacher-exams-table">
                                         <thead class="table-light">
                                             <tr>
                                                 <th>Exam Title</th>
@@ -171,27 +171,27 @@ try {
                                         <tbody>
                                             <?php foreach ($exams as $exam): ?>
                                                 <tr>
-                                                    <td>
-                                                        <strong><?php echo htmlspecialchars($exam['title']); ?></strong>
+                                                    <td data-label="Exam Title" class="teacher-exam-title-cell">
+                                                        <strong class="teacher-exam-title"><?php echo htmlspecialchars($exam['title']); ?></strong>
                                                         <?php if ($exam['description']): ?>
-                                                            <div class="text-muted small"><?php echo htmlspecialchars($exam['description']); ?></div>
+                                                            <div class="text-muted small teacher-exam-description"><?php echo htmlspecialchars($exam['description']); ?></div>
                                                         <?php endif; ?>
                                                     </td>
-                                                    <td><?php echo htmlspecialchars($exam['result_session_name'] ?: ($exam['academic_session'] ?? '—')); ?></td>
-                                                    <td><?php
+                                                    <td data-label="Session" class="teacher-exam-session"><?php echo htmlspecialchars($exam['result_session_name'] ?: ($exam['academic_session'] ?? '—')); ?></td>
+                                                    <td data-label="Term" class="teacher-exam-term"><?php
                                                         $termLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term'];
                                                         $termValue = (int)($exam['result_term'] ?? 0);
                                                         echo htmlspecialchars($termLabels[$termValue] ?? '—');
                                                     ?></td>
-                                                    <td><?php echo date('M j, Y', strtotime($exam['created_at'])); ?></td>
-                                                    <td>
+                                                    <td data-label="Created"><?php echo date('M j, Y', strtotime($exam['created_at'])); ?></td>
+                                                    <td data-label="Status">
                                                         <?php if ($exam['is_published']): ?>
                                                             <span class="badge bg-success">Published</span>
                                                         <?php else: ?>
                                                             <span class="badge bg-secondary">Draft</span>
                                                         <?php endif; ?>
                                                     </td>
-                                                    <td>
+                                                    <td data-label="Actions" class="teacher-exam-actions">
                                                         <a href="my_exams.php?exam_id=<?php echo $exam['id']; ?>" class="btn btn-primary btn-sm">
                                                             <i class="fas fa-edit me-1"></i>Manage
                                                         </a>
