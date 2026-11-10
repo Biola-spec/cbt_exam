@@ -132,10 +132,11 @@ try {
                         // Get the current user ID and store in a variable to avoid pass by reference error
                         $current_user_id = getUserId();
                         // Get exams that are allocated to this teacher through teacher_allocations table
-                        $stmt = $conn->prepare("SELECT DISTINCT e.id, e.title, e.description, e.is_published, e.created_at 
+                        $stmt = $conn->prepare("SELECT DISTINCT e.id, e.title, e.description, e.academic_session, e.result_term, e.result_session_id, session.name AS result_session_name, e.is_published, e.created_at 
                                               FROM exams e
                                               JOIN exam_subjects es ON e.id = es.exam_id
                                               JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
+                                              LEFT JOIN academic_sessions session ON session.id = e.result_session_id
                                               WHERE ta.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM entrance_exams ee WHERE ee.exam_subject_id=es.id)
                                               ORDER BY e.created_at DESC");
                         $stmt->bind_param("i", $current_user_id); // Use the variable instead of function call
@@ -170,6 +171,18 @@ try {
                                                 <tr>
                                                     <td>
                                                         <strong><?php echo htmlspecialchars($exam['title']); ?></strong>
+                                                        <?php if (!empty($exam['result_term']) || !empty($exam['result_session_name']) || !empty($exam['academic_session'])): ?>
+                                                            <div class="text-muted small">
+                                                                <?php
+                                                                $termLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term'];
+                                                                $termValue = (int)($exam['result_term'] ?? 0);
+                                                                if (isset($termLabels[$termValue])) echo htmlspecialchars($termLabels[$termValue]);
+                                                                $sessionName = $exam['result_session_name'] ?: ($exam['academic_session'] ?? '');
+                                                                if (isset($termLabels[$termValue]) && $sessionName !== '') echo ' · ';
+                                                                echo htmlspecialchars($sessionName);
+                                                                ?>
+                                                            </div>
+                                                        <?php endif; ?>
                                                         <?php if ($exam['description']): ?>
                                                             <div class="text-muted small"><?php echo htmlspecialchars($exam['description']); ?></div>
                                                         <?php endif; ?>
