@@ -23,7 +23,7 @@ try {
     // Get distinct exams allocated to this teacher
     // We need to group by exam ID to prevent duplicates
     // Show both published and unpublished exams so teachers can work on them
-    $query = "SELECT DISTINCT e.id, e.title, e.description, e.is_published, e.published_at, e.created_by, e.created_at
+    $query = "SELECT DISTINCT e.id, e.title, e.description, e.academic_session, e.result_session_id, e.result_term, e.is_published, e.published_at, e.created_by, e.created_at
               FROM exams e
               JOIN exam_subjects es ON e.id = es.exam_id
               JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
@@ -50,10 +50,16 @@ try {
     // For each exam, get the associated classes and subjects
     foreach ($allocated_exams as &$exam) {
         $stmt = $mysqli->prepare("SELECT DISTINCT es.id as exam_subject_id, c.id as class_id, c.name as class_name, s.id as subject_id, s.name as subject_name,
-                              es.is_published as subject_published, es.published_at as subject_published_at, es.show_calculator
+                              es.is_published as subject_published, es.published_at as subject_published_at, es.show_calculator,
+                              COALESCE(class_session.name, exam_session.name, e.academic_session) AS display_session,
+                              COALESCE(ecl.result_term, e.result_term) AS display_term
                               FROM exam_subjects es
+                              JOIN exams e ON e.id = es.exam_id
                               JOIN classes c ON es.class_id = c.id
                               JOIN subjects s ON es.subject_id = s.id
+                              LEFT JOIN exam_class_result_links ecl ON ecl.exam_id = es.exam_id AND ecl.class_id = es.class_id
+                              LEFT JOIN academic_sessions class_session ON class_session.id = ecl.result_session_id
+                              LEFT JOIN academic_sessions exam_session ON exam_session.id = e.result_session_id
                               JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
                               WHERE es.exam_id = ? AND ta.teacher_id = ?
                               ORDER BY c.name, s.name");
@@ -193,6 +199,13 @@ function getQuestionCount($exam_subject_id) {
                                                             <div>
                                                                 <strong><?php echo htmlspecialchars($subject['class_name']); ?></strong> - 
                                                                 <?php echo htmlspecialchars($subject['subject_name']); ?>
+                                                                <?php if (!empty($subject['display_term']) || !empty($subject['display_session'])): ?>
+                                                                    <small class="text-muted d-block">
+                                                                        <?php if (!empty($subject['display_term'])): ?>Term <?php echo (int)$subject['display_term']; ?><?php endif; ?>
+                                                                        <?php if (!empty($subject['display_term']) && !empty($subject['display_session'])): ?> · <?php endif; ?>
+                                                                        <?php echo htmlspecialchars($subject['display_session'] ?? ''); ?>
+                                                                    </small>
+                                                                <?php endif; ?>
                                                                  <?php if (!$subject['subject_published']): ?>
                                                                     <span class="badge bg-secondary">Not Published</span>
                                                                 <?php endif; ?>
