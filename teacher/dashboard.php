@@ -161,6 +161,8 @@ try {
                                         <thead class="table-light">
                                             <tr>
                                                 <th>Exam Title</th>
+                                                <th>Session</th>
+                                                <th>Term</th>
                                                 <th>Created</th>
                                                 <th>Status</th>
                                                 <th>Actions</th>
@@ -171,22 +173,16 @@ try {
                                                 <tr>
                                                     <td>
                                                         <strong><?php echo htmlspecialchars($exam['title']); ?></strong>
-                                                        <?php if (!empty($exam['result_term']) || !empty($exam['result_session_name']) || !empty($exam['academic_session'])): ?>
-                                                            <div class="text-muted small">
-                                                                <?php
-                                                                $termLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term'];
-                                                                $termValue = (int)($exam['result_term'] ?? 0);
-                                                                if (isset($termLabels[$termValue])) echo htmlspecialchars($termLabels[$termValue]);
-                                                                $sessionName = $exam['result_session_name'] ?: ($exam['academic_session'] ?? '');
-                                                                if (isset($termLabels[$termValue]) && $sessionName !== '') echo ' · ';
-                                                                echo htmlspecialchars($sessionName);
-                                                                ?>
-                                                            </div>
-                                                        <?php endif; ?>
                                                         <?php if ($exam['description']): ?>
                                                             <div class="text-muted small"><?php echo htmlspecialchars($exam['description']); ?></div>
                                                         <?php endif; ?>
                                                     </td>
+                                                    <td><?php echo htmlspecialchars($exam['result_session_name'] ?: ($exam['academic_session'] ?? '—')); ?></td>
+                                                    <td><?php
+                                                        $termLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term'];
+                                                        $termValue = (int)($exam['result_term'] ?? 0);
+                                                        echo htmlspecialchars($termLabels[$termValue] ?? '—');
+                                                    ?></td>
                                                     <td><?php echo date('M j, Y', strtotime($exam['created_at'])); ?></td>
                                                     <td>
                                                         <?php if ($exam['is_published']): ?>
