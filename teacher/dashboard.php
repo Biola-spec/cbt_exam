@@ -132,7 +132,7 @@ try {
                         // Get the current user ID and store in a variable to avoid pass by reference error
                         $current_user_id = getUserId();
                         // Get exams that are allocated to this teacher through teacher_allocations table
-                        $stmt = $conn->prepare("SELECT DISTINCT e.id, e.title, e.description, e.academic_session, e.result_term, e.result_session_id, session.name AS result_session_name, e.is_published, e.created_at 
+                        $stmt = $conn->prepare("SELECT DISTINCT e.id, e.title, e.academic_session, e.result_term, e.result_session_id, session.name AS result_session_name, e.is_published, e.created_at 
                                               FROM exams e
                                               JOIN exam_subjects es ON e.id = es.exam_id
                                               JOIN teacher_allocations ta ON es.class_id = ta.class_id AND es.subject_id = ta.subject_id
@@ -173,9 +173,6 @@ try {
                                                 <tr>
                                                     <td data-label="Exam Title" class="teacher-exam-title-cell">
                                                         <strong class="teacher-exam-title"><?php echo htmlspecialchars($exam['title']); ?></strong>
-                                                        <?php if ($exam['description']): ?>
-                                                            <div class="text-muted small teacher-exam-description"><?php echo htmlspecialchars($exam['description']); ?></div>
-                                                        <?php endif; ?>
                                                     </td>
                                                     <td data-label="Session" class="teacher-exam-session"><?php echo htmlspecialchars($exam['result_session_name'] ?: ($exam['academic_session'] ?? '—')); ?></td>
                                                     <td data-label="Term" class="teacher-exam-term"><?php
