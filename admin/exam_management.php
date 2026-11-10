@@ -225,9 +225,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
     $academic_session = trim($_POST['academic_session'] ?? '');
+    $result_term = (int)($_POST['result_term'] ?? 0);
     $validSessionNames = array_column($resultSessions, 'name');
     if ($academic_session === '' || !in_array($academic_session, $validSessionNames, true)) $academic_session = null;
-    if (!empty($title)) {
+    if (!empty($title) && $result_term >= 1 && $result_term <= 3) {
         $createTransaction = false;
         try {
             if ($mysqli) {
@@ -235,8 +236,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 if ($user_id) {
                     $mysqli->begin_transaction();
                     $createTransaction = true;
-                    $stmt = $mysqli->prepare('INSERT INTO exams (title, academic_session, description, created_by) VALUES (?, ?, ?, ?)');
-                    $stmt->bind_param('sssi', $title, $academic_session, $description, $user_id);
+                    $stmt = $mysqli->prepare('INSERT INTO exams (title, academic_session, result_term, description, created_by) VALUES (?, ?, ?, ?, ?)');
+                    $stmt->bind_param('ssisi', $title, $academic_session, $result_term, $description, $user_id);
                     $stmt->execute();
                     $stmt->close();
                     $mysqli->commit();
@@ -261,7 +262,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             $message = 'Error creating exam: ' . $e->getMessage();
         }
     } else {
-        $message = 'Exam title is required';
+        $message = empty($title) ? 'Exam title is required' : 'Select a valid term for the exam';
     }
 }
 
@@ -271,14 +272,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $title = trim($_POST['title']);
     $description = trim($_POST['description']);
     $academic_session = trim($_POST['academic_session'] ?? '');
+    $result_term = (int)($_POST['result_term'] ?? 0);
     $validSessionNames = array_column($resultSessions, 'name');
     if ($academic_session === '' || !in_array($academic_session, $validSessionNames, true)) $academic_session = null;
     
-    if ($exam_id > 0 && !empty($title)) {
+    if ($exam_id > 0 && !empty($title) && $result_term >= 1 && $result_term <= 3) {
         try {
             if ($mysqli) {
-                $stmt = $mysqli->prepare("UPDATE exams SET title = ?, academic_session = ?, description = ? WHERE id = ?");
-                $stmt->bind_param("sssi", $title, $academic_session, $description, $exam_id);
+                $stmt = $mysqli->prepare("UPDATE exams SET title = ?, academic_session = ?, result_term = ?, description = ? WHERE id = ?");
+                $stmt->bind_param("ssisi", $title, $academic_session, $result_term, $description, $exam_id);
                 $stmt->execute();
                 $stmt->close();
                 $message = 'Exam updated successfully';
@@ -617,6 +619,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                         <div class="form-text">Choose a session configured in Academic Sessions.</div>
                     </div>
                 </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label for="result_term" class="form-label">Term</label>
+                                        <select class="form-select" id="result_term" name="result_term" required>
+                                            <option value="">Select term</option>
+                                            <option value="1">First term</option>
+                                            <option value="2">2nd Term</option>
+                                            <option value="3">3rd Term</option>
+                                        </select>
+                                    </div>
+                                </div>
             </div>
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-plus me-1"></i> Create Exam
@@ -645,6 +658,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                         <?php else: ?>
                                             <span class="badge bg-secondary ms-2">No session</span>
                                         <?php endif; ?>
+                                        <?php $examTermLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term']; ?>
+                                        <span class="badge bg-primary ms-1"><?php echo htmlspecialchars($examTermLabels[(int)($exam['result_term'] ?? 0)] ?? 'No term'); ?></span>
                                         <?php if ($exam['description']): ?>
                                             <small class="text-muted d-block"><?php echo htmlspecialchars($exam['description']); ?></small>
                                         <?php endif; ?>
@@ -998,6 +1013,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                                 <option value="">Select academic session</option>
                                 <?php foreach ($resultSessions as $session): ?>
                                     <option value="<?php echo htmlspecialchars($session['name'], ENT_QUOTES); ?>" <?php echo ($exam['academic_session'] ?? '') === $session['name'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($session['name']); ?><?php echo !empty($session['is_current']) ? ' (Current)' : ''; ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_term_<?php echo $exam['id']; ?>" class="form-label">Term</label>
+                            <select class="form-select" id="edit_term_<?php echo $exam['id']; ?>" name="result_term" required>
+                                <?php $examTermLabels = [1 => 'First term', 2 => '2nd Term', 3 => '3rd Term']; ?>
+                                <?php foreach ($examTermLabels as $termValue => $termName): ?>
+                                    <option value="<?php echo $termValue; ?>" <?php echo (int)($exam['result_term'] ?? 0) === $termValue ? 'selected' : ''; ?>><?php echo htmlspecialchars($termName); ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
