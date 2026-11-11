@@ -164,6 +164,9 @@ try {
                 <a href="report_card_settings.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-star-half-alt me-2"></i> Report Card Settings
                 </a>
+                <a href="early_years.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-child me-2"></i> Early Years Reports
+                </a>
                 <a href="resit_requests.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-clipboard-check me-2"></i> Resit Requests
                     <?php if ($pending_resit_count > 0): ?><span class="badge bg-warning text-dark float-end"><?php echo $pending_resit_count; ?></span><?php endif; ?>

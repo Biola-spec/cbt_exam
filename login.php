@@ -18,6 +18,16 @@ if (isLoggedIn() && !$student_exam_access_mode) {
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    if (($_POST['login_type'] ?? '') === 'early_years_family') {
+        $code = strtoupper(preg_replace('/[^A-Z0-9-]/', '', trim((string)($_POST['early_years_code'] ?? ''))));
+        $db = getDBConnection();
+        if ($db && $code !== '') {
+            $stmt = $db->prepare('SELECT id, family_label FROM early_years_family_codes WHERE access_code=?');
+            $stmt->bind_param('s', $code); $stmt->execute(); $family = $stmt->get_result()->fetch_assoc(); $stmt->close();
+            if ($family) { session_regenerate_id(true); $_SESSION['early_years_family_id']=(int)$family['id']; $_SESSION['early_years_family_label']=$family['family_label'] ?: 'Family'; header('Location: early_years/parent_portal.php'); exit; }
+        }
+        $error = 'Early Years family code is invalid. Please check the code supplied by the school.';
+    } else {
     $is_student = isset($_POST['is_student']) && $_POST['is_student'] == '1';
     
     if ($is_student) {
@@ -111,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
     }
+    }
 }
 
 // A subject code only opens published exams assigned to this student's class.
@@ -200,6 +211,7 @@ $body_class = 'login-page-bg';
                         </button>
                     </li>
                     <?php endif; ?>
+                    <?php if (!$student_exam_access_mode): ?><li class="nav-item" role="presentation"><button class="nav-link" id="parent-tab" data-bs-toggle="tab" data-bs-target="#parent" type="button" role="tab"><i class="fas fa-child me-1"></i> Early Years Code</button></li><?php endif; ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link <?php echo $student_exam_access_mode ? 'active' : ''; ?>" id="student-tab" data-bs-toggle="tab" data-bs-target="#student" type="button" role="tab">
                             <i class="fas fa-user-graduate me-1"></i> Student Login
@@ -239,6 +251,7 @@ $body_class = 'login-page-bg';
                     </div>
                     <?php endif; ?>
                     
+                    <?php if (!$student_exam_access_mode): ?><div class="tab-pane fade" id="parent" role="tabpanel"><form method="POST" autocomplete="off"><input type="hidden" name="login_type" value="early_years_family"><div class="mb-3"><label for="early_years_code" class="form-label">Early Years family code</label><input class="form-control form-control-lg text-uppercase" id="early_years_code" name="early_years_code" required autocomplete="one-time-code" placeholder="Enter your family code"></div><p class="form-text">One family code can open the results for all pupils linked to your family.</p><button class="btn btn-primary btn-lg w-100" type="submit"><i class="fas fa-sign-in-alt me-1"></i> View Early Years results</button></form></div><?php endif; ?>
                     <!-- Student Login Form -->
                     <div class="tab-pane fade <?php echo $student_exam_access_mode ? 'show active' : ''; ?>" id="student" role="tabpanel">
                         <form method="POST" autocomplete="off">
@@ -278,12 +291,15 @@ $body_class = 'login-page-bg';
                         </form>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
 </div>
 
 <script>
+if (new URLSearchParams(window.location.search).get('tab') === 'parent') { window.addEventListener('DOMContentLoaded', function () { document.getElementById('staff-tab')?.classList.remove('active'); document.getElementById('student-tab')?.classList.remove('active'); document.getElementById('parent-tab')?.classList.add('active'); document.getElementById('staff')?.classList.remove('show','active'); document.getElementById('student')?.classList.remove('show','active'); document.getElementById('parent')?.classList.add('show','active'); }); }
+
 function togglePasswordVisibility(fieldId) {
     const passwordField = document.getElementById(fieldId);
     const toggleButton = passwordField.nextElementSibling;

@@ -73,6 +73,7 @@ try {
             <?php echo (int)$termReleaseSummary['not_submitted']; ?> not submitted or recalled
         </div></div>
         <a class="btn btn-sm btn-outline-primary" href="term_scores.php"><i class="fas fa-clipboard-list me-1"></i> Open score sheets</a>
+        <a class="btn btn-sm btn-outline-primary" href="early_years.php"><i class="fas fa-child me-1"></i> Early Years reports</a>
     </div>
 </div>
 
