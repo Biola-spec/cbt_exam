@@ -91,11 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         // Basic validations
         if ($full_name === '' || $email === '' || $class_id <= 0 || $password === '') {
-            $message = 'Please fill in full name, Gmail, password and select a class.';
+            $message = 'Please fill in full name, email, password and select a class.';
         } elseif (strlen($password) < 8) {
             $message = 'Student password must be at least 8 characters.';
-        } elseif (!preg_match('/@gmail\.com$/i', $email)) {
-            $message = 'Email must be a valid Gmail address ending with @gmail.com';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/@(gmail\.com|famaiis\.sch\.ng)$/i', $email)) {
+            $message = 'Enter a valid email ending with @gmail.com or @famaiis.sch.ng.';
         } elseif (!$has_class_id) {
             $message = 'Database missing users.class_id. See migration instructions below.';
         } else {
@@ -163,9 +163,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         if ($sid <= 0) {
             $message = 'Invalid student selected.';
         } elseif ($full_name === '' || $email === '' || ($has_class_id && $class_id <= 0)) {
-            $message = 'Please provide valid name, Gmail and class.';
-        } elseif (!preg_match('/@gmail\.com$/i', $email)) {
-            $message = 'Email must be a valid Gmail address ending with @gmail.com';
+            $message = 'Please provide a valid name, email and class.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/@(gmail\.com|famaiis\.sch\.ng)$/i', $email)) {
+            $message = 'Enter a valid email ending with @gmail.com or @famaiis.sch.ng.';
         } elseif ($new_password !== '' && strlen($new_password) < 8) {
             $message = 'Student password must be at least 8 characters.';
         } else {
@@ -384,7 +384,7 @@ try {
             <div class="card-body">
             <div class="table-responsive">
                 <table class="table table-sm table-bordered bg-white mb-0">
-                    <thead><tr><th>#</th><th>Student</th><th>Gmail</th><th>Generated Password</th></tr></thead>
+                    <thead><tr><th>#</th><th>Student</th><th>Email</th><th>Generated Password</th></tr></thead>
                     <tbody>
                     <?php foreach ($bulk_password_results as $credential_index => $credential): ?>
                         <tr>
@@ -475,7 +475,7 @@ try {
                     <div class="row g-3">
                         <div class="col-md-6"><label class="form-label" for="student_full_name">Full name *</label><input type="text" class="form-control" id="student_full_name" name="full_name" required autocomplete="name" placeholder="e.g. Ada Okafor"></div>
                         <div class="col-md-6"><label class="form-label" for="student_admission_number">Admission number</label><input type="text" class="form-control" id="student_admission_number" name="admission_number" maxlength="100" placeholder="Optional school ID"></div>
-                        <div class="col-md-6"><label class="form-label" for="student_email">Email address *</label><input type="email" class="form-control" id="student_email" name="email" required autocomplete="email" placeholder="student@school.com"></div>
+                        <div class="col-md-6"><label class="form-label" for="student_email">Email address *</label><input type="email" class="form-control" id="student_email" name="email" required autocomplete="email" placeholder="student@famaiis.sch.ng"><div class="form-text">Use a Gmail or Famaiis school email address.</div></div>
                         <div class="col-md-6"><label class="form-label" for="student_password">Password *</label><input type="password" class="form-control" id="student_password" name="student_password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><div class="form-text">Share this password with the student for dashboard access.</div></div>
                         <div class="col-md-6"><label class="form-label" for="student_class">Class *</label><select class="form-select" id="student_class" name="class_id" <?php echo !$has_class_id || empty($classes) ? 'disabled' : ''; ?> required><option value="">Select a class</option><?php foreach ($classes as $c): ?><option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option><?php endforeach; ?></select></div>
                         <div class="col-md-6"><label class="form-label" for="add_student_passport">Profile photo *</label><div class="student-photo-upload"><div class="student-photo-preview" id="add_passport_placeholder"><i class="fas fa-camera"></i></div><img class="student-photo-preview d-none" id="add_passport_preview" src="" alt="Passport preview"><div class="flex-grow-1"><input type="file" class="form-control" id="add_student_passport" name="passport" accept="image/*" required><div class="form-text">Choose a clear passport photograph.</div></div></div></div>
@@ -620,7 +620,7 @@ try {
             <input type="text" class="form-control" name="edit_full_name" id="edit_full_name" required>
           </div>
           <div class="mb-3">
-            <label class="form-label" for="edit_email">Gmail</label>
+            <label class="form-label" for="edit_email">Email</label>
             <input type="email" class="form-control" name="edit_email" id="edit_email" required>
           </div>
           <div class="mb-3">
