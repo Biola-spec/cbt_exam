@@ -716,7 +716,7 @@ try {
                     .compact-student-directory { margin-bottom:0; font-size:.82rem; }
                     .compact-student-directory th,.compact-student-directory td { padding:.35rem .45rem; vertical-align:middle; }
                     .compact-student-directory th { white-space:nowrap; font-size:.78rem; }
-                    .compact-student-directory .student-export-photo { width:34px!important; height:42px!important; object-fit:cover; border-radius:5px; }
+                    .compact-student-directory .student-export-photo { width:50px!important; height:62px!important; object-fit:cover; object-position:center; border-radius:6px; }
                     .compact-student-directory .btn { padding:.2rem .4rem; font-size:.75rem; }
                     .compact-student-directory td:nth-child(5) { overflow-wrap:anywhere; }
                     @media(max-width:767px) { .compact-directory-body { padding:.5rem; } .compact-student-directory { min-width:760px; } }
