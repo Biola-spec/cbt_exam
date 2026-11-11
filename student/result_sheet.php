@@ -2,12 +2,22 @@
 require_once '../config/database.php';
 require_once '../config/session.php';
 require_once '../includes/results_sheet.php';
-requireLogin();
-if (getUserRole() !== 'student') { header('Location: ../login.php'); exit(); }
+$familyView = !empty($_SESSION['early_years_family_id']);
+if (!$familyView) requireLogin();
+if (getUserRole() !== 'student' && !$familyView) { header('Location: ../login.php'); exit(); }
 $examId = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
 if ($examId < 1) { header('Location: dashboard.php?tab=results'); exit(); }
 $mysqli = getDBConnection();
-$sheet = $mysqli ? resultSheetLoad($mysqli, (int)getUserId(), $examId) : null;
+$viewStudentId = $familyView ? (int)($_GET['student_id'] ?? 0) : (int)getUserId();
+if ($familyView && $mysqli && $viewStudentId > 0) {
+    require_once '../includes/family_access.php';
+    if (!familyAccessEnsureSchema($mysqli)) { http_response_code(503); exit('Family results are temporarily unavailable.'); }
+    $familyId = (int)$_SESSION['early_years_family_id'];
+    $access = $mysqli->prepare("SELECT 1 FROM family_student_links WHERE family_id=? AND student_type='student' AND student_id=?");
+    $access->bind_param('ii', $familyId, $viewStudentId); $access->execute(); $authorized = (bool)$access->get_result()->fetch_row(); $access->close();
+    if (!$authorized) { http_response_code(403); exit('This student is not linked to your family code.'); }
+} elseif ($familyView) { http_response_code(403); exit('Choose a linked student to view results.'); }
+$sheet = $mysqli ? resultSheetLoad($mysqli, $viewStudentId, $examId) : null;
 if (!$sheet) { http_response_code(404); echo 'Results are not available.'; exit(); }
 $exam = $sheet['exam']; $summary = $sheet['summary'];
 $logoPath = trim((string)getSchoolLogo());
@@ -40,7 +50,7 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
 <body>
 <div class="container mt-4">
 <div class="results-actions no-print">
-    <a class="btn btn-outline-secondary" href="dashboard.php?tab=results">Back to Examinations</a>
+    <a class="btn btn-outline-secondary" href="<?php echo $familyView ? '../early_years/parent_portal.php?student_id=' . $viewStudentId : 'dashboard.php?tab=results'; ?>"><?php echo $familyView ? 'Back to Family Results' : 'Back to Examinations'; ?></a>
     <button class="btn btn-outline-primary" onclick="window.print()" type="button">Print Results</button>
     <a class="btn btn-primary" href="download_results_pdf.php?exam_id=<?php echo (int)$examId; ?>">Download PDF</a>
 </div>

@@ -575,6 +575,31 @@ try {
             </div>
         </div>
 
+        <style>
+        .student-management-tabs{margin:1.5rem 0 1.25rem;padding:.55rem;border:1px solid #e4eaf3;border-radius:18px;background:linear-gradient(135deg,#f8fbff,#eef4ff);box-shadow:0 12px 32px rgba(34,65,112,.08)}
+        .student-management-tabs .nav-link{display:flex;align-items:center;gap:.7rem;padding:.85rem 1rem;border:0;border-radius:13px;color:#52627a;font-weight:700;transition:all .2s ease}
+        .student-management-tabs .nav-link i{display:grid;place-items:center;width:36px;height:36px;border-radius:11px;background:#fff;color:#4474c5;box-shadow:0 3px 10px rgba(34,65,112,.08)}
+        .student-management-tabs .nav-link:hover{color:#174c9b;background:rgba(255,255,255,.75);transform:translateY(-1px)}
+        .student-management-tabs .nav-link.active{color:#fff;background:linear-gradient(120deg,#2463c5,#4b86e8);box-shadow:0 7px 18px rgba(36,99,197,.25)}
+        .student-management-tabs .nav-link.active i{color:#2463c5}
+        .student-tab-panel{padding-top:.35rem;animation:studentPanelIn .22s ease-out}
+        .student-tab-heading{display:flex;align-items:center;gap:.9rem;margin:.5rem 0 1.1rem;padding:1rem 1.15rem;border:1px solid #e5ebf4;border-radius:15px;background:#fff;box-shadow:0 5px 18px rgba(33,52,80,.045)}
+        .student-tab-heading-icon{display:grid;place-items:center;width:46px;height:46px;flex:0 0 46px;border-radius:14px;background:#edf4ff;color:#2865c2;font-size:1.1rem}
+        .student-tab-heading h2{margin:0;color:#21334d;font-size:1.15rem;font-weight:750}
+        .student-tab-heading p{margin:.2rem 0 0;color:#718096;font-size:.9rem}
+        @keyframes studentPanelIn{from{opacity:.5;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+        @media(max-width:767px){.student-management-tabs .nav-link{justify-content:center;padding:.65rem .4rem;font-size:.78rem;gap:.35rem;flex-direction:column}.student-management-tabs .nav-link i{width:32px;height:32px}}
+        @media(prefers-reduced-motion:reduce){.student-tab-panel{animation:none}.student-management-tabs .nav-link{transition:none}}
+        </style>
+        <ul class="nav nav-pills nav-fill student-management-tabs" id="studentManagementTabs" role="tablist">
+            <li class="nav-item" role="presentation"><button class="nav-link active" id="register-student-tab" data-bs-toggle="tab" data-bs-target="#register-student-panel" type="button" role="tab" aria-controls="register-student-panel" aria-selected="true"><i class="fas fa-user-plus"></i><span>Register a student</span></button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="student-directory-tab" data-bs-toggle="tab" data-bs-target="#student-directory-panel" type="button" role="tab" aria-controls="student-directory-panel" aria-selected="false"><i class="fas fa-address-book"></i><span>Student Directory</span></button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="examination-override-tab" data-bs-toggle="tab" data-bs-target="#examination-override-panel" type="button" role="tab" aria-controls="examination-override-panel" aria-selected="false"><i class="fas fa-rotate"></i><span>Examination Override</span></button></li>
+        </ul>
+        <div class="tab-content" id="studentManagementTabContent">
+        <div class="tab-pane fade show active student-tab-panel" id="register-student-panel" role="tabpanel" aria-labelledby="register-student-tab" tabindex="0">
+            <div class="student-tab-heading"><span class="student-tab-heading-icon"><i class="fas fa-user-plus"></i></span><div><h2>Register a student</h2><p>Add the student’s account, class and profile photo.</p></div></div>
+
         <!-- Add Student Form -->
         <div class="card mb-4">
             <div class="card-header bg-white border-bottom px-4 py-3">
@@ -629,6 +654,9 @@ try {
             #bulk-password-print-area tbody tr { break-inside: avoid !important; page-break-inside: avoid !important; }
         }
         </style>
+        </div>
+        <div class="tab-pane fade student-tab-panel" id="student-directory-panel" role="tabpanel" aria-labelledby="student-directory-tab" tabindex="0">
+            <div class="student-tab-heading"><span class="student-tab-heading-icon"><i class="fas fa-address-book"></i></span><div><h2>Student Directory</h2><p>Find, update, print, and manage student accounts.</p></div></div>
         <!-- Student Directory -->
         <div class="card admin-print-area" id="student-directory-print">
             <div class="card-header d-flex justify-content-between align-items-center">
@@ -781,6 +809,7 @@ try {
     </div>
 </div>
 
+</div>
 <!-- Edit Student Modal -->
 <div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
   <div class="modal-dialog">
@@ -983,8 +1012,10 @@ try {
 }
 ?>
 
+<div class="tab-pane fade student-tab-panel" id="examination-override-panel" role="tabpanel" aria-labelledby="examination-override-tab" tabindex="0">
+    <div class="student-tab-heading"><span class="student-tab-heading-icon"><i class="fas fa-rotate"></i></span><div><h2>Examination Override</h2><p>Authorize a student to retake a specific examination subject.</p></div></div>
 <!-- Retake Exam Section -->
-<div class="row mt-5">
+<div class="row">
     <div class="col-md-8">
         <div class="card">
             <div class="card-header bg-warning text-dark">
@@ -1051,6 +1082,8 @@ try {
             </div>
         </div>
     </div>
+</div>
+</div>
 </div>
 
 <script>

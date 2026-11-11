@@ -3,10 +3,20 @@ require_once '../config/database.php';
 require_once '../config/session.php';
 require_once '../includes/term_results.php';
 require_once '../includes/term_result_sheet.php';
-requireLogin();
-if (getUserRole() !== 'student') { header('Location: ../login.php'); exit(); }
+$familyView = !empty($_SESSION['early_years_family_id']);
+if (!$familyView) requireLogin();
+if (getUserRole() !== 'student' && !$familyView) { header('Location: ../login.php'); exit(); }
 
 $mysqli = getDBConnection();
+$viewStudentId = $familyView ? (int)($_GET['student_id'] ?? 0) : (int)getUserId();
+if ($familyView && $mysqli && $viewStudentId > 0) {
+    require_once '../includes/family_access.php';
+    if (!familyAccessEnsureSchema($mysqli)) { http_response_code(503); exit('Family results are temporarily unavailable.'); }
+    $familyId = (int)$_SESSION['early_years_family_id'];
+    $access = $mysqli->prepare("SELECT 1 FROM family_student_links WHERE family_id=? AND student_type='student' AND student_id=?");
+    $access->bind_param('ii', $familyId, $viewStudentId); $access->execute(); $authorized = (bool)$access->get_result()->fetch_row(); $access->close();
+    if (!$authorized) { http_response_code(403); exit('This student is not linked to your family code.'); }
+} elseif ($familyView) { http_response_code(403); exit('Choose a linked student to view results.'); }
 $reports = [];
 $error = '';
 $maxComponentCount = 0;
@@ -20,8 +30,8 @@ $assetUrl = static function (?string $path): string {
 };
 try {
     if (!$mysqli) throw new RuntimeException('Database connection failed.');
-    foreach (termResultPeriods($mysqli, (int)getUserId()) as $period) {
-        $report = termResultSheetLoad($mysqli, (int)getUserId(), (int)$period['id']);
+    foreach (termResultPeriods($mysqli, $viewStudentId) as $period) {
+        $report = termResultSheetLoad($mysqli, $viewStudentId, (int)$period['id']);
         if ($report) {
             $maxComponentCount = max($maxComponentCount, count($report['components']));
             $reports[] = $report;
@@ -160,7 +170,7 @@ body.print-one .term-report-page .report-paper:not(.print-active){display:none}
 <main class="container-fluid py-4 term-report-page">
     <div class="report-toolbar no-print">
         <div><h1 class="h3 mb-1">My Term Results</h1><p class="text-muted mb-0">Released academic reports, organized by session and term.</p></div>
-        <a class="btn btn-outline-secondary" href="dashboard.php"><i class="fas fa-arrow-left me-1"></i> Student dashboard</a>
+        <a class="btn btn-outline-secondary" href="<?php echo $familyView ? '../early_years/parent_portal.php?student_id=' . $viewStudentId : 'dashboard.php'; ?>"><i class="fas fa-arrow-left me-1"></i> <?php echo $familyView ? 'Family results' : 'Student dashboard'; ?></a>
     </div>
     <?php if ($error): ?><div class="alert alert-warning"><?php echo htmlspecialchars($error); ?></div>
     <?php elseif (!$reports): ?><div class="alert alert-info">No term results have been released for you yet.</div>
