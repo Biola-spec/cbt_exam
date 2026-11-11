@@ -646,16 +646,16 @@ try {
                 </form>
                 <?php endif; ?>
             </div>
-            <div class="card-body">
+            <div class="card-body compact-directory-body">
                 <?php if (count($students) === 0): ?>
                     <div class="alert alert-info">No students found for the selected criteria.</div>
                 <?php else: ?>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped align-middle">
+                        <table class="table table-sm table-bordered table-striped align-middle compact-student-directory">
                             <colgroup>
-                                <col style="width:5%"><col style="width:10%"><col style="width:24%">
-                                <col style="width:16%"><col style="width:29%"><col style="width:16%">
-                                <col class="no-print" style="width:120px">
+                                <col style="width:4%"><col style="width:6%"><col style="width:20%">
+                                <col style="width:14%"><col style="width:27%"><col style="width:15%">
+                                <col class="no-print" style="width:105px">
                             </colgroup>
                             <thead class="table-light">
                                 <tr>
@@ -674,9 +674,9 @@ try {
                                         <td><?php echo $index + 1; ?></td>
                                         <td class="text-center">
                                             <?php if (!empty($s['passport'])): ?>
-                                                <img src="../<?php echo htmlspecialchars($s['passport']); ?>" width="72" height="88" class="student-export-photo" loading="eager" alt="Student photograph">
+                                                <img src="../<?php echo htmlspecialchars($s['passport']); ?>" width="38" height="46" class="student-export-photo" loading="lazy" alt="Student photograph">
                                             <?php else: ?>
-                                                <i class="fas fa-user-circle fa-2x text-muted"></i>
+                                                <i class="fas fa-user-circle fa-lg text-muted"></i>
                                             <?php endif; ?>
                                         </td>
                                         <td><strong><?php echo htmlspecialchars($s['full_name']); ?></strong></td>
@@ -694,7 +694,7 @@ try {
                                                 <?php if ($has_class_id): ?>
                                                 data-class-id="<?php echo isset($s['class_id']) ? (int)$s['class_id'] : 0; ?>"
                                                 <?php endif; ?>>
-                                                <i class="fas fa-edit"></i> Edit
+                                                <i class="fas fa-edit"></i><span class="directory-action-label"> Edit</span>
                                             </button>
                                             <form method="POST" class="d-inline" onsubmit="return confirm('Delete student?');">
                                                 <input type="hidden" name="action" value="delete_student">
@@ -711,6 +711,16 @@ try {
                         </table>
                     </div>
                 <?php endif; ?>
+                <style>
+                    .compact-directory-body { padding:.75rem; }
+                    .compact-student-directory { margin-bottom:0; font-size:.82rem; }
+                    .compact-student-directory th,.compact-student-directory td { padding:.35rem .45rem; vertical-align:middle; }
+                    .compact-student-directory th { white-space:nowrap; font-size:.78rem; }
+                    .compact-student-directory .student-export-photo { width:34px!important; height:42px!important; object-fit:cover; border-radius:5px; }
+                    .compact-student-directory .btn { padding:.2rem .4rem; font-size:.75rem; }
+                    .compact-student-directory td:nth-child(5) { overflow-wrap:anywhere; }
+                    @media(max-width:767px) { .compact-directory-body { padding:.5rem; } .compact-student-directory { min-width:760px; } }
+                </style>
                 <?php if ($has_class_id && $class_filter > 0 && count($students) > 0): ?>
                 <details class="card mt-4 no-print bulk-student-editor" id="bulkStudentEditor">
                     <summary class="card-header fw-semibold text-primary"><span><i class="fas fa-users-gear me-2"></i>Edit all students in this class</span><i class="fas fa-chevron-down bulk-editor-chevron"></i></summary>
