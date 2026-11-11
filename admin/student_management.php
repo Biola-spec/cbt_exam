@@ -712,37 +712,59 @@ try {
                     </div>
                 <?php endif; ?>
                 <?php if ($has_class_id && $class_filter > 0 && count($students) > 0): ?>
-                <details class="card mt-4 no-print" id="bulkStudentEditor">
-                    <summary class="card-header fw-semibold text-primary" style="cursor:pointer"><i class="fas fa-users-gear me-2"></i>Edit all students in this class</summary>
-                    <div class="card-body">
-                        <p class="text-muted">Update names, email addresses, admission numbers and photos for this class, then save the whole roster together. Leave a photo empty to keep the current one.</p>
+                <details class="card mt-4 no-print bulk-student-editor" id="bulkStudentEditor">
+                    <summary class="card-header fw-semibold text-primary"><span><i class="fas fa-users-gear me-2"></i>Edit all students in this class</span><i class="fas fa-chevron-down bulk-editor-chevron"></i></summary>
+                    <div class="card-body p-3 p-lg-4">
+                        <div class="bulk-editor-intro mb-4"><span class="bulk-editor-intro-icon"><i class="fas fa-pen-to-square"></i></span><div><h6 class="mb-1">Class roster editor</h6><p class="text-muted mb-0">Make changes to any student below, then save the class once. Leave a photo empty to keep the current one.</p></div></div>
                         <form method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="bulk_update_students">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                             <input type="hidden" name="class_filter" value="<?php echo (int)$class_filter; ?>">
-                            <div class="table-responsive">
-                                <table class="table table-bordered align-middle">
-                                    <thead class="table-light"><tr><th>Student</th><th>Full name</th><th>Email</th><th>Admission number</th><th>Replace photo</th></tr></thead>
+                            <div class="table-responsive bulk-student-table-wrap">
+                                <table class="table align-middle bulk-student-table">
+                                    <thead><tr><th>Photo</th><th>Full name</th><th>Email address</th><th>Admission number</th><th>Replace photo</th></tr></thead>
                                     <tbody>
                                     <?php foreach ($students as $s): ?>
                                         <tr>
-                                            <td style="min-width:100px" class="text-center">
-                                                <?php if (!empty($s['passport'])): ?><img src="../<?php echo htmlspecialchars($s['passport']); ?>" width="52" height="60" class="rounded object-fit-cover mb-1" alt="Current student photo"><?php else: ?><i class="fas fa-user-circle fa-2x text-muted d-block mb-1"></i><?php endif; ?>
-                                                <small class="d-block text-muted">ID <?php echo (int)$s['id']; ?></small>
-                                            </td>
-                                            <td style="min-width:180px"><input class="form-control" name="student_name[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" required></td>
-                                            <td style="min-width:220px"><input class="form-control" type="email" name="student_email[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['email'], ENT_QUOTES); ?>" required><small class="text-muted">@gmail.com or @famaiis.sch.ng</small></td>
-                                            <td style="min-width:160px"><input class="form-control" name="student_admission[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['admission_number'] ?? '', ENT_QUOTES); ?>" maxlength="100"></td>
-                                            <td style="min-width:190px"><input class="form-control form-control-sm" type="file" name="student_photo[<?php echo (int)$s['id']; ?>]" accept="image/jpeg,image/png,image/gif"></td>
+                                            <td class="text-center"><div class="bulk-student-photo-cell"><?php if (!empty($s['passport'])): ?><img src="../<?php echo htmlspecialchars($s['passport']); ?>" class="bulk-student-avatar" alt="Current student photo"><?php else: ?><span class="bulk-student-avatar bulk-student-avatar-empty"><i class="fas fa-user"></i></span><?php endif; ?><small>ID <?php echo (int)$s['id']; ?></small></div></td>
+                                            <td class="bulk-primary-col"><input id="bulk_name_<?php echo (int)$s['id']; ?>" aria-label="Full name for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control bulk-student-primary-input" name="student_name[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" autocomplete="name" required></td>
+                                            <td class="bulk-primary-col"><input id="bulk_email_<?php echo (int)$s['id']; ?>" aria-label="Email address for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control bulk-student-primary-input" type="email" name="student_email[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['email'], ENT_QUOTES); ?>" autocomplete="email" required></td>
+                                            <td><input id="bulk_admission_<?php echo (int)$s['id']; ?>" aria-label="Admission number for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control bulk-student-secondary-input" name="student_admission[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['admission_number'] ?? '', ENT_QUOTES); ?>" maxlength="100"></td>
+                                            <td><input id="bulk_photo_<?php echo (int)$s['id']; ?>" aria-label="Replacement photo for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control form-control-sm bulk-student-secondary-input" type="file" name="student_photo[<?php echo (int)$s['id']; ?>]" accept="image/jpeg,image/png,image/gif"></td>
                                         </tr>
                                     <?php endforeach; ?>
                                     </tbody>
                                 </table>
                             </div>
-                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save all <?php echo count($students); ?> students</button>
+                            <div class="bulk-editor-actions"><span class="text-muted small"><i class="fas fa-circle-info me-1"></i><?php echo count($students); ?> students in this class</span><button type="submit" class="btn btn-primary btn-lg px-4"><i class="fas fa-save me-2"></i>Save all students</button></div>
                         </form>
                     </div>
                 </details>
+                <style>
+                    .bulk-student-editor { overflow: hidden; border: 1px solid #dce5f1; border-radius: 16px; box-shadow: 0 8px 28px rgba(31,54,88,.07); }
+                    .bulk-student-editor > summary { display:flex; align-items:center; justify-content:space-between; padding:1.1rem 1.35rem; background:linear-gradient(110deg,#f2f7ff,#fff); color:#2455a6!important; list-style:none; }
+                    .bulk-student-editor > summary::-webkit-details-marker { display:none; }
+                    .bulk-editor-chevron { transition:transform .2s ease; }
+                    .bulk-student-editor[open] .bulk-editor-chevron { transform:rotate(180deg); }
+                    .bulk-editor-intro { display:flex; align-items:center; gap:1rem; }
+                    .bulk-editor-intro-icon { width:46px; height:46px; display:grid; place-items:center; flex:0 0 46px; border-radius:14px; background:#e8f0ff; color:#3169c9; font-size:1.1rem; }
+                    .bulk-editor-intro h6 { font-size:1.05rem; font-weight:700; color:#23344d; }
+                    .bulk-student-table-wrap { border:1px solid #e0e7f0; border-radius:12px; }
+                    .bulk-student-table { min-width:1050px; margin-bottom:0; }
+                    .bulk-student-table thead th { padding:.85rem .75rem; border-bottom:1px solid #dce5f1; background:#f5f8fc; color:#53657e; font-size:.8rem; font-weight:700; white-space:nowrap; }
+                    .bulk-student-table tbody tr:nth-child(even) { background:#fafcff; }
+                    .bulk-student-table td { padding:.7rem; border-color:#e8edf4; }
+                    .bulk-student-table .bulk-primary-col { min-width:245px; }
+                    .bulk-student-photo-cell { display:grid; justify-items:center; gap:.25rem; color:#8492a6; font-size:.72rem; }
+                    .bulk-student-avatar { width:46px; height:52px; display:block; border-radius:10px; object-fit:cover; background:#edf2f9; }
+                    .bulk-student-avatar-empty { display:grid; place-items:center; color:#8091a8; font-size:1.2rem; }
+                    .bulk-student-primary-input { height:40px; min-height:40px; padding:.4rem .65rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.84rem; font-weight:500; color:#18283e; }
+                    .bulk-student-primary-input:focus,.bulk-student-secondary-input:focus { border-color:#5487df; box-shadow:0 0 0 .22rem rgba(49,105,201,.13); }
+                    .bulk-student-secondary-input { height:38px; min-height:38px; padding:.35rem .55rem; border-color:#d5deea; border-radius:8px; font-size:.8rem!important; }
+                    .bulk-student-table .form-control { font-size:.84rem; }
+                    .bulk-editor-actions { position:sticky; bottom:0; display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1.25rem -1.5rem -1.5rem; padding:1rem 1.5rem; border-top:1px solid #e2e8f0; background:rgba(255,255,255,.96); backdrop-filter:blur(8px); }
+                    @media(max-width:576px) { .bulk-editor-actions { margin:1rem -1rem -1rem; padding:.85rem 1rem; } .bulk-editor-actions .btn { font-size:.95rem; } }
+                </style>
                 <?php endif; ?>
             </div>
         </div>
