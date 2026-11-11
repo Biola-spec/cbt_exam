@@ -45,6 +45,120 @@ $bulk_password_results = $_SESSION['bulk_generated_passwords'] ?? [];
 unset($_SESSION['bulk_generated_passwords']);
 $has_class_id = usersHasClassId($mysqli);
 
+// Save all editable details for the currently selected class in one transaction.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_update_students') {
+    if (!verifyCsrfToken($_POST['csrf_token'] ?? '')) {
+        $message = 'Invalid session token. Please refresh and try again.';
+    } elseif (!$has_class_id || (int)($_POST['class_filter'] ?? 0) <= 0) {
+        $message = 'Select a class before editing its students.';
+    } else {
+        $bulk_class_id = (int)$_POST['class_filter'];
+        $names = $_POST['student_name'] ?? [];
+        $emails = $_POST['student_email'] ?? [];
+        $admissions = $_POST['student_admission'] ?? [];
+        $photo_files = $_FILES['student_photo'] ?? null;
+        $updates = [];
+        $upload_paths = [];
+        $error = '';
+
+        if (!is_array($names) || !$names) {
+            $error = 'No students were submitted for editing.';
+        } else {
+            foreach ($names as $student_id => $raw_name) {
+                $student_id = (int)$student_id;
+                $name = trim((string)$raw_name);
+                $email = trim((string)($emails[$student_id] ?? ''));
+                $admission = trim((string)($admissions[$student_id] ?? ''));
+                if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/@(gmail\.com|famaiis\.sch\.ng)$/i', $email)) {
+                    $error = 'Every student needs a name and a valid Gmail or Famaiis school email address.';
+                    break;
+                }
+                $updates[$student_id] = ['name' => $name, 'email' => $email, 'admission' => $admission === '' ? null : $admission];
+            }
+        }
+
+        // Confirm every submitted record belongs to the selected class, and email addresses stay unique.
+        if ($error === '') {
+            $verify = $mysqli->prepare("SELECT id FROM users WHERE role = 'student' AND class_id = ? ORDER BY id");
+            if (!$verify) {
+                $error = 'Could not verify the selected class roster.';
+            } else {
+                $verify->bind_param('i', $bulk_class_id);
+                $verify->execute();
+                $result = $verify->get_result();
+                $verified_ids = [];
+                while ($record = $result->fetch_assoc()) $verified_ids[] = (int)$record['id'];
+                $verify->close();
+                sort($verified_ids);
+                $sorted_ids = array_map('intval', array_keys($updates));
+                sort($sorted_ids);
+                if ($verified_ids !== $sorted_ids) $error = 'The class roster changed. Refresh the page and try again.';
+            }
+        }
+        if ($error === '') {
+            $seen_emails = [];
+            foreach ($updates as $student_id => $row) {
+                $email_key = strtolower($row['email']);
+                if (isset($seen_emails[$email_key])) { $error = 'Two students cannot use the same email address.'; break; }
+                $seen_emails[$email_key] = true;
+                $duplicate = $mysqli->prepare('SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1');
+                $duplicate->bind_param('si', $row['email'], $student_id);
+                $duplicate->execute();
+                $duplicate_result = $duplicate->get_result();
+                if ($duplicate_result && $duplicate_result->num_rows > 0) { $error = 'An email address is already used by another account.'; $duplicate->close(); break; }
+                $duplicate->close();
+            }
+        }
+        if ($error === '' && is_array($photo_files) && isset($photo_files['error']) && is_array($photo_files['error'])) {
+            foreach ($updates as $student_id => &$row) {
+                $upload_error = $photo_files['error'][$student_id] ?? UPLOAD_ERR_NO_FILE;
+                if ($upload_error === UPLOAD_ERR_NO_FILE) continue;
+                if ($upload_error !== UPLOAD_ERR_OK) { $error = 'A photo could not be uploaded. Check the file size and try again.'; break; }
+                $tmp_name = $photo_files['tmp_name'][$student_id] ?? '';
+                $image_info = $tmp_name !== '' ? @getimagesize($tmp_name) : false;
+                $mime_extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
+                if (!$image_info || !isset($mime_extensions[$image_info['mime']])) { $error = 'Photos must be JPG, PNG or GIF images.'; break; }
+                $upload_dir = '../uploads/passports/';
+                if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true)) { $error = 'Could not prepare the photo upload folder.'; break; }
+                $file_name = bin2hex(random_bytes(16)) . '.' . $mime_extensions[$image_info['mime']];
+                $target_file = $upload_dir . $file_name;
+                if (!move_uploaded_file($tmp_name, $target_file)) { $error = 'Could not save an uploaded photo.'; break; }
+                $row['passport'] = 'uploads/passports/' . $file_name;
+                $upload_paths[] = $target_file;
+            }
+            unset($row);
+        }
+        if ($error === '') {
+            $mysqli->begin_transaction();
+            try {
+                $update_with_photo = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, admission_number = ?, passport = ? WHERE id = ? AND class_id = ? AND role = 'student'");
+                $update_without_photo = $mysqli->prepare("UPDATE users SET full_name = ?, email = ?, admission_number = ? WHERE id = ? AND class_id = ? AND role = 'student'");
+                if (!$update_with_photo || !$update_without_photo) throw new Exception('Could not prepare the class update.');
+                foreach ($updates as $student_id => $row) {
+                    if (isset($row['passport'])) {
+                        $update_with_photo->bind_param('ssssii', $row['name'], $row['email'], $row['admission'], $row['passport'], $student_id, $bulk_class_id);
+                        if (!$update_with_photo->execute()) throw new Exception('Could not update all student details.');
+                    } else {
+                        $update_without_photo->bind_param('ssiii', $row['name'], $row['email'], $row['admission'], $student_id, $bulk_class_id);
+                        if (!$update_without_photo->execute()) throw new Exception('Could not update all student details.');
+                    }
+                }
+                $update_with_photo->close();
+                $update_without_photo->close();
+                $mysqli->commit();
+                $message = count($updates) . ' student records saved successfully.';
+            } catch (Exception $exception) {
+                $mysqli->rollback();
+                foreach ($upload_paths as $path) if (is_file($path)) unlink($path);
+                $message = 'Class update failed: ' . $exception->getMessage();
+            }
+        } else {
+            foreach ($upload_paths as $path) if (is_file($path)) unlink($path);
+            $message = $error;
+        }
+    }
+}
+
 // Load classes for dropdown
 $classes = [];
 try {
@@ -596,6 +710,39 @@ try {
                             </tbody>
                         </table>
                     </div>
+                <?php endif; ?>
+                <?php if ($has_class_id && $class_filter > 0 && count($students) > 0): ?>
+                <details class="card mt-4 no-print" id="bulkStudentEditor">
+                    <summary class="card-header fw-semibold text-primary" style="cursor:pointer"><i class="fas fa-users-gear me-2"></i>Edit all students in this class</summary>
+                    <div class="card-body">
+                        <p class="text-muted">Update names, email addresses, admission numbers and photos for this class, then save the whole roster together. Leave a photo empty to keep the current one.</p>
+                        <form method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="action" value="bulk_update_students">
+                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
+                            <input type="hidden" name="class_filter" value="<?php echo (int)$class_filter; ?>">
+                            <div class="table-responsive">
+                                <table class="table table-bordered align-middle">
+                                    <thead class="table-light"><tr><th>Student</th><th>Full name</th><th>Email</th><th>Admission number</th><th>Replace photo</th></tr></thead>
+                                    <tbody>
+                                    <?php foreach ($students as $s): ?>
+                                        <tr>
+                                            <td style="min-width:100px" class="text-center">
+                                                <?php if (!empty($s['passport'])): ?><img src="../<?php echo htmlspecialchars($s['passport']); ?>" width="52" height="60" class="rounded object-fit-cover mb-1" alt="Current student photo"><?php else: ?><i class="fas fa-user-circle fa-2x text-muted d-block mb-1"></i><?php endif; ?>
+                                                <small class="d-block text-muted">ID <?php echo (int)$s['id']; ?></small>
+                                            </td>
+                                            <td style="min-width:180px"><input class="form-control" name="student_name[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" required></td>
+                                            <td style="min-width:220px"><input class="form-control" type="email" name="student_email[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['email'], ENT_QUOTES); ?>" required><small class="text-muted">@gmail.com or @famaiis.sch.ng</small></td>
+                                            <td style="min-width:160px"><input class="form-control" name="student_admission[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['admission_number'] ?? '', ENT_QUOTES); ?>" maxlength="100"></td>
+                                            <td style="min-width:190px"><input class="form-control form-control-sm" type="file" name="student_photo[<?php echo (int)$s['id']; ?>]" accept="image/jpeg,image/png,image/gif"></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save all <?php echo count($students); ?> students</button>
+                        </form>
+                    </div>
+                </details>
                 <?php endif; ?>
             </div>
         </div>
