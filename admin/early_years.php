@@ -183,12 +183,14 @@ include '../includes/header.php';
 <header class="ey-page-header d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3"><div><div class="small text-uppercase text-primary fw-bold">Early Years · shared school, sessions and terms</div><h1 class="h3">Early Years administration</h1><p class="text-muted">Manage pupils, family access codes, class teachers and report settings.</p></div><div class="ey-header-actions"><a class="ey-action ey-action-print" href="early_years_pupil_list.php" title="Print Early Years pupil list"><i class="fas fa-print" aria-hidden="true"></i><span>Print pupils</span></a><a class="ey-action ey-action-reports" href="../teacher/early_years.php" title="Open Early Years report entry"><i class="fas fa-clipboard-check" aria-hidden="true"></i><span>Enter reports</span></a></div></header>
 <?php if($message):?><div class="alert alert-info"><?=htmlspecialchars($message)?></div><?php endif;?>
 <style>
-.ey-admin-tabs{gap:.45rem;padding:.55rem;margin:1.2rem 0;border:1px solid #e1e9f4;border-radius:18px;background:linear-gradient(130deg,#f8fbff,#edf4ff);box-shadow:0 10px 28px rgba(30,60,100,.07)}
-.ey-admin-tabs .nav-link{display:flex;align-items:center;justify-content:center;gap:.55rem;padding:.8rem .65rem;border:0;border-radius:12px;color:#53647d;font-weight:700;transition:all .18s ease}
+.ey-admin-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45rem;padding:.5rem;margin:1rem 0;border:1px solid #e1e9f4;border-radius:15px;background:linear-gradient(130deg,#f8fbff,#edf4ff);box-shadow:0 6px 18px rgba(30,60,100,.06)}
+.ey-admin-tabs .nav-item{min-width:0}
+.ey-admin-tabs .nav-link{display:flex;min-height:46px;align-items:center;justify-content:flex-start;gap:.5rem;padding:.55rem .7rem;border:0;border-radius:10px;color:#53647d;font-size:.84rem;font-weight:700;line-height:1.2;text-align:left;transition:all .18s ease}
 .ey-admin-tabs .nav-link i{color:#3470ca}.ey-admin-tabs .nav-link:hover{background:#fff;color:#174c9b;transform:translateY(-1px)}
 .ey-admin-tabs .nav-link.active{color:#fff;background:linear-gradient(120deg,#2463c5,#4b86e8);box-shadow:0 7px 18px rgba(36,99,197,.22)}.ey-admin-tabs .nav-link.active i{color:#fff}
 .ey-admin-panel{padding-top:.25rem;animation:eyPanelIn .2s ease-out}@keyframes eyPanelIn{from{opacity:.55;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-@media(max-width:767px){.ey-admin-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.ey-admin-tabs .nav-link{font-size:.82rem;padding:.65rem .35rem}}
+@media(max-width:991px){.ey-admin-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:575px){.ey-admin-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem;padding:.4rem}.ey-admin-tabs .nav-link{min-height:42px;font-size:.78rem;padding:.5rem}.ey-admin-tabs .nav-link i{width:1rem;text-align:center}}
 @media(prefers-reduced-motion:reduce){.ey-admin-tabs .nav-link,.ey-admin-panel{animation:none;transition:none}}
 </style>
 <ul class="nav nav-pills nav-fill ey-admin-tabs" role="tablist" aria-label="Early Years administration">
