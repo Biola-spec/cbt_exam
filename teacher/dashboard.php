@@ -99,23 +99,23 @@ try {
 
 <div class="container mt-3">
     <section class="card shadow-sm border-0">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h2 class="h5 mb-0"><i class="fas fa-chalkboard me-2 text-primary"></i>My Classes, Subjects and Students</h2>
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
+            <h2 class="h6 mb-0"><i class="fas fa-chalkboard me-2 text-primary"></i>My Classes, Subjects and Students</h2>
             <a class="btn btn-sm btn-outline-primary" href="class_duties.php">Class duties</a>
         </div>
-        <div class="card-body">
+        <div class="card-body p-2">
             <?php if (!$teacherClasses): ?>
                 <div class="text-muted">No classes or subjects are currently assigned to you.</div>
             <?php else: ?>
-                <div class="row g-3">
+                <div class="row g-2">
                     <?php foreach ($teacherClasses as $class): ?>
-                        <div class="col-lg-6">
-                            <article class="border rounded-3 p-3 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                                    <h3 class="h6 fw-bold mb-0"><?=htmlspecialchars($class['name'])?></h3>
+                        <div class="col-md-6 col-xl-4">
+                            <article class="border rounded-3 p-2 h-100">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                                    <h3 class="small fw-bold mb-0"><?=htmlspecialchars($class['name'])?></h3>
                                     <?php if ($class['class_teacher']): ?><span class="badge bg-success-subtle text-success">Class teacher</span><?php endif; ?>
                                 </div>
-                                <div class="small text-muted mb-2">Subjects: <?php if($class['subjects']): ?><?=htmlspecialchars(implode(', ',array_unique($class['subjects'])))?><?php else: ?>Class teacher assignment<?php endif; ?></div>
+                                <div class="small text-muted mb-1">Subjects: <?php if($class['subjects']): ?><?=htmlspecialchars(implode(', ',array_unique($class['subjects'])))?><?php else: ?>Class teacher assignment<?php endif; ?></div>
                                 <details>
                                     <summary class="small fw-semibold text-primary" role="button">Students (<?=count($class['students'])?>)</summary>
                                     <?php if ($class['students']): ?><ul class="mb-0 mt-2 ps-3"><?php foreach($class['students'] as $student): ?><li><?=htmlspecialchars($student['full_name'])?></li><?php endforeach; ?></ul><?php else: ?><div class="small text-muted mt-2">No students are enrolled in this class yet.</div><?php endif; ?>
