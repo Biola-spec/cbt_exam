@@ -10,24 +10,24 @@ include '../includes/header.php';
 ?>
 <style>
 .teacher-home{max-width:1120px;margin:0 auto}
-.teacher-home-heading{padding:1.5rem 0 2rem;text-align:center}
+.teacher-home-heading{padding:.5rem 0 1.25rem;text-align:center}
 .teacher-home-heading .eyebrow{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem .8rem;border:1px solid #d8e6f7;border-radius:999px;background:#f4f8ff;color:#285ca2;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-.teacher-home-heading h1{margin:.9rem 0 .45rem;font-weight:800;letter-spacing:-.03em}
+.teacher-home-heading h1{margin:.55rem 0 .25rem;font-weight:800;letter-spacing:-.03em}
 .teacher-home-heading p{max-width:560px;margin:auto;color:#64748b}
-.teacher-section-card{position:relative;display:flex;height:100%;min-height:280px;flex-direction:column;overflow:hidden;border:1px solid #e1e9f3;border-radius:22px;background:#fff;box-shadow:0 12px 32px rgba(30,55,90,.08);transition:transform .2s ease,box-shadow .2s ease}
+.teacher-section-card{position:relative;display:flex;height:100%;min-height:210px;flex-direction:column;overflow:hidden;border:1px solid #e1e9f3;border-radius:18px;background:#fff;box-shadow:0 8px 22px rgba(30,55,90,.07);transition:transform .2s ease,box-shadow .2s ease}
 .teacher-section-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(30,55,90,.14)}
-.teacher-section-card::before{position:absolute;inset:0 0 auto;height:6px;background:var(--section-accent);content:""}
+.teacher-section-card::before{position:absolute;inset:0 0 auto;height:4px;background:var(--section-accent);content:""}
 .teacher-section-card.normal{--section-accent:linear-gradient(90deg,#2563eb,#60a5fa);--section-soft:#eff6ff;--section-color:#1d4ed8}
 .teacher-section-card.early{--section-accent:linear-gradient(90deg,#0f9f8f,#5bd3b2);--section-soft:#e9fbf5;--section-color:#087c70}
-.teacher-section-card-body{display:flex;flex:1;flex-direction:column;padding:2rem}
-.teacher-section-icon{display:grid;width:62px;height:62px;place-items:center;border-radius:18px;background:var(--section-soft);color:var(--section-color);font-size:1.55rem}
-.teacher-section-card h2{margin:1.35rem 0 .5rem;font-size:1.35rem;font-weight:800}
-.teacher-section-card p{margin:0 0 1.5rem;color:#64748b;line-height:1.65}
-.teacher-section-card .btn{align-self:flex-start;margin-top:auto;border-radius:11px;padding:.7rem 1rem;font-weight:700}
-@media(max-width:575px){.teacher-home-heading{padding:1rem 0 1.5rem}.teacher-section-card{min-height:250px}.teacher-section-card-body{padding:1.5rem}}
+.teacher-section-card-body{display:flex;flex:1;flex-direction:column;padding:1.25rem 1.4rem}
+.teacher-section-icon{display:grid;width:46px;height:46px;place-items:center;border-radius:14px;background:var(--section-soft);color:var(--section-color);font-size:1.2rem}
+.teacher-section-card h2{margin:.85rem 0 .35rem;font-size:1.15rem;font-weight:800}
+.teacher-section-card p{margin:0 0 1rem;color:#64748b;line-height:1.5}
+.teacher-section-card .btn{align-self:flex-start;margin-top:auto;border-radius:10px;padding:.55rem .8rem;font-weight:700}
+@media(max-width:575px){.teacher-home-heading{padding:.25rem 0 1rem}.teacher-section-card{min-height:195px}.teacher-section-card-body{padding:1.1rem}}
 @media(prefers-reduced-motion:reduce){.teacher-section-card{transition:none}.teacher-section-card:hover{transform:none}}
 </style>
-<main class="container py-4 py-md-5">
+<main class="container py-3">
     <div class="teacher-home">
         <header class="teacher-home-heading">
             <span class="eyebrow"><i class="fas fa-chalkboard-teacher"></i> Teacher home</span>
