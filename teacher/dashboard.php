@@ -33,13 +33,6 @@ try {
 
 <?php include '../includes/header.php'; ?>
 
-<div class="container mt-3">
-    <ul class="nav nav-tabs" aria-label="Teacher dashboard sections">
-        <li class="nav-item"><a class="nav-link active" aria-current="page" href="dashboard.php?tab=<?php echo urlencode($active_tab); ?>">Normal Sections</a></li>
-        <li class="nav-item"><a class="nav-link" href="early_years.php">Early Years</a></li>
-    </ul>
-</div>
-
 <div class="dashboard-header">
     <div class="container">
         <div class="row align-items-center">
@@ -54,7 +47,7 @@ try {
             <div class="col-md-6 text-md-end">
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb mb-0">
-                        <li class="breadcrumb-item"><a href="dashboard.php">Home</a></li>
+                        <li class="breadcrumb-item"><a href="home.php">Home</a></li>
                         <li class="breadcrumb-item active" aria-current="page">
                             <?php 
                             switch ($active_tab) {

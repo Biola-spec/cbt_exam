@@ -248,7 +248,7 @@ function redirectBasedOnRole() {
                 header('Location: admin/dashboard.php');
                 break;
             case 'teacher':
-                header('Location: teacher/dashboard.php');
+                header('Location: teacher/home.php');
                 break;
             case 'student':
                 header('Location: student/dashboard.php');
