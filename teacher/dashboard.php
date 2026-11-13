@@ -97,29 +97,41 @@ try {
     </div>
 </div>
 
+<style>
+.teacher-assignments{border:1px solid #e5ebf4;border-radius:18px;box-shadow:0 8px 24px rgba(31,54,88,.06)}
+.teacher-assignments>.card-header{border-bottom:1px solid #edf1f7;border-radius:18px 18px 0 0;padding:.85rem 1rem}
+.teacher-class-card{height:100%;padding:1rem;border:1px solid #e4eaf3;border-radius:15px;background:linear-gradient(145deg,#fff 45%,#f7faff);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.teacher-class-card:hover{transform:translateY(-2px);border-color:#c9d9f0;box-shadow:0 9px 20px rgba(36,72,120,.09)}
+.teacher-class-icon{display:grid;width:38px;height:38px;place-items:center;border-radius:12px;background:#edf4ff;color:#2863b5}
+.teacher-subject-chip{display:inline-flex;margin:.15rem .15rem .15rem 0;padding:.22rem .55rem;border-radius:999px;background:#edf4ff;color:#385b89;font-size:.75rem;font-weight:650}
+.teacher-roster-modal .modal-content{overflow:hidden;border:0;border-radius:20px;box-shadow:0 24px 70px rgba(20,40,70,.2)}
+.teacher-roster-modal .modal-header{padding:1.25rem 1.4rem;border:0;background:linear-gradient(120deg,#174a8b,#347cce);color:#fff}
+.teacher-roster-modal .btn-close{filter:invert(1) grayscale(1) brightness(2)}
+.teacher-roster-modal .modal-body{padding:1.25rem 1.4rem}
+@media(prefers-reduced-motion:reduce){.teacher-class-card{transition:none}.teacher-class-card:hover{transform:none}}
+</style>
 <div class="container mt-3">
-    <section class="card shadow-sm border-0">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2 py-2">
-            <h2 class="h6 mb-0"><i class="fas fa-chalkboard me-2 text-primary"></i>My Classes, Subjects and Students</h2>
+    <section class="card teacher-assignments">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div><h2 class="h6 mb-0 fw-bold"><i class="fas fa-chalkboard me-2 text-primary"></i>My Classes and Subjects</h2><div class="small text-muted mt-1">Your assigned classes, subjects, and pupil rosters</div></div>
             <a class="btn btn-sm btn-outline-primary" href="class_duties.php">Class duties</a>
         </div>
-        <div class="card-body p-2">
+        <div class="card-body p-3">
             <?php if (!$teacherClasses): ?>
                 <div class="text-muted">No classes or subjects are currently assigned to you.</div>
             <?php else: ?>
-                <div class="row g-2">
+                <div class="row g-3">
                     <?php foreach ($teacherClasses as $class): ?>
                         <div class="col-md-6 col-xl-4">
-                            <article class="border rounded-3 p-2 h-100">
-                                <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
-                                    <h3 class="small fw-bold mb-0"><?=htmlspecialchars($class['name'])?></h3>
-                                    <?php if ($class['class_teacher']): ?><span class="badge bg-success-subtle text-success">Class teacher</span><?php endif; ?>
+                            <article class="teacher-class-card">
+                                <div class="d-flex align-items-center gap-2 mb-3">
+                                    <div class="teacher-class-icon"><i class="fas fa-users" aria-hidden="true"></i></div>
+                                    <div class="flex-grow-1"><h3 class="h6 fw-bold mb-0"><?=htmlspecialchars($class['name'])?></h3><div class="small text-muted">Class assignment</div></div>
+                                    <?php if ($class['class_teacher']): ?><span class="badge rounded-pill bg-success-subtle text-success">Class teacher</span><?php endif; ?>
                                 </div>
-                                <div class="small text-muted mb-1">Subjects: <?php if($class['subjects']): ?><?=htmlspecialchars(implode(', ',array_unique($class['subjects'])))?><?php else: ?>Class teacher assignment<?php endif; ?></div>
-                                <details>
-                                    <summary class="small fw-semibold text-primary" role="button">Students (<?=count($class['students'])?>)</summary>
-                                    <?php if ($class['students']): ?><ul class="mb-0 mt-2 ps-3"><?php foreach($class['students'] as $student): ?><li><?=htmlspecialchars($student['full_name'])?></li><?php endforeach; ?></ul><?php else: ?><div class="small text-muted mt-2">No students are enrolled in this class yet.</div><?php endif; ?>
-                                </details>
+                                <div class="small text-muted mb-2">Assigned subjects</div>
+                                <div class="mb-3"><?php if($class['subjects']): foreach(array_unique($class['subjects']) as $subject): ?><span class="teacher-subject-chip"><?=htmlspecialchars($subject)?></span><?php endforeach; else: ?><span class="small text-muted">Class teacher assignment</span><?php endif; ?></div>
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#teacherClassRosterModal" data-class-name="<?=htmlspecialchars($class['name'],ENT_QUOTES)?>" data-roster="<?=htmlspecialchars(json_encode(array_column($class['students'],'full_name'),JSON_INVALID_UTF8_SUBSTITUTE),ENT_QUOTES)?>"><i class="fas fa-user-group me-1"></i>View students <span class="badge bg-primary ms-1"><?=count($class['students'])?></span></button>
                             </article>
                         </div>
                     <?php endforeach; ?>
@@ -128,6 +140,24 @@ try {
         </div>
     </section>
 </div>
+
+<div class="modal fade teacher-roster-modal" id="teacherClassRosterModal" tabindex="-1" aria-labelledby="teacherRosterTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header"><div><div class="small text-white-50">Class roster</div><h2 class="modal-title h5 mb-0" id="teacherRosterTitle">Students</h2></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+            <div class="modal-body"><div class="d-flex justify-content-between align-items-center gap-2 mb-3"><span class="small text-muted" id="teacherRosterCount"></span><input type="search" class="form-control form-control-sm" id="teacherRosterSearch" placeholder="Search students" style="max-width:220px" aria-label="Search students"></div><div class="list-group list-group-flush" id="teacherRosterList"></div><div class="text-center text-muted py-4 d-none" id="teacherRosterEmpty">No students are enrolled in this class yet.</div></div>
+        </div>
+    </div>
+</div>
+<script>
+(()=>{
+ const modal=document.getElementById('teacherClassRosterModal');if(!modal)return;
+ const title=document.getElementById('teacherRosterTitle'),count=document.getElementById('teacherRosterCount'),search=document.getElementById('teacherRosterSearch'),list=document.getElementById('teacherRosterList'),empty=document.getElementById('teacherRosterEmpty');let names=[];
+ function render(){const query=search.value.trim().toLocaleLowerCase();const filtered=names.filter(name=>name.toLocaleLowerCase().includes(query));list.replaceChildren();filtered.forEach((name,index)=>{const item=document.createElement('div');item.className='list-group-item d-flex align-items-center gap-3 px-0';const number=document.createElement('span');number.className='badge rounded-pill bg-light text-primary';number.textContent=String(index+1);const text=document.createElement('span');text.className='fw-semibold';text.textContent=name;item.append(number,text);list.append(item);});empty.classList.toggle('d-none',filtered.length>0);count.textContent=`${filtered.length} of ${names.length} students`;}
+ modal.addEventListener('show.bs.modal',event=>{const button=event.relatedTarget;title.textContent=button.dataset.className+' students';try{names=JSON.parse(button.dataset.roster||'[]');}catch(error){names=[];}search.value='';render();});
+ search.addEventListener('input',render);
+})();
+</script>
 
 <div class="container mt-3">
     <div class="alert alert-light border d-flex justify-content-between align-items-center flex-wrap gap-2 mb-0">
