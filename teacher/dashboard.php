@@ -29,6 +29,38 @@ try {
 } catch (Throwable $e) {
     // Keep the existing dashboard available if the term-results tables are not installed yet.
 }
+$teacherClasses = [];
+try {
+    $teacherDb = getDBConnection();
+    if ($teacherDb) {
+        $teacherId = (int)getUserId();
+        $stmt = $teacherDb->prepare('SELECT ta.class_id,c.name class_name,s.name subject_name FROM teacher_allocations ta JOIN classes c ON c.id=ta.class_id JOIN subjects s ON s.id=ta.subject_id WHERE ta.teacher_id=? ORDER BY c.name,s.name');
+        $stmt->bind_param('i', $teacherId); $stmt->execute(); $rows = $stmt->get_result();
+        while ($row = $rows->fetch_assoc()) {
+            $id=(int)$row['class_id'];
+            if (!isset($teacherClasses[$id])) $teacherClasses[$id]=['name'=>$row['class_name'],'subjects'=>[],'class_teacher'=>false,'students'=>[]];
+            $teacherClasses[$id]['subjects'][]=$row['subject_name'];
+        }
+        $stmt->close();
+        $stmt = $teacherDb->prepare('SELECT cta.class_id,c.name class_name FROM class_teacher_assignments cta JOIN classes c ON c.id=cta.class_id WHERE cta.teacher_id=? ORDER BY c.name');
+        $stmt->bind_param('i', $teacherId); $stmt->execute(); $rows = $stmt->get_result();
+        while ($row = $rows->fetch_assoc()) {
+            $id=(int)$row['class_id'];
+            if (!isset($teacherClasses[$id])) $teacherClasses[$id]=['name'=>$row['class_name'],'subjects'=>[],'class_teacher'=>false,'students'=>[]];
+            $teacherClasses[$id]['class_teacher']=true;
+        }
+        $stmt->close();
+        $stmt = $teacherDb->prepare("SELECT DISTINCT u.id,u.full_name,u.class_id FROM users u WHERE u.role='student' AND (EXISTS(SELECT 1 FROM class_teacher_assignments cta WHERE cta.class_id=u.class_id AND cta.teacher_id=?) OR EXISTS(SELECT 1 FROM teacher_allocations ta WHERE ta.class_id=u.class_id AND ta.teacher_id=?)) ORDER BY u.full_name");
+        $stmt->bind_param('ii', $teacherId, $teacherId); $stmt->execute(); $rows = $stmt->get_result();
+        while ($row = $rows->fetch_assoc()) {
+            $classId=(int)$row['class_id']; if(isset($teacherClasses[$classId])) $teacherClasses[$classId]['students'][]=$row;
+        }
+        $stmt->close();
+        uasort($teacherClasses, static fn($a,$b)=>strnatcasecmp($a['name'],$b['name']));
+    }
+} catch (Throwable $e) {
+    $teacherClasses = [];
+}
 ?>
 
 <?php include '../includes/header.php'; ?>
@@ -63,6 +95,38 @@ try {
             </div>
         </div>
     </div>
+</div>
+
+<div class="container mt-3">
+    <section class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h2 class="h5 mb-0"><i class="fas fa-chalkboard me-2 text-primary"></i>My Classes, Subjects and Students</h2>
+            <a class="btn btn-sm btn-outline-primary" href="class_duties.php">Class duties</a>
+        </div>
+        <div class="card-body">
+            <?php if (!$teacherClasses): ?>
+                <div class="text-muted">No classes or subjects are currently assigned to you.</div>
+            <?php else: ?>
+                <div class="row g-3">
+                    <?php foreach ($teacherClasses as $class): ?>
+                        <div class="col-lg-6">
+                            <article class="border rounded-3 p-3 h-100">
+                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                    <h3 class="h6 fw-bold mb-0"><?=htmlspecialchars($class['name'])?></h3>
+                                    <?php if ($class['class_teacher']): ?><span class="badge bg-success-subtle text-success">Class teacher</span><?php endif; ?>
+                                </div>
+                                <div class="small text-muted mb-2">Subjects: <?php if($class['subjects']): ?><?=htmlspecialchars(implode(', ',array_unique($class['subjects'])))?><?php else: ?>Class teacher assignment<?php endif; ?></div>
+                                <details>
+                                    <summary class="small fw-semibold text-primary" role="button">Students (<?=count($class['students'])?>)</summary>
+                                    <?php if ($class['students']): ?><ul class="mb-0 mt-2 ps-3"><?php foreach($class['students'] as $student): ?><li><?=htmlspecialchars($student['full_name'])?></li><?php endforeach; ?></ul><?php else: ?><div class="small text-muted mt-2">No students are enrolled in this class yet.</div><?php endif; ?>
+                                </details>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </section>
 </div>
 
 <div class="container mt-3">
