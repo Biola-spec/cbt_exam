@@ -17,7 +17,7 @@
     // Determine the base URL dynamically to ensure assets load properly from subdirectories
     $base_url = '';
     $current_dir = dirname($_SERVER['PHP_SELF']);
-    if (strpos($current_dir, '/admin') !== false || strpos($current_dir, '/teacher') !== false || strpos($current_dir, '/student') !== false) {
+    if (strpos($current_dir, '/admin') !== false || strpos($current_dir, '/teacher') !== false || strpos($current_dir, '/student') !== false || strpos($current_dir, '/early_years') !== false) {
         $base_url = '../';
     }
     ?>
@@ -33,16 +33,19 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand d-flex align-items-center" href="<?php echo $base_url; ?>index.php">
-                <?php 
+                <?php
                 $school_logo = getSchoolLogo();
                 if (!empty($school_logo)) {
-                    $logo_src = $school_logo;
-                    $current_dir = dirname($_SERVER['PHP_SELF']);
-                    if (strpos($current_dir, '/admin') === false && strpos($current_dir, '/teacher') === false && strpos($current_dir, '/student') === false) {
-                        if (strpos($logo_src, '../') === 0) $logo_src = substr($logo_src, 3);
-                    }
-                    if (file_exists($logo_src)) {
-                        echo '<img src="' . htmlspecialchars($logo_src) . '" alt="Logo" style="height: 30px; margin-right: 10px;">';
+                    $logo_path = str_replace('\\', '/', trim($school_logo));
+                    if (!preg_match('~^(?:https?:)?//~i', $logo_path)) {
+                        while (strpos($logo_path, '../') === 0) $logo_path = substr($logo_path, 3);
+                        $logo_file = __DIR__ . '/../' . ltrim($logo_path, '/');
+                        if (is_file($logo_file)) {
+                            $logo_src = (strpos($logo_path, '/') === 0 ? '' : $base_url) . ltrim($logo_path, '/');
+                            echo '<img src="' . htmlspecialchars($logo_src, ENT_QUOTES) . '" alt="Logo" style="height: 30px; margin-right: 10px;">';
+                        }
+                    } else {
+                        echo '<img src="' . htmlspecialchars($logo_path, ENT_QUOTES) . '" alt="Logo" style="height: 30px; margin-right: 10px;">';
                     }
                 }
                 echo '<span>' . htmlspecialchars(getSchoolName()) . '</span>';
