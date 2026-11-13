@@ -12,6 +12,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'&&($_POST['action']??'')==='save_report'){
 }
 $s=$db->prepare('SELECT id,full_name FROM early_years_students WHERE class_id=? ORDER BY full_name');$s->bind_param('i',$class);$s->execute();$students=$s->get_result()->fetch_all(MYSQLI_ASSOC);$s->close();if(!$student&&$students)$student=(int)$students[0]['id'];if(!in_array($student,array_map('intval',array_column($students,'id')),true))$student=0;$report=$student&&$session?earlyYearsReport($db,$student,$session,$term,$type):null;$d=$report['data']??[];$areas=earlyYearsAreas();include '../includes/header.php';
 ?>
+<div class="container mt-3 no-print"><ul class="nav nav-tabs" aria-label="Teacher dashboard sections"><li class="nav-item"><a class="nav-link" href="dashboard.php?tab=exams">Normal Sections</a></li><li class="nav-item"><a class="nav-link active" aria-current="page" href="early_years.php">Early Years</a></li></ul></div>
 <link rel="stylesheet" href="../assets/early_years/report.css?v=12">
 <link rel="stylesheet" href="../assets/early_years/half-term.css?v=3">
 <link rel="stylesheet" href="../assets/early_years/end-term.css?v=6">

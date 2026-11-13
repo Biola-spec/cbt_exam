@@ -33,6 +33,13 @@ try {
 
 <?php include '../includes/header.php'; ?>
 
+<div class="container mt-3">
+    <ul class="nav nav-tabs" aria-label="Teacher dashboard sections">
+        <li class="nav-item"><a class="nav-link active" aria-current="page" href="dashboard.php?tab=<?php echo urlencode($active_tab); ?>">Normal Sections</a></li>
+        <li class="nav-item"><a class="nav-link" href="early_years.php">Early Years</a></li>
+    </ul>
+</div>
+
 <div class="dashboard-header">
     <div class="container">
         <div class="row align-items-center">
