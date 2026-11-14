@@ -240,7 +240,16 @@ try {
         }
         $stmt->close();
 
-        $stmt = $mysqli->prepare("SELECT ea.student_id, ea.score, ea.total_questions, ea.submitted_at,
+        $stmt = $mysqli->prepare("SELECT ea.student_id,
+                                         CASE WHEN EXISTS (SELECT 1 FROM student_answers sa WHERE sa.attempt_id=ea.id)
+                                              THEN (SELECT COALESCE(SUM(CASE
+                                                  WHEN COALESCE(q.question_type,'objective')='objective' AND sa.selected_answer IS NOT NULL AND sa.selected_answer=q.correct_answer THEN c.marks_per_question
+                                                  WHEN q.question_type='theory' THEN COALESCE(sa.awarded_marks,0)
+                                                  ELSE 0 END),0)
+                                                    FROM student_answers sa JOIN questions q ON q.id=sa.question_id
+                                                    WHERE sa.attempt_id=ea.id)
+                                              ELSE ea.score END AS score,
+                                         ea.total_questions, ea.submitted_at,
                                          c.marks_per_question,
                                          (SELECT COUNT(*) FROM questions q
                                           WHERE q.exam_subject_id = ea.exam_subject_id

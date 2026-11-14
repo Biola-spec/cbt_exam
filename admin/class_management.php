@@ -212,7 +212,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                     JOIN exam_subjects es ON es.id=ea.exam_subject_id
                     SET ea.score = (
                         SELECT COALESCE(SUM(CASE
-                            WHEN COALESCE(q.question_type,'objective')='objective' AND sa.is_correct=1 THEN ?
+                            WHEN COALESCE(q.question_type,'objective')='objective' AND sa.selected_answer IS NOT NULL AND sa.selected_answer=q.correct_answer THEN ?
                             WHEN q.question_type='theory' THEN COALESCE(sa.awarded_marks,0)
                             ELSE 0 END),0)
                         FROM student_answers sa JOIN questions q ON q.id=sa.question_id

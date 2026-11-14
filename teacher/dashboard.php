@@ -30,6 +30,7 @@ try {
     // Keep the existing dashboard available if the term-results tables are not installed yet.
 }
 $teacherClasses = [];
+$hasClassDuties = getUserRole() === 'admin';
 try {
     $teacherDb = getDBConnection();
     if ($teacherDb) {
@@ -48,6 +49,7 @@ try {
             $id=(int)$row['class_id'];
             if (!isset($teacherClasses[$id])) $teacherClasses[$id]=['name'=>$row['class_name'],'subjects'=>[],'class_teacher'=>false,'students'=>[]];
             $teacherClasses[$id]['class_teacher']=true;
+            $hasClassDuties = true;
         }
         $stmt->close();
         $stmt = $teacherDb->prepare("SELECT DISTINCT u.id,u.full_name,u.class_id FROM users u WHERE u.role='student' AND (EXISTS(SELECT 1 FROM class_teacher_assignments cta WHERE cta.class_id=u.class_id AND cta.teacher_id=?) OR EXISTS(SELECT 1 FROM teacher_allocations ta WHERE ta.class_id=u.class_id AND ta.teacher_id=?)) ORDER BY u.full_name");
@@ -60,6 +62,7 @@ try {
     }
 } catch (Throwable $e) {
     $teacherClasses = [];
+    $hasClassDuties = getUserRole() === 'admin';
 }
 ?>
 
@@ -114,7 +117,7 @@ try {
     <section class="card teacher-assignments">
         <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div><h2 class="h6 mb-0 fw-bold"><i class="fas fa-chalkboard me-2 text-primary"></i>My Classes and Subjects</h2><div class="small text-muted mt-1">Your assigned classes, subjects, and pupil rosters</div></div>
-            <a class="btn btn-sm btn-outline-primary" href="class_duties.php">Class duties</a>
+            <?php if ($hasClassDuties): ?><a class="btn btn-sm btn-outline-primary" href="class_duties.php">Class duties</a><?php endif; ?>
         </div>
         <div class="card-body p-3">
             <?php if (!$teacherClasses): ?>
@@ -190,9 +193,9 @@ try {
                 <a href="term_scores.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-edit me-2"></i> Enter Term Scores
                 </a>
-                <a href="class_duties.php" class="list-group-item list-group-item-action">
+                <?php if ($hasClassDuties): ?><a href="class_duties.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-calendar-check me-2"></i> Class Duties
-                </a>
+                </a><?php endif; ?>
                 <a href="dashboard.php?tab=performance_summary" class="list-group-item list-group-item-action <?php echo $active_tab === 'performance_summary' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-line me-2"></i> Class Performance Summary
                 </a>
@@ -384,7 +387,7 @@ try {
                                     </div>
                                 </a>
                             </div>
-                            <div class="col-md-4">
+                            <?php if ($hasClassDuties): ?><div class="col-md-4">
                                 <a href="class_duties.php" class="card h-100 border-0 shadow-sm text-decoration-none hover-lift">
                                     <div class="card-body p-4">
                                         <div class="stat-icon bg-success-soft text-success mb-3"><i class="fas fa-calendar-check"></i></div>
@@ -392,7 +395,7 @@ try {
                                         <p class="small text-muted mb-0">Take daily attendance and write term remarks for assigned classes</p>
                                     </div>
                                 </a>
-                            </div>
+                            </div><?php endif; ?>
                             <div class="col-md-4">
                                 <a href="student_broadsheet.php" class="card h-100 border-0 shadow-sm text-decoration-none hover-lift">
                                     <div class="card-body p-4">
