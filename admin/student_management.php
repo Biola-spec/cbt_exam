@@ -635,7 +635,7 @@ try {
                     <div class="row g-3">
                         <div class="col-md-6"><label class="form-label" for="student_full_name">Full name *</label><input type="text" class="form-control" id="student_full_name" name="full_name" required autocomplete="name" placeholder="e.g. Ada Okafor"></div>
                         <div class="col-md-6"><label class="form-label" for="student_admission_number">Admission number</label><input type="text" class="form-control" id="student_admission_number" name="admission_number" maxlength="100" placeholder="Optional school ID"></div>
-                        <div class="col-md-6"><label class="form-label" for="student_email">Email address *</label><input type="email" class="form-control" id="student_email" name="email" required autocomplete="email" placeholder="student@famaiis.sch.ng"><div class="form-text">Use a Gmail or Famaiis school email address.</div></div>
+                        <div class="col-md-6"><label class="form-label" for="student_email">Email address *</label><div class="input-group"><input type="email" class="form-control" id="student_email" name="email" required autocomplete="email" placeholder="student@famaiis.sch.ng"><button type="button" class="btn btn-outline-primary" onclick="setRegistrationStudentEmailDomain('famaiis.sch.ng')">@famaiis.sch.ng</button><button type="button" class="btn btn-outline-primary" onclick="setRegistrationStudentEmailDomain('gmail.com')">@gmail.com</button></div><div class="form-text">Enter the pupil name first, then click a domain to create an address from the first and last names. You can edit the address afterward.</div></div>
                         <div class="col-md-6"><label class="form-label" for="student_password">Password *</label><input type="password" class="form-control" id="student_password" name="student_password" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters"><div class="form-text">Share this password with the student for dashboard access.</div></div>
                         <div class="col-md-6"><label class="form-label" for="student_class">Class *</label><select class="form-select" id="student_class" name="class_id" <?php echo !$has_class_id || empty($classes) ? 'disabled' : ''; ?> required><option value="">Select a class</option><?php foreach ($classes as $c): ?><option value="<?php echo $c['id']; ?>"><?php echo htmlspecialchars($c['name']); ?></option><?php endforeach; ?></select></div>
                         <div class="col-md-6"><label class="form-label" for="add_student_passport">Profile photo *</label><div class="student-photo-upload"><div class="student-photo-preview" id="add_passport_placeholder"><i class="fas fa-camera"></i></div><img class="student-photo-preview d-none" id="add_passport_preview" src="" alt="Passport preview"><div class="flex-grow-1"><input type="file" class="form-control" id="add_student_passport" name="passport" accept="image/*" required><div class="form-text">Choose a clear passport photograph.</div></div></div></div>
@@ -780,7 +780,7 @@ try {
                             <span class="small fw-semibold text-secondary me-1">Set email addresses from student names:</span>
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="setBulkStudentEmailDomain('famaiis.sch.ng')">@famaiis.sch.ng</button>
                             <button type="button" class="btn btn-sm btn-outline-primary" onclick="setBulkStudentEmailDomain('gmail.com')">@gmail.com</button>
-                            <span class="form-text m-0">Uses lowercase name parts separated by dots. You can still edit any address individually.</span>
+                            <span class="form-text m-0">Uses the first and last names in lowercase, separated by a dot. You can edit any address individually.</span>
                         </div>
                         <form method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="bulk_update_students">
@@ -948,6 +948,24 @@ function generateIndividualStudentPassword() {
     field.value = password;
 }
 
+function studentEmailFromFullName(fullName, domain) {
+    const nameParts = fullName.trim().toLocaleLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .split(/\s+/).map(function (part) { return part.replace(/[^a-z0-9]/g, ''); })
+        .filter(Boolean);
+    if (!nameParts.length) return '';
+    const localPart = nameParts.length > 1 ? nameParts[0] + '.' + nameParts[nameParts.length - 1] : nameParts[0];
+    return localPart + '@' + domain;
+}
+
+function setRegistrationStudentEmailDomain(domain) {
+    const nameField = document.getElementById('student_full_name');
+    const emailField = document.getElementById('student_email');
+    if (!nameField || !emailField) return;
+    const email = studentEmailFromFullName(nameField.value, domain);
+    if (email) emailField.value = email;
+}
+
 function setBulkStudentEmailDomain(domain) {
     const editor = document.getElementById('bulkStudentEditor');
     if (!editor) return;
@@ -955,10 +973,8 @@ function setBulkStudentEmailDomain(domain) {
         const nameField = row.querySelector('input[name^="student_name["]');
         const emailField = row.querySelector('input[name^="student_email["]');
         if (!nameField || !emailField) return;
-        const localPart = nameField.value.trim().toLocaleLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
-        if (localPart) emailField.value = localPart + '@' + domain;
+        const email = studentEmailFromFullName(nameField.value, domain);
+        if (email) emailField.value = email;
     });
 }
 
