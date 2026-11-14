@@ -57,6 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
         $emails = $_POST['student_email'] ?? [];
         $admissions = $_POST['student_admission'] ?? [];
         $photo_files = $_FILES['student_photo'] ?? null;
+        $bulk_photo_files = $_FILES['student_photos'] ?? null;
         $updates = [];
         $upload_paths = [];
         $error = '';
@@ -109,24 +110,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
                 $duplicate->close();
             }
         }
+        $photo_uploads = [];
         if ($error === '' && is_array($photo_files) && isset($photo_files['error']) && is_array($photo_files['error'])) {
-            foreach ($updates as $student_id => &$row) {
-                $upload_error = $photo_files['error'][$student_id] ?? UPLOAD_ERR_NO_FILE;
+            foreach ($photo_files['error'] as $student_id => $upload_error) {
+                if ($upload_error !== UPLOAD_ERR_NO_FILE) $photo_uploads[(int)$student_id] = [
+                    'error' => $upload_error, 'tmp_name' => $photo_files['tmp_name'][$student_id] ?? ''
+                ];
+            }
+        }
+        if ($error === '' && is_array($bulk_photo_files) && isset($bulk_photo_files['error']) && is_array($bulk_photo_files['error'])) {
+            foreach ($bulk_photo_files['error'] as $file_index => $upload_error) {
                 if ($upload_error === UPLOAD_ERR_NO_FILE) continue;
-                if ($upload_error !== UPLOAD_ERR_OK) { $error = 'A photo could not be uploaded. Check the file size and try again.'; break; }
-                $tmp_name = $photo_files['tmp_name'][$student_id] ?? '';
-                $image_info = $tmp_name !== '' ? @getimagesize($tmp_name) : false;
-                $mime_extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
-                if (!$image_info || !isset($mime_extensions[$image_info['mime']])) { $error = 'Photos must be JPG, PNG or GIF images.'; break; }
+                $original_name = basename((string)($bulk_photo_files['name'][$file_index] ?? ''));
+                $student_id = (int)pathinfo($original_name, PATHINFO_FILENAME);
+                if (!$student_id || !isset($updates[$student_id])) { $error = 'Bulk photo filenames must start with a student ID from this class (for example, 42.jpg).'; break; }
+                if (isset($photo_uploads[$student_id])) { $error = 'A student has more than one replacement photo selected.'; break; }
+                $photo_uploads[$student_id] = [
+                    'error' => $upload_error, 'tmp_name' => $bulk_photo_files['tmp_name'][$file_index] ?? ''
+                ];
+            }
+        }
+        if ($error === '') {
+            foreach ($photo_uploads as $student_id => $upload) {
+                if ($upload['error'] !== UPLOAD_ERR_OK) { $error = 'A photo could not be uploaded. Check the file size and try again.'; break; }
+                $image_info = $upload['tmp_name'] !== '' ? @getimagesize($upload['tmp_name']) : false;
+                $mime = $image_info['mime'] ?? '';
+                $extension = $image_info && isset($image_info[2]) ? image_type_to_extension((int)$image_info[2], false) : false;
+                $allowed_photo_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'avif', 'tif', 'tiff', 'ico'];
+                if (!$image_info || strpos($mime, 'image/') !== 0 || !$extension || !in_array(strtolower($extension), $allowed_photo_extensions, true)) { $error = 'Please choose a supported image file, such as JPG, PNG, GIF, WebP, BMP, AVIF or TIFF.'; break; }
                 $upload_dir = '../uploads/passports/';
                 if (!is_dir($upload_dir) && !mkdir($upload_dir, 0775, true)) { $error = 'Could not prepare the photo upload folder.'; break; }
-                $file_name = bin2hex(random_bytes(16)) . '.' . $mime_extensions[$image_info['mime']];
+                $file_name = bin2hex(random_bytes(16)) . '.' . strtolower($extension);
                 $target_file = $upload_dir . $file_name;
-                if (!move_uploaded_file($tmp_name, $target_file)) { $error = 'Could not save an uploaded photo.'; break; }
-                $row['passport'] = 'uploads/passports/' . $file_name;
+                if (!move_uploaded_file($upload['tmp_name'], $target_file)) { $error = 'Could not save an uploaded photo.'; break; }
+                $updates[$student_id]['passport'] = 'uploads/passports/' . $file_name;
                 $upload_paths[] = $target_file;
             }
-            unset($row);
         }
         if ($error === '') {
             $mysqli->begin_transaction();
@@ -439,7 +458,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
 // Fetch existing students list
 $students = [];
-$class_filter = isset($_GET['class_filter']) ? intval($_GET['class_filter']) : 0;
+$class_filter = isset($_GET['class_filter']) ? intval($_GET['class_filter']) : (int)($_POST['class_filter'] ?? 0);
+$requested_student_tab = $_GET['student_tab'] ?? $_POST['student_tab'] ?? '';
+$active_student_tab = in_array($requested_student_tab, ['register', 'directory', 'override'], true) ? $requested_student_tab : 'register';
 try {
     if ($has_class_id) {
         $sql = "SELECT u.id, u.full_name, u.admission_number, u.email, u.passport, c.name AS class_name, u.class_id FROM users u LEFT JOIN classes c ON u.class_id = c.id WHERE u.role = 'student'";
@@ -592,12 +613,12 @@ try {
         @media(prefers-reduced-motion:reduce){.student-tab-panel{animation:none}.student-management-tabs .nav-link{transition:none}}
         </style>
         <ul class="nav nav-pills nav-fill student-management-tabs" id="studentManagementTabs" role="tablist">
-            <li class="nav-item" role="presentation"><button class="nav-link active" id="register-student-tab" data-bs-toggle="tab" data-bs-target="#register-student-panel" type="button" role="tab" aria-controls="register-student-panel" aria-selected="true"><i class="fas fa-user-plus"></i><span>Register a student</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="student-directory-tab" data-bs-toggle="tab" data-bs-target="#student-directory-panel" type="button" role="tab" aria-controls="student-directory-panel" aria-selected="false"><i class="fas fa-address-book"></i><span>Student Directory</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="examination-override-tab" data-bs-toggle="tab" data-bs-target="#examination-override-panel" type="button" role="tab" aria-controls="examination-override-panel" aria-selected="false"><i class="fas fa-rotate"></i><span>Examination Override</span></button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link <?php echo $active_student_tab === 'register' ? 'active' : ''; ?>" id="register-student-tab" data-bs-toggle="tab" data-bs-target="#register-student-panel" type="button" role="tab" aria-controls="register-student-panel" aria-selected="<?php echo $active_student_tab === 'register' ? 'true' : 'false'; ?>"><i class="fas fa-user-plus"></i><span>Register a student</span></button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link <?php echo $active_student_tab === 'directory' ? 'active' : ''; ?>" id="student-directory-tab" data-bs-toggle="tab" data-bs-target="#student-directory-panel" type="button" role="tab" aria-controls="student-directory-panel" aria-selected="<?php echo $active_student_tab === 'directory' ? 'true' : 'false'; ?>"><i class="fas fa-address-book"></i><span>Student Directory</span></button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link <?php echo $active_student_tab === 'override' ? 'active' : ''; ?>" id="examination-override-tab" data-bs-toggle="tab" data-bs-target="#examination-override-panel" type="button" role="tab" aria-controls="examination-override-panel" aria-selected="<?php echo $active_student_tab === 'override' ? 'true' : 'false'; ?>"><i class="fas fa-rotate"></i><span>Examination Override</span></button></li>
         </ul>
         <div class="tab-content" id="studentManagementTabContent">
-        <div class="tab-pane fade show active student-tab-panel" id="register-student-panel" role="tabpanel" aria-labelledby="register-student-tab" tabindex="0">
+        <div class="tab-pane fade <?php echo $active_student_tab === 'register' ? 'show active' : ''; ?> student-tab-panel" id="register-student-panel" role="tabpanel" aria-labelledby="register-student-tab" tabindex="0">
             <div class="student-tab-heading"><span class="student-tab-heading-icon"><i class="fas fa-user-plus"></i></span><div><h2>Register a student</h2><p>Add the student’s account, class and profile photo.</p></div></div>
 
         <!-- Add Student Form -->
@@ -655,7 +676,7 @@ try {
         }
         </style>
         </div>
-        <div class="tab-pane fade student-tab-panel" id="student-directory-panel" role="tabpanel" aria-labelledby="student-directory-tab" tabindex="0">
+        <div class="tab-pane fade <?php echo $active_student_tab === 'directory' ? 'show active' : ''; ?> student-tab-panel" id="student-directory-panel" role="tabpanel" aria-labelledby="student-directory-tab" tabindex="0">
             <div class="student-tab-heading"><span class="student-tab-heading-icon"><i class="fas fa-address-book"></i></span><div><h2>Student Directory</h2><p>Find, update, print, and manage student accounts.</p></div></div>
         <!-- Student Directory -->
         <div class="card admin-print-area" id="student-directory-print">
@@ -665,6 +686,7 @@ try {
                 <?php if ($has_class_id && !empty($classes)): ?>
                 <form method="GET" class="d-flex align-items-center mb-0 no-print">
                     <input type="hidden" name="tab" value="students">
+                    <input type="hidden" name="student_tab" value="directory">
                     <select name="class_filter" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="0">All Classes</option>
                         <?php foreach ($classes as $c): ?>
@@ -754,21 +776,34 @@ try {
                     <summary class="card-header fw-semibold text-primary"><span><i class="fas fa-users-gear me-2"></i>Edit all students in this class</span><i class="fas fa-chevron-down bulk-editor-chevron"></i></summary>
                     <div class="card-body p-3 p-lg-4">
                         <div class="bulk-editor-intro mb-4"><span class="bulk-editor-intro-icon"><i class="fas fa-pen-to-square"></i></span><div><h6 class="mb-1">Class roster editor</h6><p class="text-muted mb-0">Make changes to any student below, then save the class once. Leave a photo empty to keep the current one.</p></div></div>
+                        <div class="bulk-email-tools d-flex flex-wrap align-items-center gap-2 mb-3">
+                            <span class="small fw-semibold text-secondary me-1">Set email addresses from student names:</span>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="setBulkStudentEmailDomain('famaiis.sch.ng')">@famaiis.sch.ng</button>
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="setBulkStudentEmailDomain('gmail.com')">@gmail.com</button>
+                            <span class="form-text m-0">Uses lowercase name parts separated by dots. You can still edit any address individually.</span>
+                        </div>
                         <form method="POST" enctype="multipart/form-data">
                             <input type="hidden" name="action" value="bulk_update_students">
                             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($_SESSION['csrf_token']); ?>">
                             <input type="hidden" name="class_filter" value="<?php echo (int)$class_filter; ?>">
+                            <input type="hidden" name="student_tab" value="directory">
+                            <div class="bulk-email-tools d-flex flex-wrap align-items-center gap-2 mb-3">
+                                <div class="w-100"><strong class="small text-secondary">Upload several student photos at once</strong><div class="form-text mt-1">Use the ID shown beside each student’s photo. Rename each image to that ID, with or without its extension (for example, <code>42</code>, <code>42.png</code> or <code>42.webp</code> for ID 42). Select the renamed images below, then click <strong>Upload all</strong>. JPG, PNG, GIF, WebP, BMP, AVIF and TIFF images are supported; the photos will be matched to students and saved together.</div></div>
+                                <label class="visually-hidden" for="bulk_student_photos">Choose student photos</label>
+                                <input class="form-control form-control-sm" style="max-width:360px" type="file" id="bulk_student_photos" name="student_photos[]" accept="image/*" multiple>
+                                <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-cloud-arrow-up me-1"></i>Upload all</button>
+                            </div>
                             <div class="table-responsive bulk-student-table-wrap">
                                 <table class="table align-middle bulk-student-table">
                                     <thead><tr><th>Photo</th><th>Full name</th><th>Email address</th><th>Admission number</th><th>Replace photo</th></tr></thead>
                                     <tbody>
                                     <?php foreach ($students as $s): ?>
                                         <tr>
-                                            <td class="text-center"><div class="bulk-student-photo-cell"><?php if (!empty($s['passport'])): ?><img src="../<?php echo htmlspecialchars($s['passport']); ?>" class="bulk-student-avatar" alt="Current student photo"><?php else: ?><span class="bulk-student-avatar bulk-student-avatar-empty"><i class="fas fa-user"></i></span><?php endif; ?><small>ID <?php echo (int)$s['id']; ?></small></div></td>
+                                            <td class="text-center"><div class="bulk-student-photo-cell"><?php if (!empty($s['passport'])): ?><img src="../<?php echo htmlspecialchars($s['passport']); ?>" class="bulk-student-avatar" alt="Current student photo"><?php else: ?><span class="bulk-student-avatar bulk-student-avatar-empty"><i class="fas fa-user"></i></span><?php endif; ?><span class="badge text-bg-light border bulk-student-id">ID <?php echo (int)$s['id']; ?></span></div></td>
                                             <td class="bulk-primary-col"><input id="bulk_name_<?php echo (int)$s['id']; ?>" aria-label="Full name for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control bulk-student-primary-input" name="student_name[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" autocomplete="name" required></td>
                                             <td class="bulk-primary-col"><input id="bulk_email_<?php echo (int)$s['id']; ?>" aria-label="Email address for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control bulk-student-primary-input" type="email" name="student_email[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['email'], ENT_QUOTES); ?>" autocomplete="email" required></td>
                                             <td><input id="bulk_admission_<?php echo (int)$s['id']; ?>" aria-label="Admission number for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control bulk-student-secondary-input" name="student_admission[<?php echo (int)$s['id']; ?>]" value="<?php echo htmlspecialchars($s['admission_number'] ?? '', ENT_QUOTES); ?>" maxlength="100"></td>
-                                            <td><input id="bulk_photo_<?php echo (int)$s['id']; ?>" aria-label="Replacement photo for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control form-control-sm bulk-student-secondary-input" type="file" name="student_photo[<?php echo (int)$s['id']; ?>]" accept="image/jpeg,image/png,image/gif"></td>
+                                            <td><input id="bulk_photo_<?php echo (int)$s['id']; ?>" aria-label="Replacement photo for <?php echo htmlspecialchars($s['full_name'], ENT_QUOTES); ?>" class="form-control form-control-sm bulk-student-secondary-input" type="file" name="student_photo[<?php echo (int)$s['id']; ?>]" accept="image/*"></td>
                                         </tr>
                                     <?php endforeach; ?>
                                     </tbody>
@@ -796,6 +831,7 @@ try {
                     .bulk-student-photo-cell { display:grid; justify-items:center; gap:.25rem; color:#8492a6; font-size:.72rem; }
                     .bulk-student-avatar { width:46px; height:52px; display:block; border-radius:10px; object-fit:cover; background:#edf2f9; }
                     .bulk-student-avatar-empty { display:grid; place-items:center; color:#8091a8; font-size:1.2rem; }
+                    .bulk-student-id { color:#31445f!important; font-size:.75rem; user-select:all; }
                     .bulk-student-primary-input { height:40px; min-height:40px; padding:.4rem .65rem; border:1px solid #cbd5e1; border-radius:8px; font-size:.84rem; font-weight:500; color:#18283e; }
                     .bulk-student-primary-input:focus,.bulk-student-secondary-input:focus { border-color:#5487df; box-shadow:0 0 0 .22rem rgba(49,105,201,.13); }
                     .bulk-student-secondary-input { height:38px; min-height:38px; padding:.35rem .55rem; border-color:#d5deea; border-radius:8px; font-size:.8rem!important; }
@@ -912,6 +948,20 @@ function generateIndividualStudentPassword() {
     field.value = password;
 }
 
+function setBulkStudentEmailDomain(domain) {
+    const editor = document.getElementById('bulkStudentEditor');
+    if (!editor) return;
+    editor.querySelectorAll('tbody tr').forEach(function (row) {
+        const nameField = row.querySelector('input[name^="student_name["]');
+        const emailField = row.querySelector('input[name^="student_email["]');
+        if (!nameField || !emailField) return;
+        const localPart = nameField.value.trim().toLocaleLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+        if (localPart) emailField.value = localPart + '@' + domain;
+    });
+}
+
 (function(){
   // Add Student Passport Preview
   var addPassport = document.getElementById('add_student_passport');
@@ -1012,7 +1062,7 @@ try {
 }
 ?>
 
-<div class="tab-pane fade student-tab-panel" id="examination-override-panel" role="tabpanel" aria-labelledby="examination-override-tab" tabindex="0">
+<div class="tab-pane fade <?php echo $active_student_tab === 'override' ? 'show active' : ''; ?> student-tab-panel" id="examination-override-panel" role="tabpanel" aria-labelledby="examination-override-tab" tabindex="0">
     <div class="student-tab-heading"><span class="student-tab-heading-icon"><i class="fas fa-rotate"></i></span><div><h2>Examination Override</h2><p>Authorize a student to retake a specific examination subject.</p></div></div>
 <!-- Retake Exam Section -->
 <div class="row">
