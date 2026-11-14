@@ -127,29 +127,20 @@ try {
                 <h5 class="mb-0"><i class="fas fa-cogs me-2"></i> Navigation</h5>
             </div>
             <div class="list-group list-group-flush">
-                <a href="dashboard.php?tab=home" class="list-group-item list-group-item-action <?php echo $active_tab === 'home' ? 'active' : ''; ?>">
-                    <i class="fas fa-house me-2"></i> Overview
+                <a href="add_teacher.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-user-plus me-2"></i> Add Teacher
                 </a>
-                <a href="dashboard.php?tab=school" class="list-group-item list-group-item-action <?php echo $active_tab === 'school' ? 'active' : ''; ?>">
-                    <i class="fas fa-cog me-2"></i> School Settings
+                <a href="dashboard.php?tab=performance_summary" class="list-group-item list-group-item-action <?php echo $active_tab === 'performance_summary' ? 'active' : ''; ?>">
+                    <i class="fas fa-chart-line me-2"></i> Class Performance Summary
                 </a>
                 <a href="dashboard.php?tab=classes" class="list-group-item list-group-item-action <?php echo $active_tab === 'classes' ? 'active' : ''; ?>">
                     <i class="fas fa-book me-2"></i> Classes
                 </a>
-                <a href="dashboard.php?tab=subjects" class="list-group-item list-group-item-action <?php echo $active_tab === 'subjects' ? 'active' : ''; ?>">
-                    <i class="fas fa-book-open me-2"></i> Subjects
-                </a>
-                <a href="dashboard.php?tab=teachers" class="list-group-item list-group-item-action <?php echo $active_tab === 'teachers' ? 'active' : ''; ?>">
-                    <i class="fas fa-chalkboard-teacher me-2"></i> Teacher Allocation
-                </a>
-                <a href="dashboard.php?tab=students" class="list-group-item list-group-item-action <?php echo $active_tab === 'students' ? 'active' : ''; ?>">
-                    <i class="fas fa-user-graduate me-2"></i> Students
+                <a href="early_years.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-child me-2"></i> Early Years Reports
                 </a>
                 <a href="entrance_admissions.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-user-check me-2"></i> Entrance admissions
-                </a>
-                <a href="add_teacher.php" class="list-group-item list-group-item-action">
-                    <i class="fas fa-user-plus me-2"></i> Add Teacher
                 </a>
                 <a href="dashboard.php?tab=exams" class="list-group-item list-group-item-action <?php echo $active_tab === 'exams' ? 'active' : ''; ?>">
                     <i class="fas fa-file-alt me-2"></i> Exam Management
@@ -158,30 +149,39 @@ try {
                     <i class="fas fa-chart-bar me-2"></i> Exam Results
                     <?php if ($results_count > 0): ?><span class="badge bg-primary float-end"><?php echo $results_count; ?></span><?php endif; ?>
                 </a>
-                <a href="term_results.php" class="list-group-item list-group-item-action">
-                    <i class="fas fa-clipboard-check me-2"></i> Term Results &amp; Release
+                <a href="family_access.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-users me-2"></i> Family Access Codes
+                </a>
+                <a href="dashboard.php?tab=grades" class="list-group-item list-group-item-action <?php echo $active_tab === 'grades' ? 'active' : ''; ?>">
+                    <i class="fas fa-sliders-h me-2"></i> Grade Settings
+                </a>
+                <a href="dashboard.php?tab=home" class="list-group-item list-group-item-action <?php echo $active_tab === 'home' ? 'active' : ''; ?>">
+                    <i class="fas fa-house me-2"></i> Overview
                 </a>
                 <a href="report_card_settings.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-star-half-alt me-2"></i> Report Card Settings
-                </a>
-                <a href="early_years.php" class="list-group-item list-group-item-action">
-                    <i class="fas fa-child me-2"></i> Early Years Reports
-                </a>
-                <a href="family_access.php" class="list-group-item list-group-item-action">
-                    <i class="fas fa-users me-2"></i> Family Access Codes
                 </a>
                 <a href="resit_requests.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-clipboard-check me-2"></i> Resit Requests
                     <?php if ($pending_resit_count > 0): ?><span class="badge bg-warning text-dark float-end"><?php echo $pending_resit_count; ?></span><?php endif; ?>
                 </a>
-                <a href="dashboard.php?tab=grades" class="list-group-item list-group-item-action <?php echo $active_tab === 'grades' ? 'active' : ''; ?>">
-                    <i class="fas fa-sliders-h me-2"></i> Grade Settings
+                <a href="dashboard.php?tab=school" class="list-group-item list-group-item-action <?php echo $active_tab === 'school' ? 'active' : ''; ?>">
+                    <i class="fas fa-cog me-2"></i> School Settings
                 </a>
-                <a href="dashboard.php?tab=performance_summary" class="list-group-item list-group-item-action <?php echo $active_tab === 'performance_summary' ? 'active' : ''; ?>">
-                    <i class="fas fa-chart-line me-2"></i> Class Performance Summary
+                <a href="dashboard.php?tab=students" class="list-group-item list-group-item-action <?php echo $active_tab === 'students' ? 'active' : ''; ?>">
+                    <i class="fas fa-user-graduate me-2"></i> Students
+                </a>
+                <a href="dashboard.php?tab=subjects" class="list-group-item list-group-item-action <?php echo $active_tab === 'subjects' ? 'active' : ''; ?>">
+                    <i class="fas fa-book-open me-2"></i> Subjects
+                </a>
+                <a href="dashboard.php?tab=teachers" class="list-group-item list-group-item-action <?php echo $active_tab === 'teachers' ? 'active' : ''; ?>">
+                    <i class="fas fa-chalkboard-teacher me-2"></i> Teacher Allocation
                 </a>
                 <a href="dashboard.php?tab=teacher_stats" class="list-group-item list-group-item-action <?php echo $active_tab === 'teacher_stats' ? 'active' : ''; ?>">
                     <i class="fas fa-chart-pie me-2"></i> Teacher Statistics
+                </a>
+                <a href="term_results.php" class="list-group-item list-group-item-action">
+                    <i class="fas fa-clipboard-check me-2"></i> Term Results &amp; Release
                 </a>
                 <a href="view_questions.php" class="list-group-item list-group-item-action">
                     <i class="fas fa-question-circle me-2"></i> View Questions
