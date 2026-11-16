@@ -45,6 +45,16 @@ CREATE TABLE IF NOT EXISTS class_result_component_names (
     CONSTRAINT fk_result_component_session FOREIGN KEY (session_id) REFERENCES academic_sessions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS class_result_class_links (
+    session_id INT NOT NULL,
+    class_id INT NOT NULL,
+    group_name VARCHAR(60) NOT NULL,
+    PRIMARY KEY (session_id, class_id),
+    KEY idx_result_class_link_group (session_id, group_name),
+    CONSTRAINT fk_result_class_link_session FOREIGN KEY (session_id) REFERENCES academic_sessions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_result_class_link_class FOREIGN KEY (class_id) REFERENCES classes(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 SET @has_component_max_score = (
     SELECT COUNT(*) FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'class_result_component_names' AND COLUMN_NAME = 'max_score'
