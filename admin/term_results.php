@@ -49,41 +49,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $transactionActive = false;
                 $selectedSession = $sessionId;
                 $message = 'Current session updated.';
-            } elseif ($action === 'save_settings') {
-                $classId = (int)($_POST['class_id'] ?? 0);
+            } elseif ($action === 'save_all_settings') {
                 $sessionId = (int)($_POST['session_id'] ?? 0);
-                $caCount = filter_var($_POST['ca_count'] ?? null, FILTER_VALIDATE_INT);
-                $examCount = filter_var($_POST['exam_count'] ?? null, FILTER_VALIDATE_INT);
-                if (!$classId || !$sessionId || $caCount === false || $examCount === false || $caCount < 0 || $caCount > 10 || $examCount < 0 || $examCount > 5 || $caCount + $examCount === 0) {
-                    throw new RuntimeException('Use 0–10 CA components and 0–5 exam components, with at least one component.');
-                }
-                $componentSettings = [];
-                foreach (['ca' => $caCount, 'exam' => $examCount] as $type => $count) {
-                    for ($number = 1; $number <= $count; $number++) {
-                        $default = ($type === 'ca' ? 'CA ' : 'Exam ') . $number;
-                        $label = trim($_POST['component_names'][$type][$number] ?? $default);
-                        if ($label === '' || mb_strlen($label) > 60) throw new RuntimeException('Component names must be between 1 and 60 characters.');
-                        $maxScore = $_POST['component_max_scores'][$type][$number] ?? '100';
-                        if (!is_numeric($maxScore) || (float)$maxScore <= 0 || (float)$maxScore > 10000) throw new RuntimeException('Each component maximum must be greater than 0 and no more than 10,000.');
-                        $componentSettings[$type][$number] = ['label' => $label, 'max_score' => (float)$maxScore];
-                    }
-                }
+                $postedClasses = $_POST['classes'] ?? [];
+                if (!$sessionId || !is_array($postedClasses) || !$postedClasses) throw new RuntimeException('No class settings were submitted.');
                 $mysqli->begin_transaction();
                 $transactionActive = true;
-                $stmt = $mysqli->prepare('INSERT INTO class_result_settings (class_id, session_id, ca_count, exam_count) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE ca_count = VALUES(ca_count), exam_count = VALUES(exam_count)');
-                $stmt->bind_param('iiii', $classId, $sessionId, $caCount, $examCount); $stmt->execute(); $stmt->close();
-                $stmt = $mysqli->prepare('DELETE FROM class_result_component_names WHERE class_id=? AND session_id=?');
-                $stmt->bind_param('ii', $classId, $sessionId); $stmt->execute(); $stmt->close();
-                $stmt = $mysqli->prepare('INSERT INTO class_result_component_names (class_id,session_id,component_type,component_number,label,max_score) VALUES (?,?,?,?,?,?)');
-                foreach ($componentSettings as $type => $items) foreach ($items as $number => $component) {
-                    $label = $component['label']; $maxScore = $component['max_score'];
-                    $stmt->bind_param('iisisd', $classId, $sessionId, $type, $number, $label, $maxScore); $stmt->execute();
+                $settingsStmt = $mysqli->prepare('INSERT INTO class_result_settings (class_id, session_id, ca_count, exam_count) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE ca_count = VALUES(ca_count), exam_count = VALUES(exam_count)');
+                $deleteStmt = $mysqli->prepare('DELETE FROM class_result_component_names WHERE class_id=? AND session_id=?');
+                $componentStmt = $mysqli->prepare('INSERT INTO class_result_component_names (class_id,session_id,component_type,component_number,label,max_score) VALUES (?,?,?,?,?,?)');
+                $validClasses = [];
+                $classResult = $mysqli->query('SELECT id FROM classes');
+                while ($classRow = $classResult->fetch_assoc()) $validClasses[(int)$classRow['id']] = true;
+                foreach ($postedClasses as $classKey => $classData) {
+                    $classId = (int)$classKey;
+                    if (!$classId || !isset($validClasses[$classId]) || !is_array($classData)) throw new RuntimeException('Invalid class settings submitted.');
+                    $caCount = filter_var($classData['ca_count'] ?? null, FILTER_VALIDATE_INT);
+                    $examCount = filter_var($classData['exam_count'] ?? null, FILTER_VALIDATE_INT);
+                    if ($caCount === false || $examCount === false || $caCount < 0 || $caCount > 10 || $examCount < 0 || $examCount > 5 || $caCount + $examCount === 0) throw new RuntimeException('Use 0–10 CA components and 0–5 exam components for every class, with at least one component.');
+                    $settingsStmt->bind_param('iiii', $classId, $sessionId, $caCount, $examCount); $settingsStmt->execute();
+                    $deleteStmt->bind_param('ii', $classId, $sessionId); $deleteStmt->execute();
+                    foreach (['ca' => $caCount, 'exam' => $examCount] as $type => $count) {
+                        for ($number = 1; $number <= $count; $number++) {
+                            $default = ($type === 'ca' ? 'CA ' : 'Exam ') . $number;
+                            $label = trim($classData['component_names'][$type][$number] ?? $default);
+                            if ($label === '' || mb_strlen($label) > 60) throw new RuntimeException('Component names must be between 1 and 60 characters.');
+                            $maxScore = $classData['component_max_scores'][$type][$number] ?? '100';
+                            if (!is_numeric($maxScore) || (float)$maxScore <= 0 || (float)$maxScore > 10000) throw new RuntimeException('Each component maximum must be greater than 0 and no more than 10,000.');
+                            $maxScore = (float)$maxScore;
+                            $componentStmt->bind_param('iisisd', $classId, $sessionId, $type, $number, $label, $maxScore); $componentStmt->execute();
+                        }
+                    }
                 }
-                $stmt->close();
+                $settingsStmt->close(); $deleteStmt->close(); $componentStmt->close();
                 $mysqli->commit();
                 $transactionActive = false;
                 $selectedSession = $sessionId;
-                $message = 'Score components and names saved for this class and session.';
+                $message = 'Score components, names and maximum marks saved for all classes in this session.';
             } elseif ($action === 'score_status') {
                 $periodId = (int)($_POST['period_id'] ?? 0);
                 $scoreId = (int)($_POST['score_id'] ?? 0);
@@ -167,6 +169,17 @@ include '../includes/header.php';
 .term-settings .component-setting{height:100%;padding:.8rem;background:#fff;border:1px solid var(--settings-line);border-radius:8px}
 .term-settings .component-setting-title{font-weight:700;font-size:.88rem;margin-bottom:.6rem}
 .term-settings .table th{font-size:.8rem;color:#596972;text-transform:uppercase;white-space:nowrap}
+.term-settings .settings-table{min-width:560px;margin-bottom:.5rem}
+.term-settings .settings-table th,.term-settings .settings-table td{padding:.45rem .55rem;vertical-align:middle}
+.term-settings .settings-table .form-control{min-width:72px}
+.term-settings .settings-components summary{cursor:pointer;color:#137c72;font-size:.88rem;font-weight:600;white-space:nowrap}
+.term-settings .settings-components[open] summary{margin-bottom:.5rem}
+.term-settings .settings-components .component-fields{max-width:560px;max-height:250px;overflow:auto;padding:.25rem}
+.term-settings .settings-components .component-setting{padding:.55rem}
+.term-settings .settings-components .component-setting-title{margin-bottom:.35rem;font-size:.8rem}
+.term-settings .settings-components .form-label{margin-bottom:.15rem}
+.term-settings .settings-components .form-control{padding:.25rem .45rem;font-size:.85rem}
+.term-settings .settings-help{font-size:.85rem;margin-bottom:.65rem}
 @media(max-width:767px){.term-settings .settings-title{font-size:1.35rem}}
 </style>
 <main class="container py-4 term-settings">
@@ -192,17 +205,17 @@ include '../includes/header.php';
         </div>
         <div class="col-lg-7"><section class="card"><div class="card-header"><h5 class="mb-0">CA and exam components</h5></div><div class="card-body">
             <?php if (!$selectedSession): ?><p class="text-muted mb-0">Create a session before configuring classes.</p><?php else: ?>
-            <p class="small text-muted">Set a name and maximum mark for every component. These settings apply to all three terms for the selected class and session.</p>
-            <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Class</th><th>CA count</th><th>Exam count</th><th></th></tr></thead><tbody>
-            <?php foreach ($classes as $class): $config=$settings[(int)$class['id']]??['ca_count'=>3,'exam_count'=>1]; $formId='class-settings-'.(int)$class['id']; ?>
-                <tr><td><?php echo htmlspecialchars($class['name']); ?><form id="<?php echo $formId; ?>" method="post"><input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(termResultsCsrfToken()); ?>"><input type="hidden" name="action" value="save_settings"><input type="hidden" name="class_id" value="<?php echo (int)$class['id']; ?>"><input type="hidden" name="session_id" value="<?php echo $selectedSession; ?>"></form></td><td><input form="<?php echo $formId; ?>" class="form-control" type="number" name="ca_count" min="0" max="10" value="<?php echo (int)$config['ca_count']; ?>" aria-label="<?php echo htmlspecialchars($class['name']); ?> CA count"></td><td><input form="<?php echo $formId; ?>" class="form-control" type="number" name="exam_count" min="0" max="5" value="<?php echo (int)$config['exam_count']; ?>" aria-label="<?php echo htmlspecialchars($class['name']); ?> exam count"></td><td><button form="<?php echo $formId; ?>" class="btn btn-sm btn-primary" aria-label="Save <?php echo htmlspecialchars($class['name']); ?> settings"><i class="fas fa-save"></i></button></td></tr>
-                <tr><td colspan="4" class="component-detail"><details><summary class="py-2">Customize component names and maximum marks · <?php echo htmlspecialchars($class['name']); ?></summary><div class="row g-2 pb-2">
-                    <?php foreach (['ca' => (int)$config['ca_count'], 'exam' => (int)$config['exam_count']] as $type => $count): for ($number = 1; $number <= $count; $number++): $fallback = ($type === 'ca' ? 'CA ' : 'Exam ') . $number; $component = $componentSettings[(int)$class['id']][$type][$number] ?? ['label' => $fallback, 'max_score' => 100]; ?>
-                        <div class="col-sm-6 col-xl-4"><div class="component-setting"><div class="component-setting-title"><?php echo $type === 'ca' ? 'CA' : 'Exam'; ?> <?php echo $number; ?></div><label class="form-label small" for="<?php echo $formId.'-'.$type.'-'.$number; ?>-name">Display name</label><input form="<?php echo $formId; ?>" class="form-control form-control-sm mb-2" id="<?php echo $formId.'-'.$type.'-'.$number; ?>-name" name="component_names[<?php echo $type; ?>][<?php echo $number; ?>]" maxlength="60" value="<?php echo htmlspecialchars($component['label']); ?>"><label class="form-label small" for="<?php echo $formId.'-'.$type.'-'.$number; ?>-max">Maximum score</label><input form="<?php echo $formId; ?>" class="form-control form-control-sm" type="number" min="0.01" max="10000" step="0.01" id="<?php echo $formId.'-'.$type.'-'.$number; ?>-max" name="component_max_scores[<?php echo $type; ?>][<?php echo $number; ?>]" value="<?php echo htmlspecialchars((string)$component['max_score']); ?>" required></div></div>
+            <p class="small text-muted settings-help">Set counts and save once. Open “Components” only when you need to change names or maximum marks. Raising a count adds its fields immediately.</p>
+            <form method="post" id="all-class-settings"><input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(termResultsCsrfToken()); ?>"><input type="hidden" name="action" value="save_all_settings"><input type="hidden" name="session_id" value="<?php echo $selectedSession; ?>">
+            <div class="table-responsive"><table class="table table-sm settings-table"><thead><tr><th>Class</th><th>CA</th><th>Exam</th><th>Components</th></tr></thead><tbody>
+            <?php foreach ($classes as $class): $classId=(int)$class['id']; $config=$settings[$classId]??['ca_count'=>3,'exam_count'=>1]; $formId='class-settings-'.$classId; ?>
+                <tr><td class="fw-semibold"><?php echo htmlspecialchars($class['name']); ?></td><td><input class="form-control class-count" data-class="<?php echo $classId; ?>" data-type="ca" type="number" name="classes[<?php echo $classId; ?>][ca_count]" min="0" max="10" value="<?php echo (int)$config['ca_count']; ?>" aria-label="<?php echo htmlspecialchars($class['name']); ?> CA count"></td><td><input class="form-control class-count" data-class="<?php echo $classId; ?>" data-type="exam" type="number" name="classes[<?php echo $classId; ?>][exam_count]" min="0" max="5" value="<?php echo (int)$config['exam_count']; ?>" aria-label="<?php echo htmlspecialchars($class['name']); ?> exam count"></td><td><details class="settings-components"><summary>Components <span class="text-muted">(<?php echo (int)$config['ca_count']; ?> CA, <?php echo (int)$config['exam_count']; ?> exam)</span></summary><div class="row g-2 pb-2 component-fields" data-class="<?php echo $classId; ?>">
+                    <?php foreach (['ca' => (int)$config['ca_count'], 'exam' => (int)$config['exam_count']] as $type => $count): for ($number = 1; $number <= $count; $number++): $fallback = ($type === 'ca' ? 'CA ' : 'Exam ') . $number; $component = $componentSettings[$classId][$type][$number] ?? ['label' => $fallback, 'max_score' => 100]; ?>
+                        <div class="col-sm-6 col-xl-4" data-component="<?php echo $type.'-'.$number; ?>"><div class="component-setting"><div class="component-setting-title"><?php echo $type === 'ca' ? 'CA' : 'Exam'; ?> <?php echo $number; ?></div><label class="form-label small" for="<?php echo $formId.'-'.$type.'-'.$number; ?>-name">Display name</label><input class="form-control form-control-sm mb-2" id="<?php echo $formId.'-'.$type.'-'.$number; ?>-name" name="classes[<?php echo $classId; ?>][component_names][<?php echo $type; ?>][<?php echo $number; ?>]" maxlength="60" value="<?php echo htmlspecialchars($component['label']); ?>"><label class="form-label small" for="<?php echo $formId.'-'.$type.'-'.$number; ?>-max">Maximum score</label><input class="form-control form-control-sm" type="number" min="0.01" max="10000" step="0.01" id="<?php echo $formId.'-'.$type.'-'.$number; ?>-max" name="classes[<?php echo $classId; ?>][component_max_scores][<?php echo $type; ?>][<?php echo $number; ?>]" value="<?php echo htmlspecialchars((string)$component['max_score']); ?>" required></div></div>
                     <?php endfor; endforeach; ?>
                 </div></details></td></tr>
             <?php endforeach; ?>
-            </tbody></table></div><?php endif; ?>
+            </tbody></table></div><div class="d-flex justify-content-end"><button class="btn btn-primary"><i class="fas fa-save me-1"></i>Save all class settings</button></div></form><?php endif; ?>
         </div></section></div>
     </div>
     <section class="card mt-3"><div class="card-header"><h5 class="mb-0">Term result sheets</h5></div><div class="card-body">
@@ -210,4 +223,45 @@ include '../includes/header.php';
         <?php foreach ($periods as $period): ?><tr><td><?php echo htmlspecialchars($period['class_name']); ?></td><td><?php echo htmlspecialchars(termLabel((int)$period['term'])); ?></td><td><?php echo (int)$period['score_count']; ?></td><td><span class="badge bg-success"><?php echo (int)$period['released_count']; ?></span></td><td><span class="badge bg-primary"><?php echo (int)$period['pending_count']; ?></span></td><td><?php echo htmlspecialchars(date('M j, Y H:i', strtotime($period['updated_at']))); ?></td><td><a class="btn btn-sm btn-outline-primary" href="term_results_view.php?period_id=<?php echo (int)$period['id']; ?>"><i class="fas fa-clipboard-check me-1"></i> Review individual results</a></td></tr><?php endforeach; ?></tbody></table></div><?php endif; ?>
     </div></section>
 </main>
+<script>
+(() => {
+    const form = document.getElementById('all-class-settings');
+    if (!form) return;
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    const renderClassComponents = (classId) => {
+        const fields = form.querySelector('.component-fields[data-class="' + classId + '"]');
+        if (!fields) return;
+        const existing = {};
+        fields.querySelectorAll('[data-component]').forEach((card) => {
+            const key = card.dataset.component;
+            existing[key] = {
+                label: card.querySelector('input[name*="[component_names]"]').value,
+                max: card.querySelector('input[name*="[component_max_scores]"]').value
+            };
+        });
+        let html = '';
+        ['ca', 'exam'].forEach((type) => {
+            const countInput = form.querySelector('.class-count[data-class="' + classId + '"][data-type="' + type + '"]');
+            const count = Math.max(0, Math.min(type === 'ca' ? 10 : 5, parseInt(countInput.value, 10) || 0));
+            countInput.value = count;
+            for (let number = 1; number <= count; number++) {
+                const key = type + '-' + number;
+                const prefix = 'classes[' + classId + ']';
+                const label = existing[key]?.label || (type === 'ca' ? 'CA ' : 'Exam ') + number;
+                const max = existing[key]?.max || '100';
+                const id = 'class-settings-' + classId + '-' + key;
+                html += '<div class="col-sm-6 col-xl-4" data-component="' + key + '"><div class="component-setting"><div class="component-setting-title">' + (type === 'ca' ? 'CA ' : 'Exam ') + number + '</div>' +
+                    '<label class="form-label small" for="' + id + '-name">Display name</label><input class="form-control form-control-sm mb-2" id="' + id + '-name" name="' + prefix + '[component_names][' + type + '][' + number + ']" maxlength="60" value="' + escapeHtml(label) + '" required>' +
+                    '<label class="form-label small" for="' + id + '-max">Maximum score</label><input class="form-control form-control-sm" type="number" min="0.01" max="10000" step="0.01" id="' + id + '-max" name="' + prefix + '[component_max_scores][' + type + '][' + number + ']" value="' + escapeHtml(max) + '" required></div></div>';
+            }
+        });
+        fields.innerHTML = html;
+        const details = fields.closest('details');
+        const caCount = form.querySelector('.class-count[data-class="' + classId + '"][data-type="ca"]').value;
+        const examCount = form.querySelector('.class-count[data-class="' + classId + '"][data-type="exam"]').value;
+        details.querySelector('summary').innerHTML = 'Components <span class="text-muted">(' + caCount + ' CA, ' + examCount + ' exam)</span>';
+    };
+    form.querySelectorAll('.class-count').forEach((input) => input.addEventListener('input', () => renderClassComponents(input.dataset.class)));
+})();
+</script>
 <?php include '../includes/footer.php'; ?>
