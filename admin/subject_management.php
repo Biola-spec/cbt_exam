@@ -311,6 +311,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     }
 }
 
+// Handle bulk deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_multiple') {
+    $delete_subject_ids = array_values(array_unique(array_filter(array_map('intval', $_POST['subject_ids'] ?? []), function ($id) { return $id > 0; })));
+
+    if (!$delete_subject_ids) {
+        $message = 'Select at least one subject to delete.';
+        $message_type = 'warning';
+    } else {
+        try {
+            $mysqli = getDBConnection();
+            if (!$mysqli) throw new Exception('Database connection is unavailable.');
+
+            $mysqli->begin_transaction();
+            $delete_stmt = $mysqli->prepare('DELETE FROM subjects WHERE id = ?');
+            if (!$delete_stmt) throw new Exception('Could not prepare the delete operation.');
+
+            $deleted_count = 0;
+            foreach ($delete_subject_ids as $delete_subject_id) {
+                $delete_stmt->bind_param('i', $delete_subject_id);
+                $delete_stmt->execute();
+                $deleted_count += $delete_stmt->affected_rows;
+            }
+            $delete_stmt->close();
+            $mysqli->commit();
+
+            $deleted_lookup = array_fill_keys($delete_subject_ids, true);
+            $subjects = array_values(array_filter($subjects, function ($subject) use ($deleted_lookup) {
+                return !isset($deleted_lookup[(int)$subject['id']]);
+            }));
+            $message = $deleted_count . ' subject' . ($deleted_count === 1 ? '' : 's') . ' deleted successfully.';
+            $message_type = 'success';
+        } catch (Exception $e) {
+            if (isset($mysqli) && $mysqli && $mysqli->ping()) $mysqli->rollback();
+            $message = 'Could not delete the selected subjects. One or more may still be in use. ' . $e->getMessage();
+            $message_type = 'danger';
+        }
+    }
+}
+
 // Handle deletion
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'delete') {
     $subject_id = $_POST['subject_id'];
@@ -474,7 +513,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
             </div>
 
             <?php if ($subjects): ?>
-                <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+                <form method="POST" id="bulkSubjectDeleteForm" class="mb-3">
+                    <input type="hidden" name="action" value="delete_multiple">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 rounded-3 border p-2 px-3 mb-3" style="background:#f8fafc">
+                        <div class="d-flex align-items-center gap-3">
+                            <label class="form-check mb-0 d-flex align-items-center gap-2">
+                                <input class="form-check-input m-0" type="checkbox" id="selectAllSubjects">
+                                <span class="small fw-semibold">Select all shown</span>
+                            </label>
+                            <span class="small text-muted" id="selectedSubjectCount" aria-live="polite">0 selected</span>
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-danger" id="deleteSelectedSubjects" disabled><i class="fas fa-trash me-1"></i>Delete Selected</button>
+                    </div>
+                    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
                     <?php foreach ($subjects as $subject): ?>
                         <div class="col">
                             <article class="card subject-card h-100 shadow-sm">
@@ -486,12 +537,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
                                             <span class="badge rounded-pill bg-light text-primary border subject-code-chip mt-1"><?php echo htmlspecialchars($subject['subject_code']); ?></span>
                                         </div>
                                         <div class="btn-group btn-group-sm flex-shrink-0">
+                                            <label class="btn btn-outline-secondary d-inline-flex align-items-center" title="Select subject for bulk deletion">
+                                                <input class="form-check-input m-0 subject-select-checkbox" type="checkbox" name="subject_ids[]" value="<?php echo (int)$subject['id']; ?>" aria-label="Select <?php echo htmlspecialchars($subject['name']); ?>">
+                                            </label>
                                             <a href="dashboard.php?tab=subjects&action=edit&id=<?php echo (int)$subject['id']; ?>" class="btn btn-outline-primary" title="Edit subject" aria-label="Edit <?php echo htmlspecialchars($subject['name']); ?>"><i class="fas fa-pen"></i></a>
-                                            <form method="POST" class="d-inline" onsubmit="return confirm('Delete this subject?');">
-                                                <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="subject_id" value="<?php echo (int)$subject['id']; ?>">
-                                                <button type="submit" class="btn btn-outline-danger" title="Delete subject" aria-label="Delete <?php echo htmlspecialchars($subject['name']); ?>"><i class="fas fa-trash"></i></button>
-                                            </form>
                                         </div>
                                     </div>
                                     <div class="subject-description small text-muted mt-2" title="<?php echo htmlspecialchars($subject['description'] ?? ''); ?>"><?php echo !empty($subject['description']) ? htmlspecialchars($subject['description']) : '&nbsp;'; ?></div>
@@ -509,7 +558,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
                             </article>
                         </div>
                     <?php endforeach; ?>
-                </div>
+                    </div>
+                </form>
             <?php else: ?>
                 <div class="text-center rounded-4 py-5 px-3" style="background:#f6f9fc">
                     <span class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width:58px;height:58px;background:#eaf3ff;color:#2467a5"><i class="fas fa-book-open fa-lg"></i></span>
@@ -571,3 +621,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
         </section>
     </div>
 </div>
+<script>
+(() => {
+    const form = document.getElementById('bulkSubjectDeleteForm');
+    if (!form) return;
+    const checks = Array.from(form.querySelectorAll('.subject-select-checkbox'));
+    const selectAll = document.getElementById('selectAllSubjects');
+    const deleteButton = document.getElementById('deleteSelectedSubjects');
+    const countLabel = document.getElementById('selectedSubjectCount');
+    const updateSelection = () => {
+        const selected = checks.filter((check) => check.checked).length;
+        deleteButton.disabled = selected === 0;
+        countLabel.textContent = selected + ' selected';
+        selectAll.checked = selected === checks.length;
+        selectAll.indeterminate = selected > 0 && selected < checks.length;
+    };
+    selectAll.addEventListener('change', () => {
+        checks.forEach((check) => { check.checked = selectAll.checked; });
+        updateSelection();
+    });
+    checks.forEach((check) => check.addEventListener('change', updateSelection));
+    form.addEventListener('submit', (event) => {
+        const selected = checks.filter((check) => check.checked).length;
+        if (!selected || !window.confirm('Delete ' + selected + ' selected subject' + (selected === 1 ? '' : 's') + '? This cannot be undone.')) {
+            event.preventDefault();
+        }
+    });
+})();
+</script>
