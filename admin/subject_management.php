@@ -4,6 +4,8 @@ require_once '../config/session.php';
 
 $message = '';
 $message_type = 'info'; // Default message type
+$batch_errors = [];
+$batch_form_rows = [];
 $subjects = [];
 $classes = [];
 $edit_subject = null; // For holding subject data when editing
@@ -146,6 +148,152 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
         }
     } else {
         $message = 'Subject name and subject code are required';
+        $message_type = 'danger';
+    }
+}
+
+// Handle adding multiple subjects in one submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'add_multiple') {
+    $subject_rows = is_array($_POST['subjects'] ?? null) ? $_POST['subjects'] : [];
+    $batch_form_rows = $subject_rows;
+    $batch_added = 0;
+    $batch_errors = [];
+    $seen_codes = [];
+
+    try {
+        $mysqli = getDBConnection();
+        if (!$mysqli) throw new Exception('Database connection is unavailable.');
+
+        foreach ($subject_rows as $row_index => $subject_row) {
+            if (!is_array($subject_row)) continue;
+            $row_number = (int)$row_index + 1;
+            $name = trim($subject_row['name'] ?? '');
+            $subject_code = trim($subject_row['subject_code'] ?? '');
+            $description = trim($subject_row['description'] ?? '');
+            $class_ids = array_values(array_unique(array_filter(array_map('intval', $subject_row['class_ids'] ?? []), function ($id) { return $id > 0; })));
+
+            if ($name === '' && $subject_code === '' && $description === '' && !$class_ids) continue;
+            if ($name === '' || $subject_code === '') {
+                $batch_errors[] = 'Row ' . $row_number . ': subject name and code are required.';
+                continue;
+            }
+
+            $normalized_code = strtolower($subject_code);
+            if (isset($seen_codes[$normalized_code])) {
+                $batch_errors[] = 'Row ' . $row_number . ': subject code "' . $subject_code . '" is repeated in this batch.';
+                continue;
+            }
+            $seen_codes[$normalized_code] = true;
+
+            try {
+                $mysqli->begin_transaction();
+
+                $check_code = $mysqli->prepare('SELECT id FROM subjects WHERE subject_code = ? LIMIT 1');
+                $check_code->bind_param('s', $subject_code);
+                $check_code->execute();
+                $code_exists = $check_code->get_result()->num_rows > 0;
+                $check_code->close();
+                if ($code_exists) {
+                    $mysqli->rollback();
+                    $batch_errors[] = 'Row ' . $row_number . ': subject code "' . $subject_code . '" already exists.';
+                    continue;
+                }
+
+                $conflicting_class = null;
+                foreach ($class_ids as $class_id) {
+                    $check_name = $mysqli->prepare('SELECT s.id FROM subjects s JOIN subject_class_link scl ON s.id = scl.subject_id WHERE s.name = ? AND scl.class_id = ? LIMIT 1');
+                    $check_name->bind_param('si', $name, $class_id);
+                    $check_name->execute();
+                    $name_exists = $check_name->get_result()->num_rows > 0;
+                    $check_name->close();
+                    if ($name_exists) {
+                        $conflicting_class = $class_id;
+                        break;
+                    }
+                }
+                if ($conflicting_class !== null) {
+                    $mysqli->rollback();
+                    $class_name = 'selected class';
+                    foreach ($classes as $class) {
+                        if ((int)$class['id'] === (int)$conflicting_class) { $class_name = $class['name']; break; }
+                    }
+                    $batch_errors[] = 'Row ' . $row_number . ': "' . $name . '" already exists for ' . $class_name . '.';
+                    continue;
+                }
+
+                $insert_subject = $mysqli->prepare('INSERT INTO subjects (name, subject_code, description) VALUES (?, ?, ?)');
+                if (!$insert_subject) throw new Exception($mysqli->error);
+                $insert_subject->bind_param('sss', $name, $subject_code, $description);
+                $insert_subject->execute();
+                $new_subject_id = $mysqli->insert_id;
+                $insert_subject->close();
+
+                if ($class_ids) {
+                    $insert_link = $mysqli->prepare('INSERT INTO subject_class_link (subject_id, class_id) VALUES (?, ?)');
+                    if (!$insert_link) throw new Exception($mysqli->error);
+                    foreach ($class_ids as $class_id) {
+                        $insert_link->bind_param('ii', $new_subject_id, $class_id);
+                        $insert_link->execute();
+                    }
+                    $insert_link->close();
+                }
+
+                $mysqli->commit();
+                $batch_added++;
+                unset($batch_form_rows[$row_index]);
+            } catch (Exception $row_error) {
+                try { $mysqli->rollback(); } catch (Exception $rollback_error) {}
+                $batch_errors[] = 'Row ' . $row_number . ': ' . $row_error->getMessage();
+            }
+        }
+    } catch (Exception $e) {
+        $batch_errors[] = $e->getMessage();
+    }
+
+    if ($batch_added > 0) {
+        $message = $batch_added . ' subject' . ($batch_added === 1 ? '' : 's') . ' added successfully.';
+        $message_type = $batch_errors ? 'warning' : 'success';
+        if ($batch_errors) $message .= ' ' . count($batch_errors) . ' row' . (count($batch_errors) === 1 ? ' needs' : 's need') . ' attention.';
+
+        // Refresh the existing-subject cards so newly created subjects appear immediately.
+        $subjects = [];
+        $query = 'SELECT id, name, subject_code, description, created_at FROM subjects';
+        $conditions = [];
+        $params = [];
+        $types = '';
+        if ($search_term !== '') {
+            $conditions[] = '(name LIKE ? OR description LIKE ?)';
+            $params[] = '%' . $search_term . '%';
+            $params[] = '%' . $search_term . '%';
+            $types .= 'ss';
+        }
+        if ($class_filter > 0) {
+            $conditions[] = 'id IN (SELECT subject_id FROM subject_class_link WHERE class_id = ?)';
+            $params[] = $class_filter;
+            $types .= 'i';
+        }
+        if ($conditions) $query .= ' WHERE ' . implode(' AND ', $conditions);
+        $query .= ' ORDER BY name';
+        $list_stmt = $mysqli->prepare($query);
+        if ($params) $list_stmt->bind_param($types, ...$params);
+        $list_stmt->execute();
+        $list_result = $list_stmt->get_result();
+        while ($subject = $list_result->fetch_assoc()) {
+            $subject['classes'] = [];
+            $class_stmt = $mysqli->prepare('SELECT DISTINCT c.id, c.name FROM subject_class_link scl JOIN classes c ON scl.class_id = c.id WHERE scl.subject_id = ? ORDER BY c.name');
+            $class_stmt->bind_param('i', $subject['id']);
+            $class_stmt->execute();
+            $class_result = $class_stmt->get_result();
+            while ($class_row = $class_result->fetch_assoc()) $subject['classes'][] = $class_row;
+            $class_stmt->close();
+            $subjects[] = $subject;
+        }
+        $list_stmt->close();
+    } elseif (!$batch_errors) {
+        $message = 'Enter at least one subject to add.';
+        $message_type = 'warning';
+    } else {
+        $message = 'No subjects were added. Correct the row details below and submit again.';
         $message_type = 'danger';
     }
 }
@@ -445,7 +593,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
 }
 ?>
 
-<?php $subject_form_panel_active = $edit_subject || (($_GET['subject_view'] ?? '') === 'add'); ?>
+<?php $subject_form_panel_active = $edit_subject || (($_POST['subject_view'] ?? $_GET['subject_view'] ?? '') === 'add'); ?>
 <style>
     .subject-tabs .nav-link { border-radius: .75rem .75rem 0 0; font-weight: 600; padding: .75rem 1.15rem; }
     .subject-tabs .nav-link.active { color: #174a7e; }
@@ -470,6 +618,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
         <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show" role="alert">
             <?php echo htmlspecialchars($message); ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+    <?php if ($batch_errors): ?>
+        <div class="alert alert-warning py-2" role="status">
+            <ul class="mb-0 small"><?php foreach ($batch_errors as $batch_error): ?><li><?php echo htmlspecialchars($batch_error, ENT_QUOTES, 'UTF-8'); ?></li><?php endforeach; ?></ul>
         </div>
     <?php endif; ?>
 
@@ -577,45 +730,83 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
                         <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width:44px;height:44px;background:<?php echo $edit_subject ? '#eaf3ff' : '#eaf8f0'; ?>;color:<?php echo $edit_subject ? '#2467a5' : '#198754'; ?>"><i class="fas <?php echo $edit_subject ? 'fa-pen-to-square' : 'fa-plus'; ?>"></i></span>
                         <div><h5 class="mb-1"><?php echo $edit_subject ? 'Edit Subject' : 'Add New Subject'; ?></h5><div class="small text-muted">Enter the subject details below.</div></div>
                     </div>
-                    <form method="POST" class="row g-3">
-                        <input type="hidden" name="action" value="<?php echo $edit_subject ? 'edit' : 'add'; ?>">
-                        <input type="hidden" name="subject_view" value="add">
-                        <?php if ($edit_subject): ?><input type="hidden" name="subject_id" value="<?php echo (int)$edit_subject['id']; ?>"><?php endif; ?>
-                        <div class="col-md-6">
-                            <label for="subject_name" class="form-label">Subject Name</label>
-                            <input type="text" class="form-control" id="subject_name" name="name" value="<?php echo htmlspecialchars($edit_subject['name'] ?? ''); ?>" placeholder="e.g. Mathematics" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="subject_code" class="form-label">Subject Code</label>
-                            <input type="text" class="form-control" id="subject_code" name="subject_code" value="<?php echo htmlspecialchars($edit_subject['subject_code'] ?? ''); ?>" placeholder="e.g. MTH-JSS1" required>
-                        </div>
-                        <div class="col-12">
-                            <label for="subject_description" class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label>
-                            <textarea class="form-control" id="subject_description" name="description" rows="3" placeholder="A short description of this subject"><?php echo htmlspecialchars($edit_subject['description'] ?? ''); ?></textarea>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label mb-1">Associated Classes</label>
-                            <div class="small text-muted mb-2">Select the classes that should use this subject. You can select more than one.</div>
-                            <?php if ($classes): ?>
+                    <?php if ($edit_subject): ?>
+                        <form method="POST" class="row g-3">
+                            <input type="hidden" name="action" value="edit">
+                            <input type="hidden" name="subject_view" value="add">
+                            <input type="hidden" name="subject_id" value="<?php echo (int)$edit_subject['id']; ?>">
+                            <div class="col-md-6">
+                                <label for="subject_name" class="form-label">Subject Name</label>
+                                <input type="text" class="form-control" id="subject_name" name="name" value="<?php echo htmlspecialchars($edit_subject['name']); ?>" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="subject_code" class="form-label">Subject Code</label>
+                                <input type="text" class="form-control" id="subject_code" name="subject_code" value="<?php echo htmlspecialchars($edit_subject['subject_code']); ?>" required>
+                            </div>
+                            <div class="col-12">
+                                <label for="subject_description" class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label>
+                                <textarea class="form-control" id="subject_description" name="description" rows="3"><?php echo htmlspecialchars($edit_subject['description'] ?? ''); ?></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label mb-1">Associated Classes</label>
                                 <div class="row g-2 p-3 border rounded-3 mx-0" style="max-height:220px;overflow:auto;background:#f9fbfd">
                                     <?php foreach ($classes as $class): ?>
-                                        <div class="col-sm-6 col-lg-4">
-                                            <label class="d-flex align-items-center gap-2 small p-2 border rounded-2 bg-white h-100">
-                                                <input class="form-check-input m-0" type="checkbox" name="class_ids[]" value="<?php echo (int)$class['id']; ?>" <?php echo $edit_subject && in_array($class['id'], array_column($edit_subject['classes'], 'id')) ? 'checked' : ''; ?>>
-                                                <span><?php echo htmlspecialchars($class['name']); ?></span>
-                                            </label>
-                                        </div>
+                                        <div class="col-sm-6 col-lg-4"><label class="d-flex align-items-center gap-2 small p-2 border rounded-2 bg-white h-100"><input class="form-check-input m-0" type="checkbox" name="class_ids[]" value="<?php echo (int)$class['id']; ?>" <?php echo in_array($class['id'], array_column($edit_subject['classes'], 'id')) ? 'checked' : ''; ?>><span><?php echo htmlspecialchars($class['name']); ?></span></label></div>
                                     <?php endforeach; ?>
                                 </div>
-                            <?php else: ?>
-                                <div class="small text-warning"><i class="fas fa-circle-exclamation me-1"></i>No classes are available yet. Create a class first, then return here to link it.</div>
-                            <?php endif; ?>
-                        </div>
-                        <div class="col-12 d-flex flex-wrap gap-2 pt-2">
-                            <button type="submit" class="btn <?php echo $edit_subject ? 'btn-primary' : 'btn-success'; ?>"><i class="fas <?php echo $edit_subject ? 'fa-save' : 'fa-plus'; ?> me-1"></i><?php echo $edit_subject ? 'Save Changes' : 'Add Subject'; ?></button>
-                            <?php if ($edit_subject): ?><a href="dashboard.php?tab=subjects" class="btn btn-outline-secondary">Cancel</a><?php endif; ?>
-                        </div>
-                    </form>
+                            </div>
+                            <div class="col-12 d-flex flex-wrap gap-2 pt-2">
+                                <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Save Changes</button>
+                                <a href="dashboard.php?tab=subjects" class="btn btn-outline-secondary">Cancel</a>
+                            </div>
+                        </form>
+                    <?php else: ?>
+                        <form method="POST" id="batchSubjectForm">
+                            <input type="hidden" name="action" value="add_multiple">
+                            <input type="hidden" name="subject_view" value="add">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                                <p class="small text-muted mb-0">Enter several subjects below. You can link different classes to each subject.</p>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="addSubjectRow"><i class="fas fa-plus me-1"></i>Add another subject</button>
+                            </div>
+                            <div id="subjectBatchRows">
+                                <?php foreach ($batch_form_rows as $row_index => $row): ?>
+                                    <?php $row_classes = array_map('intval', $row['class_ids'] ?? []); ?>
+                                    <div class="subject-batch-row border rounded-3 p-3 mb-3" data-subject-row data-index="<?php echo (int)$row_index; ?>">
+                                        <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="mb-0 text-primary">Subject <span data-row-number><?php echo (int)$row_index + 1; ?></span></h6><button type="button" class="btn btn-sm btn-outline-danger remove-subject-row" aria-label="Remove subject row"><i class="fas fa-times"></i></button></div>
+                                        <div class="row g-3">
+                                            <div class="col-md-6"><label class="form-label">Subject Name</label><input class="form-control" type="text" name="subjects[<?php echo (int)$row_index; ?>][name]" value="<?php echo htmlspecialchars($row['name'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" placeholder="e.g. Mathematics" required></div>
+                                            <div class="col-md-6"><label class="form-label">Subject Code</label><input class="form-control" type="text" name="subjects[<?php echo (int)$row_index; ?>][subject_code]" value="<?php echo htmlspecialchars($row['subject_code'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" placeholder="e.g. MTH-JSS1" required></div>
+                                            <div class="col-12"><label class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label><input class="form-control" type="text" name="subjects[<?php echo (int)$row_index; ?>][description]" value="<?php echo htmlspecialchars($row['description'] ?? '', ENT_QUOTES, 'UTF-8'); ?>" placeholder="Short description"></div>
+                                            <div class="col-12">
+                                                <details class="border rounded-3 p-2">
+                                                    <summary class="small fw-semibold text-secondary">Link classes <span class="text-muted fw-normal">(optional)</span></summary>
+                                                    <?php if ($classes): ?><div class="row g-2 mt-1">
+                                                        <?php foreach ($classes as $class): ?>
+                                                            <div class="col-sm-6 col-lg-4"><label class="d-flex align-items-center gap-2 small p-2 border rounded-2 bg-white h-100"><input class="form-check-input m-0" type="checkbox" name="subjects[<?php echo (int)$row_index; ?>][class_ids][]" value="<?php echo (int)$class['id']; ?>" <?php echo in_array((int)$class['id'], $row_classes, true) ? 'checked' : ''; ?>><span><?php echo htmlspecialchars($class['name']); ?></span></label></div>
+                                                        <?php endforeach; ?>
+                                                    </div><?php else: ?><div class="small text-warning mt-2">No classes are available yet. Create a class first.</div><?php endif; ?>
+                                                </details>
+                                            </div>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <template id="subjectBatchRowTemplate">
+                                <div class="subject-batch-row border rounded-3 p-3 mb-3" data-subject-row data-index="__INDEX__">
+                                    <div class="d-flex justify-content-between align-items-center mb-3"><h6 class="mb-0 text-primary">Subject <span data-row-number>__ROW__</span></h6><button type="button" class="btn btn-sm btn-outline-danger remove-subject-row" aria-label="Remove subject row"><i class="fas fa-times"></i></button></div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6"><label class="form-label">Subject Name</label><input class="form-control" type="text" name="subjects[__INDEX__][name]" placeholder="e.g. Mathematics" required></div>
+                                        <div class="col-md-6"><label class="form-label">Subject Code</label><input class="form-control" type="text" name="subjects[__INDEX__][subject_code]" placeholder="e.g. MTH-JSS1" required></div>
+                                        <div class="col-12"><label class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label><input class="form-control" type="text" name="subjects[__INDEX__][description]" placeholder="Short description"></div>
+                                        <div class="col-12"><details class="border rounded-3 p-2"><summary class="small fw-semibold text-secondary">Link classes <span class="text-muted fw-normal">(optional)</span></summary>
+                                            <?php if ($classes): ?><div class="row g-2 mt-1"><?php foreach ($classes as $class): ?><div class="col-sm-6 col-lg-4"><label class="d-flex align-items-center gap-2 small p-2 border rounded-2 bg-white h-100"><input class="form-check-input m-0" type="checkbox" name="subjects[__INDEX__][class_ids][]" value="<?php echo (int)$class['id']; ?>"><span><?php echo htmlspecialchars($class['name']); ?></span></label></div><?php endforeach; ?></div><?php else: ?><div class="small text-warning mt-2">No classes are available yet. Create a class first.</div><?php endif; ?>
+                                        </details></div>
+                                    </div>
+                                </div>
+                            </template>
+                            <div class="d-flex flex-wrap gap-2 pt-2"><button type="submit" class="btn btn-success"><i class="fas fa-layer-group me-1"></i>Add Subjects</button></div>
+                        </form>
+                    <?php endif; ?>
                 </div>
             </div>
         </section>
@@ -647,5 +838,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
             event.preventDefault();
         }
     });
+})();
+</script>
+<script>
+(() => {
+    const form = document.getElementById('batchSubjectForm');
+    if (!form) return;
+    const rows = document.getElementById('subjectBatchRows');
+    const template = document.getElementById('subjectBatchRowTemplate');
+    const addButton = document.getElementById('addSubjectRow');
+    let nextIndex = Array.from(rows.querySelectorAll('[data-subject-row]'))
+        .reduce((next, row) => Math.max(next, Number(row.dataset.index) + 1), 0);
+
+    const renumberRows = () => {
+        Array.from(rows.querySelectorAll('[data-subject-row]')).forEach((row, index) => {
+            const label = row.querySelector('[data-row-number]');
+            if (label) label.textContent = String(index + 1);
+        });
+    };
+    const addRow = () => {
+        const index = nextIndex++;
+        const markup = template.innerHTML
+            .split('__INDEX__').join(String(index))
+            .split('__ROW__').join(String(rows.querySelectorAll('[data-subject-row]').length + 1));
+        rows.insertAdjacentHTML('beforeend', markup);
+        renumberRows();
+        rows.lastElementChild.querySelector('input[name$="[name]"]').focus();
+    };
+
+    addButton.addEventListener('click', addRow);
+    rows.addEventListener('click', (event) => {
+        const removeButton = event.target.closest('.remove-subject-row');
+        if (!removeButton) return;
+        removeButton.closest('[data-subject-row]').remove();
+        if (!rows.querySelector('[data-subject-row]')) addRow();
+        renumberRows();
+    });
+    if (!rows.querySelector('[data-subject-row]')) addRow();
 })();
 </script>
