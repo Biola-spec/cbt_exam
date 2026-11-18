@@ -764,10 +764,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
                         <form method="POST" id="batchSubjectForm">
                             <input type="hidden" name="action" value="add_multiple">
                             <input type="hidden" name="subject_view" value="add">
-                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                                <p class="small text-muted mb-0">Enter several subjects below. You can link different classes to each subject.</p>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="addSubjectRow"><i class="fas fa-plus me-1"></i>Add another subject</button>
-                            </div>
+                            <p class="small text-muted mb-3">Enter several subjects below. You can link different classes to each subject.</p>
                             <div id="subjectBatchRows">
                                 <?php foreach ($batch_form_rows as $row_index => $row): ?>
                                     <?php $row_classes = array_map('intval', $row['class_ids'] ?? []); ?>
@@ -804,6 +801,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
                                     </div>
                                 </div>
                             </template>
+                            <div class="d-flex justify-content-start mb-3">
+                                <button type="button" class="btn btn-outline-primary" id="addSubjectRow"><i class="fas fa-plus me-1"></i>Add another subject</button>
+                            </div>
                             <div class="d-flex flex-wrap gap-2 pt-2"><button type="submit" class="btn btn-success"><i class="fas fa-layer-group me-1"></i>Add Subjects</button></div>
                         </form>
                     <?php endif; ?>

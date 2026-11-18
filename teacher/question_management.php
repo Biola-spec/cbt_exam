@@ -317,8 +317,6 @@ try {
     // Handle question import
     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'import') {
         $import_type = ($_POST['import_type'] ?? 'objective') === 'theory' ? 'theory' : 'objective';
-        // Checkbox values are only set if checked
-        $prevent_duplicates = isset($_POST['prevent_duplicates']);
         $clear_existing = isset($_POST['clear_existing']);
         
         if (isset($_FILES['questions_file']) && $_FILES['questions_file']['error'] == 0) {
@@ -414,7 +412,6 @@ try {
                                 $detected_count = count($imported_questions) + count($import_issues);
                                 $user_id = getUserId();
                                 $failed_count = count($import_issues);
-                                $duplicate_count = 0;
                                 
                                 // Define null variables to avoid pass by reference error
                                 $null_value = null;
@@ -424,29 +421,6 @@ try {
                                     try {
                                         $question_type = $q['question_type'] ?? 'objective';
 
-                                        // Check for duplicates if prevention is enabled
-                                        if ($prevent_duplicates) {
-                                            $duplicate_check_stmt = $mysqli->prepare("SELECT COUNT(*) as count FROM questions WHERE exam_subject_id = ? AND question_type = ? AND question_text = ?");
-                                            if ($duplicate_check_stmt) {
-                                                $duplicate_check_stmt->bind_param("iss", $exam_subject['exam_subject_id'], $question_type, $q['question']);
-                                                $duplicate_check_stmt->execute();
-                                                $duplicate_result = $duplicate_check_stmt->get_result();
-                                                $duplicate_row = $duplicate_result->fetch_assoc();
-                                                $duplicate_check_stmt->close();
-                                                
-                                                // If duplicate found, skip this question
-                                                if ($duplicate_row['count'] > 0) {
-                                                    $duplicate_count++;
-                                                    $import_issues[] = [
-                                                        'number' => $q['source_number'] ?? ($index + 1),
-                                                        'reason' => 'This question already exists in this exam and was skipped as a duplicate.',
-                                                        'kind' => 'duplicate'
-                                                    ];
-                                                    continue;
-                                                }
-                                            }
-                                        }
-                                        
                                         $stmt = $mysqli->prepare("INSERT INTO questions (exam_subject_id, order_position, question_type, question_text, option_a, option_b, option_c, option_d, option_e, option_f, correct_answer, theory_marks, marking_scheme, created_by) 
                                                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                                         if (!$stmt) {
@@ -504,8 +478,6 @@ try {
                                 
                                 if ($failed_count > 0) {
                                     $message = $imported_count . ' questions imported successfully. ' . $failed_count . ' questions failed to import.';
-                                } else if ($duplicate_count > 0) {
-                                    $message = $imported_count . ' new questions imported successfully. ' . $duplicate_count . ' duplicate questions were skipped.';
                                 } else {
                                     $message = $imported_count . ' ' . $import_type . ' questions imported successfully.';
                                     if ($clear_existing) {
@@ -783,6 +755,21 @@ function explainInvalidImportedQuestion($question, $import_type) {
 function processQuestionLines($question_lines, $option_lines, &$current_question) {
     // Add debug information
     error_log("Processing question with " . count($question_lines) . " question lines and " . count($option_lines) . " option lines");
+
+    // Accept Word layouts that put four unlabelled choices on separate lines
+    // directly below a one-line question stem (as in some exam handouts).
+    if (empty($option_lines) && count($question_lines) === 5) {
+        $stem_lines = array_slice($question_lines, 0, 1);
+        $choice_lines = array_slice($question_lines, 1, 4);
+        $has_four_choices = count(array_filter($choice_lines, function ($line) { return trim(strip_tags($line)) !== ''; })) === 4;
+        if ($has_four_choices) {
+            $current_question['question'] = trim($stem_lines[0]);
+            foreach (['A', 'B', 'C', 'D'] as $index => $letter) {
+                $current_question['options'][$letter] = trim($choice_lines[$index]);
+            }
+            return;
+        }
+    }
     
     // Process question text
     $current_question['question'] = trim(implode("\n", $question_lines));
@@ -796,8 +783,8 @@ function processQuestionLines($question_lines, $option_lines, &$current_question
     // Updated pattern to consume trailing spaces after the marker to prevent "far right" content issues
     $tag_gap = '(?:\s|<[^>]+>)*';
     // Require a non-letter boundary before labels so the C) in "(PVC)" is
-    // not mistaken for a second option C marker.
-    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*(?<![A-Za-z])([A-F])' . $tag_gap . '[\.\)](?:<\/[^>]+>)*\s+/iu';
+    // not mistaken for a second option C marker. Trailing whitespace is optional.
+    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*(?<![A-Za-z])([A-F])' . $tag_gap . '[\.\)](?:<\/[^>]+>)*\s*/iu';
     
     $options_data = [];
     
@@ -2077,10 +2064,6 @@ function sanitizeHtml($text) {
                                         </div>
                                         <div class="d-flex flex-wrap gap-3">
                                             <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="prevent_duplicates" checked>
-                                                <label class="form-check-label small">Prevent Duplicates</label>
-                                            </div>
-                                            <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" name="clear_existing">
                                                 <label class="form-check-label small text-danger">Clear Existing Before Import</label>
                                             </div>
@@ -2095,6 +2078,7 @@ B. Paris
 C. Berlin
 D. Madrid
 ANSWER: B</pre>
+                                        <div class="small text-muted mt-2">Four unlabelled choices on separate lines are also accepted. Extra spaces around question numbers, option labels, and answers are okay.</div>
                                     </div>
                                 </div>
                             </div>
@@ -2110,10 +2094,6 @@ ANSWER: B</pre>
                                             <button class="btn btn-warning" type="submit">Import Theory</button>
                                         </div>
                                         <div class="d-flex flex-wrap gap-3">
-                                            <div class="form-check form-switch">
-                                                <input class="form-check-input" type="checkbox" name="prevent_duplicates" checked>
-                                                <label class="form-check-label small">Prevent Duplicates</label>
-                                            </div>
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" name="clear_existing">
                                                 <label class="form-check-label small text-danger">Clear Existing Before Import</label>
