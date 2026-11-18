@@ -795,9 +795,9 @@ function processQuestionLines($question_lines, $option_lines, &$current_question
     // We look for them globally. They should be preceded by start of string, newline, or whitespace
     // Updated pattern to consume trailing spaces after the marker to prevent "far right" content issues
     $tag_gap = '(?:\s|<[^>]+>)*';
-    // A choice label must be followed by whitespace. This prevents text such
-    // as "(PVC)" from being mistaken for the C) option marker.
-    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*([A-F])' . $tag_gap . '[\.\)](?:<\/[^>]+>)*\s+/iu';
+    // Require a non-letter boundary before labels so the C) in "(PVC)" is
+    // not mistaken for a second option C marker.
+    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*(?<![A-Za-z])([A-F])' . $tag_gap . '[\.\)](?:<\/[^>]+>)*\s+/iu';
     
     $options_data = [];
     
@@ -1732,6 +1732,7 @@ function sanitizeHtml($text) {
                 $duplicate_issues = count(array_filter($report_issues, function ($issue) { return ($issue['kind'] ?? '') === 'duplicate'; }));
                 $save_issues = count(array_filter($report_issues, function ($issue) { return ($issue['kind'] ?? '') === 'save'; }));
                 $invalid_issues = count($report_issues) - $duplicate_issues - $save_issues;
+                $review_issues = array_values(array_filter($report_issues, function ($issue) { return ($issue['kind'] ?? '') !== 'duplicate'; }));
             ?>
             <section class="card border-0 shadow-sm mb-4" aria-labelledby="importReportTitle" style="border-radius:18px;overflow:hidden">
                 <div class="card-header text-white py-3" style="background:linear-gradient(115deg,#173b68,#2467a5)">
@@ -1748,17 +1749,17 @@ function sanitizeHtml($text) {
                         <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:#f1f5f9"><div class="small text-muted">Questions detected</div><div class="fs-3 fw-bold"><?php echo (int)$import_report['detected']; ?></div></div></div>
                         <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:#eaf8f0"><div class="small text-success">Imported</div><div class="fs-3 fw-bold text-success"><?php echo (int)$import_report['imported']; ?></div></div></div>
                         <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:#fff7e6"><div class="small text-warning-emphasis">Duplicates</div><div class="fs-3 fw-bold text-warning-emphasis"><?php echo $duplicate_issues; ?></div></div></div>
-                        <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:<?php echo count($report_issues) ? '#fff0f0' : '#eaf8f0'; ?>"><div class="small <?php echo count($report_issues) ? 'text-danger' : 'text-success'; ?>">Needs attention</div><div class="fs-3 fw-bold <?php echo count($report_issues) ? 'text-danger' : 'text-success'; ?>"><?php echo $invalid_issues + $save_issues; ?></div></div></div>
+                        <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:<?php echo $review_issues ? '#fff0f0' : '#eaf8f0'; ?>"><div class="small <?php echo $review_issues ? 'text-danger' : 'text-success'; ?>">Needs attention</div><div class="fs-3 fw-bold <?php echo $review_issues ? 'text-danger' : 'text-success'; ?>"><?php echo $invalid_issues + $save_issues; ?></div></div></div>
                     </div>
 
-                    <?php if ($report_issues): ?>
+                    <?php if ($review_issues): ?>
                         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                             <h6 class="mb-0 fw-bold">Skipped or failed questions</h6>
-                            <span class="badge rounded-pill text-bg-danger"><?php echo count($report_issues); ?> item<?php echo count($report_issues) === 1 ? '' : 's'; ?> to review</span>
+                            <span class="badge rounded-pill text-bg-danger"><?php echo count($review_issues); ?> item<?php echo count($review_issues) === 1 ? '' : 's'; ?> to review</span>
                         </div>
                         <div class="list-group list-group-flush border rounded-3">
-                            <?php foreach ($report_issues as $issue): ?>
-                                <?php $is_duplicate = ($issue['kind'] ?? '') === 'duplicate'; ?>
+                            <?php foreach ($review_issues as $issue): ?>
+                                <?php $is_duplicate = false; ?>
                                 <div class="list-group-item px-3 py-3">
                                     <div class="d-flex gap-3 align-items-start">
                                         <span class="badge rounded-pill <?php echo $is_duplicate ? 'text-bg-warning' : 'text-bg-danger'; ?> mt-1"><?php echo (int)($issue['number'] ?? 0) > 0 ? 'Q' . (int)$issue['number'] : 'File'; ?></span>
@@ -1770,6 +1771,11 @@ function sanitizeHtml($text) {
                                     </div>
                                 </div>
                             <?php endforeach; ?>
+                        </div>
+                    <?php elseif ($duplicate_issues): ?>
+                        <div class="rounded-3 p-3 d-flex align-items-center gap-3" style="background:#f1f5f9;color:#334155">
+                            <i class="fas fa-copy fs-4 text-secondary" aria-hidden="true"></i>
+                            <div><div class="fw-bold">Existing questions were kept</div><div class="small"><?php echo $duplicate_issues; ?> duplicate question<?php echo $duplicate_issues === 1 ? ' was' : 's were'; ?> already in this exam and skipped<?php echo (int)$import_report['imported'] > 0 ? '; ' . (int)$import_report['imported'] . ' new question' . ((int)$import_report['imported'] === 1 ? ' was' : 's were') . ' imported.' : '.'; ?></div></div>
                         </div>
                     <?php else: ?>
                         <div class="rounded-3 p-3 d-flex align-items-center gap-3" style="background:#eaf8f0;color:#176b3a">
