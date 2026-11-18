@@ -15,6 +15,9 @@ desktop-bundle/
 # Logs
 logs/*.log
 
+# Server-specific database credentials
+/config/database.local.php
+
 # Tool state & scratch
 .agents/
 .qoder/

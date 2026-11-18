@@ -3,13 +3,21 @@
 if (getenv('CBT_DESKTOP_MODE') === '1' && file_exists(__DIR__ . '/desktop.php')) {
     require_once __DIR__ . '/desktop.php';
 } else {
-    // Keep XAMPP's local defaults, while allowing production credentials to
-    // be supplied by the hosting environment instead of hardcoding them.
-    define('DB_HOST', getenv('CBT_DB_HOST') ?: 'localhost');
-    define('DB_PORT', (int)(getenv('CBT_DB_PORT') ?: 3306));
-    define('DB_USER', getenv('CBT_DB_USER') ?: 'root');
-    define('DB_PASS', getenv('CBT_DB_PASS') !== false ? getenv('CBT_DB_PASS') : '');
-    define('DB_NAME', getenv('CBT_DB_NAME') ?: 'cbt_exam_system');
+    // Keep deployment credentials in an ignored local file or environment
+    // variables, so updating this tracked file never conflicts with cPanel.
+    $local_database_config = __DIR__ . '/database.local.php';
+    if (is_file($local_database_config)) {
+        require_once $local_database_config;
+    }
+
+    if (!defined('DB_HOST')) define('DB_HOST', getenv('CBT_DB_HOST') ?: 'localhost');
+    if (!defined('DB_PORT')) define('DB_PORT', (int)(getenv('CBT_DB_PORT') ?: 3306));
+    if (!defined('DB_USER')) define('DB_USER', getenv('CBT_DB_USER') ?: 'root');
+    if (!defined('DB_PASS')) {
+        $database_password = getenv('CBT_DB_PASS');
+        define('DB_PASS', $database_password !== false ? $database_password : '');
+    }
+    if (!defined('DB_NAME')) define('DB_NAME', getenv('CBT_DB_NAME') ?: 'cbt_exam_system');
 }
 
 // Simple connection pool to reuse connections within a single request
