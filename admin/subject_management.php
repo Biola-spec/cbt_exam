@@ -406,23 +406,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
 }
 ?>
 
+<?php $subject_form_panel_active = $edit_subject || (($_GET['subject_view'] ?? '') === 'add'); ?>
+<style>
+    .subject-tabs .nav-link { border-radius: .75rem .75rem 0 0; font-weight: 600; padding: .75rem 1.15rem; }
+    .subject-tabs .nav-link.active { color: #174a7e; }
+    .subject-card { border: 1px solid #e7edf4; border-radius: 14px; transition: transform .16s ease, box-shadow .16s ease; }
+    .subject-card:hover { transform: translateY(-2px); box-shadow: 0 .5rem 1.25rem rgba(24, 56, 88, .1) !important; }
+    .subject-card .card-body { padding: .9rem 1rem; }
+    .subject-card .min-w-0 { min-width: 0; }
+    .subject-card .btn-group { flex: 0 0 auto; }
+    .subject-card-name { font-size: .98rem; font-weight: 700; line-height: 1.25; }
+    .subject-code-chip { font-size: .72rem; letter-spacing: .035em; }
+    .subject-class-chip { font-size: .68rem; font-weight: 500; }
+    .subject-description { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; min-height: 1.25rem; }
+</style>
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h4 class="mb-0"><i class="fas fa-book-open me-2"></i>Subject Management</h4>
     </div>
 
-    <!-- Information Panel -->
-    <div class="card mb-4 bg-light">
-        <div class="card-body">
-            <h6><i class="fas fa-info-circle me-2"></i>Subject Management Guide</h6>
-            <p class="mb-2">You can create different instances of the same subject for different classes if they need different content:</p>
-            <ul class="mb-0">
-                <li>Create "Mathematics - JSS1" and associate it with JSS1 class</li>
-                <li>Create "Mathematics - JSS2" and associate it with JSS2 class</li>
-                <li>Each subject instance can have different questions and content</li>
-            </ul>
-        </div>
-    </div>
+    <div class="small text-muted mb-3"><i class="fas fa-circle-info me-1"></i>Subjects can be linked to one or more classes and managed independently.</div>
 
     <?php if ($message): ?>
         <div class="alert alert-<?php echo htmlspecialchars($message_type); ?> alert-dismissible fade show" role="alert">
@@ -431,189 +434,140 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && isset($_GET['action']) && $_GET['acti
         </div>
     <?php endif; ?>
 
-    <!-- Search Form -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="GET" class="d-flex flex-wrap flex-md-nowrap gap-2">
-                <input type="hidden" name="tab" value="subjects">
-                <div class="input-group" style="max-width: 250px;">
-                    <select name="class_filter" class="form-select" onchange="this.form.submit()">
-                        <option value="0">All Classes</option>
+    <ul class="nav nav-tabs subject-tabs mb-0" id="subjectManagementTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link <?php echo !$subject_form_panel_active ? 'active' : ''; ?>" id="existing-subjects-tab" data-bs-toggle="tab" data-bs-target="#existing-subjects-panel" type="button" role="tab" aria-controls="existing-subjects-panel" aria-selected="<?php echo !$subject_form_panel_active ? 'true' : 'false'; ?>">
+                <i class="fas fa-layer-group me-2"></i>Existing Subjects <span class="badge rounded-pill text-bg-light ms-1"><?php echo count($subjects); ?></span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link <?php echo $subject_form_panel_active ? 'active' : ''; ?>" id="add-subject-tab" data-bs-toggle="tab" data-bs-target="#add-subject-panel" type="button" role="tab" aria-controls="add-subject-panel" aria-selected="<?php echo $subject_form_panel_active ? 'true' : 'false'; ?>">
+                <i class="fas <?php echo $edit_subject ? 'fa-pen-to-square' : 'fa-plus'; ?> me-2"></i><?php echo $edit_subject ? 'Edit Subject' : 'Add New Subject'; ?>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 bg-white rounded-bottom p-3 p-lg-4 shadow-sm">
+        <section class="tab-pane fade <?php echo !$subject_form_panel_active ? 'show active' : ''; ?>" id="existing-subjects-panel" role="tabpanel" aria-labelledby="existing-subjects-tab" tabindex="0">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                <div>
+                    <h5 class="mb-1">Your Subjects</h5>
+                    <div class="small text-muted">Browse and manage subjects by class.</div>
+                </div>
+                <form method="GET" class="d-flex flex-wrap gap-2">
+                    <input type="hidden" name="tab" value="subjects">
+                    <input type="hidden" name="subject_view" value="existing">
+                    <select name="class_filter" class="form-select form-select-sm" aria-label="Filter by class" onchange="this.form.submit()">
+                        <option value="0">All classes</option>
                         <?php foreach ($classes as $c): ?>
-                            <option value="<?php echo $c['id']; ?>" <?php echo ($class_filter == $c['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($c['name']); ?></option>
+                            <option value="<?php echo (int)$c['id']; ?>" <?php echo ($class_filter == $c['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($c['name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-                <div class="input-group flex-grow-1">
-                    <input type="text" class="form-control" name="search" placeholder="Search subjects..." value="<?php echo htmlspecialchars($search_term); ?>">
-                    <button class="btn btn-outline-secondary" type="submit">
-                        <i class="fas fa-search"></i>
-                    </button>
-                    <?php if (!empty($search_term) || $class_filter > 0): ?>
-                        <a href="dashboard.php?tab=subjects" class="btn btn-outline-secondary">
-                            <i class="fas fa-times"></i> Clear Filters
-                        </a>
-                    <?php endif; ?>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="row">
-        <div class="col-lg-6">
-            <?php if ($edit_subject): ?>
-                <!-- Edit Subject Form -->
-                <div class="card mb-4">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Subject</h5>
+                    <div class="input-group input-group-sm" style="width:min(100%,280px)">
+                        <input type="search" class="form-control" name="search" placeholder="Search subjects" value="<?php echo htmlspecialchars($search_term); ?>" aria-label="Search subjects">
+                        <button class="btn btn-outline-primary" type="submit" aria-label="Search"><i class="fas fa-search"></i></button>
                     </div>
-                    <div class="card-body">
-                        <form method="POST">
-                            <input type="hidden" name="action" value="edit">
-                            <input type="hidden" name="subject_id" value="<?php echo $edit_subject['id']; ?>">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Subject Name</label>
-                                <input type="text" class="form-control" id="name" name="name" value="<?php echo htmlspecialchars($edit_subject['name']); ?>" required>
-                                <div class="form-text">Enter a unique name for this subject. You can create different instances of the same subject for different classes (e.g., "Mathematics - JSS1", "Mathematics - JSS2").</div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="subject_code" class="form-label">Subject Code</label>
-                                <input type="text" class="form-control" id="subject_code" name="subject_code" value="<?php echo htmlspecialchars($edit_subject['subject_code']); ?>" required>
-                                <div class="form-text">Enter a unique code for this subject. Students will use this code to access exams for this subject.</div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="2"><?php echo htmlspecialchars($edit_subject['description'] ?? ''); ?></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Associated Classes</label>
-                                <div class="row">
+                    <?php if (!empty($search_term) || $class_filter > 0): ?>
+                        <a href="dashboard.php?tab=subjects" class="btn btn-sm btn-outline-secondary"><i class="fas fa-times me-1"></i>Clear</a>
+                    <?php endif; ?>
+                </form>
+            </div>
+
+            <?php if ($subjects): ?>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+                    <?php foreach ($subjects as $subject): ?>
+                        <div class="col">
+                            <article class="card subject-card h-100 shadow-sm">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <span class="d-inline-flex align-items-center justify-content-center rounded-3 flex-shrink-0" style="width:38px;height:38px;background:#eaf3ff;color:#2467a5"><i class="fas fa-book"></i></span>
+                                        <div class="min-w-0 flex-grow-1">
+                                            <div class="subject-card-name text-truncate" title="<?php echo htmlspecialchars($subject['name']); ?>"><?php echo htmlspecialchars($subject['name']); ?></div>
+                                            <span class="badge rounded-pill bg-light text-primary border subject-code-chip mt-1"><?php echo htmlspecialchars($subject['subject_code']); ?></span>
+                                        </div>
+                                        <div class="btn-group btn-group-sm flex-shrink-0">
+                                            <a href="dashboard.php?tab=subjects&action=edit&id=<?php echo (int)$subject['id']; ?>" class="btn btn-outline-primary" title="Edit subject" aria-label="Edit <?php echo htmlspecialchars($subject['name']); ?>"><i class="fas fa-pen"></i></a>
+                                            <form method="POST" class="d-inline" onsubmit="return confirm('Delete this subject?');">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="subject_id" value="<?php echo (int)$subject['id']; ?>">
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete subject" aria-label="Delete <?php echo htmlspecialchars($subject['name']); ?>"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    <div class="subject-description small text-muted mt-2" title="<?php echo htmlspecialchars($subject['description'] ?? ''); ?>"><?php echo !empty($subject['description']) ? htmlspecialchars($subject['description']) : '&nbsp;'; ?></div>
+                                    <div class="d-flex align-items-center flex-wrap gap-1 mt-auto pt-2">
+                                        <?php if ($subject['classes']): ?>
+                                            <?php foreach (array_slice($subject['classes'], 0, 2) as $class): ?>
+                                                <span class="badge rounded-pill bg-light text-dark border subject-class-chip"><?php echo htmlspecialchars($class['name']); ?></span>
+                                            <?php endforeach; ?>
+                                            <?php if (count($subject['classes']) > 2): ?><span class="badge rounded-pill text-bg-secondary subject-class-chip">+<?php echo count($subject['classes']) - 2; ?></span><?php endif; ?>
+                                        <?php else: ?>
+                                            <span class="small text-muted"><i class="fas fa-circle-minus me-1"></i>No class assigned</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div class="text-center rounded-4 py-5 px-3" style="background:#f6f9fc">
+                    <span class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3" style="width:58px;height:58px;background:#eaf3ff;color:#2467a5"><i class="fas fa-book-open fa-lg"></i></span>
+                    <h6 class="mb-1">No subjects found</h6>
+                    <p class="text-muted small mb-3"><?php echo !empty($search_term) ? 'Try another search or clear the filters.' : 'Add a subject to start building your curriculum.'; ?></p>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="tab" data-bs-target="#add-subject-panel"><i class="fas fa-plus me-1"></i>Add a subject</button>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section class="tab-pane fade <?php echo $subject_form_panel_active ? 'show active' : ''; ?>" id="add-subject-panel" role="tabpanel" aria-labelledby="add-subject-tab" tabindex="0">
+            <div class="row justify-content-center">
+                <div class="col-xl-8 col-xxl-7">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <span class="d-inline-flex align-items-center justify-content-center rounded-3" style="width:44px;height:44px;background:<?php echo $edit_subject ? '#eaf3ff' : '#eaf8f0'; ?>;color:<?php echo $edit_subject ? '#2467a5' : '#198754'; ?>"><i class="fas <?php echo $edit_subject ? 'fa-pen-to-square' : 'fa-plus'; ?>"></i></span>
+                        <div><h5 class="mb-1"><?php echo $edit_subject ? 'Edit Subject' : 'Add New Subject'; ?></h5><div class="small text-muted">Enter the subject details below.</div></div>
+                    </div>
+                    <form method="POST" class="row g-3">
+                        <input type="hidden" name="action" value="<?php echo $edit_subject ? 'edit' : 'add'; ?>">
+                        <input type="hidden" name="subject_view" value="add">
+                        <?php if ($edit_subject): ?><input type="hidden" name="subject_id" value="<?php echo (int)$edit_subject['id']; ?>"><?php endif; ?>
+                        <div class="col-md-6">
+                            <label for="subject_name" class="form-label">Subject Name</label>
+                            <input type="text" class="form-control" id="subject_name" name="name" value="<?php echo htmlspecialchars($edit_subject['name'] ?? ''); ?>" placeholder="e.g. Mathematics" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="subject_code" class="form-label">Subject Code</label>
+                            <input type="text" class="form-control" id="subject_code" name="subject_code" value="<?php echo htmlspecialchars($edit_subject['subject_code'] ?? ''); ?>" placeholder="e.g. MTH-JSS1" required>
+                        </div>
+                        <div class="col-12">
+                            <label for="subject_description" class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label>
+                            <textarea class="form-control" id="subject_description" name="description" rows="3" placeholder="A short description of this subject"><?php echo htmlspecialchars($edit_subject['description'] ?? ''); ?></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label mb-1">Associated Classes</label>
+                            <div class="small text-muted mb-2">Select the classes that should use this subject. You can select more than one.</div>
+                            <?php if ($classes): ?>
+                                <div class="row g-2 p-3 border rounded-3 mx-0" style="max-height:220px;overflow:auto;background:#f9fbfd">
                                     <?php foreach ($classes as $class): ?>
-                                        <div class="col-md-6 mb-2">
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" name="class_ids[]" value="<?php echo $class['id']; ?>" id="edit_class_<?php echo $class['id']; ?>" <?php echo in_array($class['id'], array_column($edit_subject['classes'], 'id')) ? 'checked' : ''; ?>>
-                                                <label class="form-check-label small" for="edit_class_<?php echo $class['id']; ?>">
-                                                    <?php echo htmlspecialchars($class['name']); ?>
-                                                </label>
-                                            </div>
+                                        <div class="col-sm-6 col-lg-4">
+                                            <label class="d-flex align-items-center gap-2 small p-2 border rounded-2 bg-white h-100">
+                                                <input class="form-check-input m-0" type="checkbox" name="class_ids[]" value="<?php echo (int)$class['id']; ?>" <?php echo $edit_subject && in_array($class['id'], array_column($edit_subject['classes'], 'id')) ? 'checked' : ''; ?>>
+                                                <span><?php echo htmlspecialchars($class['name']); ?></span>
+                                            </label>
                                         </div>
                                     <?php endforeach; ?>
                                 </div>
-                                <div class="form-text">Select classes to associate with this subject. If you want different content for the same subject in different classes, create separate subject instances (e.g., "Mathematics - JSS1" and "Mathematics - JSS2") and associate each with its respective class.</div>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-1"></i> Update Subject
-                                </button>
-                                <a href="dashboard.php?tab=subjects" class="btn btn-secondary">
-                                    <i class="fas fa-times me-1"></i> Cancel
-                                </a>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            <?php else: ?>
-                <!-- Add Subject Form -->
-                <div class="card mb-4">
-                    <div class="card-header bg-success text-white">
-                        <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>Add New Subject</h5>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST">
-                            <input type="hidden" name="action" value="add">
-                            <div class="mb-3">
-                                <label for="name" class="form-label">Subject Name</label>
-                                <input type="text" class="form-control" id="name" name="name" required>
-                                <div class="form-text">Enter a name for this subject. You can create subjects with the same name for different classes.</div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="subject_code" class="form-label">Subject Code</label>
-                                <input type="text" class="form-control" id="subject_code" name="subject_code" required>
-                                <div class="form-text">Enter a unique code for this subject. Students will use this code to access exams for this subject.</div>
-                            </div>
-                            <div class="mb-3">
-                                <label for="description" class="form-label">Description</label>
-                                <textarea class="form-control" id="description" name="description" rows="2"></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-success">
-                                <i class="fas fa-plus me-1"></i> Add Subject
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
-        
-        <div class="col-lg-6">
-            <!-- Subjects List -->
-            <div class="card">
-                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-list me-2"></i>Existing Subjects (<?php echo count($subjects); ?>)</h5>
-                    <span class="badge bg-white text-dark"><?php echo count($subjects); ?> Total</span>
-                </div>
-                <div class="card-body p-0">
-                    <?php if (count($subjects) > 0): ?>
-                        <div class="table-responsive">
-                            <table class="table table-bordered table-striped align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>Subject Name</th>
-                                        <th>Code</th>
-                                        <th>Classes</th>
-                                        <th class="text-center">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($subjects as $subject): ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($subject['name']); ?></strong>
-                                                <?php if (!empty($subject['description'])): ?>
-                                                    <div class="small text-muted"><?php echo htmlspecialchars($subject['description']); ?></div>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td><code><?php echo htmlspecialchars($subject['subject_code']); ?></code></td>
-                                            <td>
-                                                <?php if (!empty($subject['classes'])): ?>
-                                                    <?php foreach ($subject['classes'] as $class): ?>
-                                                        <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($class['name']); ?></span>
-                                                    <?php endforeach; ?>
-                                                <?php else: ?>
-                                                    <span class="text-muted small italic">None</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="btn-group btn-group-sm">
-                                                    <a href="dashboard.php?tab=subjects&action=edit&id=<?php echo $subject['id']; ?>" class="btn btn-primary" title="Edit">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <form method="POST" class="d-inline" onsubmit="return confirm('Delete this subject?');">
-                                                        <input type="hidden" name="action" value="delete">
-                                                        <input type="hidden" name="subject_id" value="<?php echo $subject['id']; ?>">
-                                                        <button type="submit" class="btn btn-danger" title="Delete">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="text-center py-5">
-                            <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
-                            <p class="text-muted small">
-                                <?php echo !empty($search_term) ? 'No subjects match your search' : 'No subjects found. Add a new subject to get started.'; ?>
-                            </p>
-                            <?php if (!empty($search_term)): ?>
-                                <p class="small text-muted">Search term: '<?php echo htmlspecialchars($search_term); ?>'</p>
+                            <?php else: ?>
+                                <div class="small text-warning"><i class="fas fa-circle-exclamation me-1"></i>No classes are available yet. Create a class first, then return here to link it.</div>
                             <?php endif; ?>
                         </div>
-                    <?php endif; ?>
+                        <div class="col-12 d-flex flex-wrap gap-2 pt-2">
+                            <button type="submit" class="btn <?php echo $edit_subject ? 'btn-primary' : 'btn-success'; ?>"><i class="fas <?php echo $edit_subject ? 'fa-save' : 'fa-plus'; ?> me-1"></i><?php echo $edit_subject ? 'Save Changes' : 'Add Subject'; ?></button>
+                            <?php if ($edit_subject): ?><a href="dashboard.php?tab=subjects" class="btn btn-outline-secondary">Cancel</a><?php endif; ?>
+                        </div>
+                    </form>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 </div>
