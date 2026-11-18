@@ -10,6 +10,7 @@ if (!in_array(getUserRole(), ['teacher', 'admin'])) {
 }
 
 $message = '';
+$import_report = null;
 $questions = [];
 $exam_subject = null;
 $comprehension_passages = []; // Changed to array to store multiple passages
@@ -404,13 +405,15 @@ try {
                             error_log("First 500 characters of content: " . substr($content, 0, 500));
                             
                             // Parse questions
-                            $imported_questions = parseQuestionsFromFile($content, $import_type);
+                            $import_issues = [];
+                            $imported_questions = parseQuestionsFromFile($content, $import_type, $import_issues);
                             error_log("Imported questions count: " . count($imported_questions));
                             
                             if (!empty($imported_questions)) {
                                 $imported_count = 0;
+                                $detected_count = count($imported_questions) + count($import_issues);
                                 $user_id = getUserId();
-                                $failed_count = 0;
+                                $failed_count = count($import_issues);
                                 $duplicate_count = 0;
                                 
                                 // Define null variables to avoid pass by reference error
@@ -434,6 +437,11 @@ try {
                                                 // If duplicate found, skip this question
                                                 if ($duplicate_row['count'] > 0) {
                                                     $duplicate_count++;
+                                                    $import_issues[] = [
+                                                        'number' => $q['source_number'] ?? ($index + 1),
+                                                        'reason' => 'This question already exists in this exam and was skipped as a duplicate.',
+                                                        'kind' => 'duplicate'
+                                                    ];
                                                     continue;
                                                 }
                                             }
@@ -444,6 +452,11 @@ try {
                                         if (!$stmt) {
                                             error_log("Failed to prepare statement for question " . ($index + 1) . ": " . $mysqli->error);
                                             $failed_count++;
+                                            $import_issues[] = [
+                                                'number' => $q['source_number'] ?? ($index + 1),
+                                                'reason' => 'The database could not prepare this question for saving.',
+                                                'kind' => 'save'
+                                            ];
                                             continue;
                                         }
                                         
@@ -463,14 +476,31 @@ try {
                                         } else {
                                             error_log("Failed to execute statement for question " . ($index + 1) . ": " . $stmt->error);
                                             $failed_count++;
+                                            $import_issues[] = [
+                                                'number' => $q['source_number'] ?? ($index + 1),
+                                                'reason' => 'The database rejected this question: ' . $stmt->error,
+                                                'kind' => 'save'
+                                            ];
                                         }
                                         $stmt->close();
                                     } catch (Exception $e) {
                                         // Continue with other questions even if one fails
                                         error_log("Error importing question " . ($index + 1) . ": " . $e->getMessage());
                                         $failed_count++;
+                                        $import_issues[] = [
+                                            'number' => $q['source_number'] ?? ($index + 1),
+                                            'reason' => 'The question could not be saved: ' . $e->getMessage(),
+                                            'kind' => 'save'
+                                        ];
                                     }
                                 }
+
+                                $import_report = [
+                                    'type' => $import_type,
+                                    'detected' => $detected_count,
+                                    'imported' => $imported_count,
+                                    'issues' => $import_issues
+                                ];
                                 
                                 if ($failed_count > 0) {
                                     $message = $imported_count . ' questions imported successfully. ' . $failed_count . ' questions failed to import.';
@@ -499,6 +529,12 @@ try {
                                     $stmt->close();
                                 }
                             } else {
+                                $import_report = [
+                                    'type' => $import_type,
+                                    'detected' => count($import_issues),
+                                    'imported' => 0,
+                                    'issues' => $import_issues
+                                ];
                                 $message = $import_type === 'theory'
                                     ? 'No valid theory questions found. Use numbered questions with a MARKS line for each question, and optionally add MARKING SCHEME.'
                                     : 'No valid objective questions found. Use numbered questions with A-D options and an ANSWER line for each question.';
@@ -547,8 +583,9 @@ try {
 }
 
 // Function to parse questions from file content
-function parseQuestionsFromFile($content, $import_type = 'objective') {
+function parseQuestionsFromFile($content, $import_type = 'objective', &$issues = null) {
     $questions = [];
+    if (!is_array($issues)) $issues = [];
     $import_type = $import_type === 'theory' ? 'theory' : 'objective';
     
     // Add debug information
@@ -557,6 +594,18 @@ function parseQuestionsFromFile($content, $import_type = 'objective') {
     
     // Normalize line endings
     $content = str_replace(["\r\n", "\r"], "\n", $content);
+
+    // Some Word documents store the question, choices, and answer in one
+    // paragraph. Expand the common compact A-D + ANSWER layout before parsing.
+    $marker = '(?:<[^>]+>)*';
+    $content = preg_replace_callback('/^([ \t]*\d+[\.)])\s*(.*?)\s*' . $marker . 'A\s*[\.)](?:<\/[^>]+>)*\s*(.*?)\s*' . $marker . 'B\s*[\.)](?:<\/[^>]+>)*\s*(.*?)\s*' . $marker . 'C\s*[\.)](?:<\/[^>]+>)*\s*(.*?)\s*' . $marker . 'D\s*[\.)](?:<\/[^>]+>)*\s*(.*?)\s*' . $marker . '(?:ANSWER|ANS)\s*[:\-]?(?:<\/[^>]+>)*\s*([A-F])\b\s*$/imu', function ($m) {
+        return $m[1] . ' ' . trim($m[2]) . "\n"
+            . 'A. ' . trim($m[3]) . "\n"
+            . 'B. ' . trim($m[4]) . "\n"
+            . 'C. ' . trim($m[5]) . "\n"
+            . 'D. ' . trim($m[6]) . "\n"
+            . 'ANSWER: ' . strtoupper($m[7]);
+    }, $content);
     
     // Split content into lines
     $lines = explode("\n", $content);
@@ -603,7 +652,14 @@ function parseQuestionsFromFile($content, $import_type = 'objective') {
                 
                 $parsed_question = buildImportedQuestion($current_question, $import_type);
                 if ($parsed_question) {
+                    $parsed_question['source_number'] = $current_question['_source_number'];
                     $questions[] = $parsed_question;
+                } else {
+                    $issues[] = [
+                        'number' => $current_question['_source_number'],
+                        'reason' => explainInvalidImportedQuestion($current_question, $import_type),
+                        'kind' => 'invalid'
+                    ];
                 }
             }
             
@@ -615,7 +671,8 @@ function parseQuestionsFromFile($content, $import_type = 'objective') {
             $option_lines = [];
             $current_question = [
                 'options' => [],
-                'answer' => ''
+                'answer' => '',
+                '_source_number' => (int)(preg_match('/^\s*(\d+)/u', strip_tags(str_replace('[ANSWER_MARKER]', '', $trimmed_line)), $number_match) ? $number_match[1] : count($questions) + count($issues) + 1)
             ];
             
             continue;
@@ -677,14 +734,50 @@ function parseQuestionsFromFile($content, $import_type = 'objective') {
         
         $parsed_question = buildImportedQuestion($current_question, $import_type);
         if ($parsed_question) {
+            $parsed_question['source_number'] = $current_question['_source_number'];
             $questions[] = $parsed_question;
+        } else {
+            $issues[] = [
+                'number' => $current_question['_source_number'],
+                'reason' => explainInvalidImportedQuestion($current_question, $import_type),
+                'kind' => 'invalid'
+            ];
         }
     }
     
     // Add debug information
     error_log("Number of questions parsed: " . count($questions));
+
+    if (!$questions && !$issues) {
+        $issues[] = [
+            'number' => 0,
+            'reason' => 'No numbered questions were recognized. Check the question numbering and file format.',
+            'kind' => 'invalid'
+        ];
+    }
     
     return $questions;
+}
+
+function explainInvalidImportedQuestion($question, $import_type) {
+    $text = trim($question['question'] ?? '');
+    if ($text === '') return 'Question text is missing.';
+
+    if ($import_type === 'theory') {
+        if (preg_match('/^\s*(?:marks|mark|score|theory\s*marks)\s*[:\-]\s*([0-9]+(?:\.[0-9]+)?)\s*$/im', $text, $marks) && (float)$marks[1] > 0) {
+            return 'This question is not valid as a theory question. Check that the question text and marks are present.';
+        }
+        return 'Theory question is missing a valid MARKS value greater than zero.';
+    }
+
+    $missing = [];
+    foreach (['A', 'B', 'C', 'D'] as $letter) {
+        if (trim(strip_tags($question['options'][$letter] ?? '')) === '') $missing[] = $letter;
+    }
+    if ($missing) return 'Missing or empty answer option' . (count($missing) > 1 ? 's ' : ' ') . implode(', ', $missing) . '.';
+    $answer = strtoupper(trim($question['answer'] ?? ''));
+    if (!in_array($answer, ['A', 'B', 'C', 'D', 'E', 'F'], true)) return 'Correct answer is missing or is not a valid option letter.';
+    return 'Question does not match the selected import type or is missing required content.';
 }
 
 function processQuestionLines($question_lines, $option_lines, &$current_question) {
@@ -702,7 +795,9 @@ function processQuestionLines($question_lines, $option_lines, &$current_question
     // We look for them globally. They should be preceded by start of string, newline, or whitespace
     // Updated pattern to consume trailing spaces after the marker to prevent "far right" content issues
     $tag_gap = '(?:\s|<[^>]+>)*';
-    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*([A-F])' . $tag_gap . '[\.\)]\s*/iu';
+    // A choice label must be followed by whitespace. This prevents text such
+    // as "(PVC)" from being mistaken for the C) option marker.
+    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*([A-F])' . $tag_gap . '[\.\)](?:<\/[^>]+>)*\s+/iu';
     
     $options_data = [];
     
@@ -1625,10 +1720,65 @@ function sanitizeHtml($text) {
         </div>
 
         <?php if ($message): ?>
-            <div class="alert alert-info alert-dismissible fade show" role="alert">
+            <?php if (!is_array($import_report)): ?><div class="alert alert-info alert-dismissible fade show" role="alert">
                 <?php echo htmlspecialchars($message); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
+            </div><?php endif; ?>
+        <?php endif; ?>
+
+        <?php if (is_array($import_report)): ?>
+            <?php
+                $report_issues = $import_report['issues'] ?? [];
+                $duplicate_issues = count(array_filter($report_issues, function ($issue) { return ($issue['kind'] ?? '') === 'duplicate'; }));
+                $save_issues = count(array_filter($report_issues, function ($issue) { return ($issue['kind'] ?? '') === 'save'; }));
+                $invalid_issues = count($report_issues) - $duplicate_issues - $save_issues;
+            ?>
+            <section class="card border-0 shadow-sm mb-4" aria-labelledby="importReportTitle" style="border-radius:18px;overflow:hidden">
+                <div class="card-header text-white py-3" style="background:linear-gradient(115deg,#173b68,#2467a5)">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="d-inline-flex align-items-center justify-content-center bg-white text-primary rounded-circle" style="width:44px;height:44px;font-size:1.2rem"><i class="fas fa-file-circle-check" aria-hidden="true"></i></span>
+                        <div>
+                            <h5 class="mb-1" id="importReportTitle">Import results</h5>
+                            <div class="small opacity-75">Review what was saved and any questions that need attention.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-3 p-md-4">
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:#f1f5f9"><div class="small text-muted">Questions detected</div><div class="fs-3 fw-bold"><?php echo (int)$import_report['detected']; ?></div></div></div>
+                        <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:#eaf8f0"><div class="small text-success">Imported</div><div class="fs-3 fw-bold text-success"><?php echo (int)$import_report['imported']; ?></div></div></div>
+                        <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:#fff7e6"><div class="small text-warning-emphasis">Duplicates</div><div class="fs-3 fw-bold text-warning-emphasis"><?php echo $duplicate_issues; ?></div></div></div>
+                        <div class="col-6 col-lg-3"><div class="p-3 h-100 rounded-3" style="background:<?php echo count($report_issues) ? '#fff0f0' : '#eaf8f0'; ?>"><div class="small <?php echo count($report_issues) ? 'text-danger' : 'text-success'; ?>">Needs attention</div><div class="fs-3 fw-bold <?php echo count($report_issues) ? 'text-danger' : 'text-success'; ?>"><?php echo $invalid_issues + $save_issues; ?></div></div></div>
+                    </div>
+
+                    <?php if ($report_issues): ?>
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                            <h6 class="mb-0 fw-bold">Skipped or failed questions</h6>
+                            <span class="badge rounded-pill text-bg-danger"><?php echo count($report_issues); ?> item<?php echo count($report_issues) === 1 ? '' : 's'; ?> to review</span>
+                        </div>
+                        <div class="list-group list-group-flush border rounded-3">
+                            <?php foreach ($report_issues as $issue): ?>
+                                <?php $is_duplicate = ($issue['kind'] ?? '') === 'duplicate'; ?>
+                                <div class="list-group-item px-3 py-3">
+                                    <div class="d-flex gap-3 align-items-start">
+                                        <span class="badge rounded-pill <?php echo $is_duplicate ? 'text-bg-warning' : 'text-bg-danger'; ?> mt-1"><?php echo (int)($issue['number'] ?? 0) > 0 ? 'Q' . (int)$issue['number'] : 'File'; ?></span>
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold"><?php echo $is_duplicate ? 'Duplicate question' : (($issue['kind'] ?? '') === 'save' ? 'Could not save question' : 'Question needs correction'); ?></div>
+                                            <div class="text-muted small mt-1"><?php echo htmlspecialchars($issue['reason'] ?? 'The importer could not process this question.', ENT_QUOTES, 'UTF-8'); ?></div>
+                                        </div>
+                                        <i class="fas <?php echo $is_duplicate ? 'fa-copy text-warning' : 'fa-circle-exclamation text-danger'; ?> mt-1" aria-hidden="true"></i>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <div class="rounded-3 p-3 d-flex align-items-center gap-3" style="background:#eaf8f0;color:#176b3a">
+                            <i class="fas fa-circle-check fs-4" aria-hidden="true"></i>
+                            <div><div class="fw-bold">All detected questions imported</div><div class="small">No questions were skipped or rejected.</div></div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </section>
         <?php endif; ?>
 
         <ul class="nav nav-tabs mb-4" id="managementTabs" role="tablist">
