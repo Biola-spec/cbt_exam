@@ -3,10 +3,13 @@
 if (getenv('CBT_DESKTOP_MODE') === '1' && file_exists(__DIR__ . '/desktop.php')) {
     require_once __DIR__ . '/desktop.php';
 } else {
-    define('DB_HOST', 'localhost');
-    define('DB_USER', 'root');
-    define('DB_PASS', '');
-    define('DB_NAME', 'cbt_exam_system');
+    // Keep XAMPP's local defaults, while allowing production credentials to
+    // be supplied by the hosting environment instead of hardcoding them.
+    define('DB_HOST', getenv('CBT_DB_HOST') ?: 'localhost');
+    define('DB_PORT', (int)(getenv('CBT_DB_PORT') ?: 3306));
+    define('DB_USER', getenv('CBT_DB_USER') ?: 'root');
+    define('DB_PASS', getenv('CBT_DB_PASS') !== false ? getenv('CBT_DB_PASS') : '');
+    define('DB_NAME', getenv('CBT_DB_NAME') ?: 'cbt_exam_system');
 }
 
 // Simple connection pool to reuse connections within a single request

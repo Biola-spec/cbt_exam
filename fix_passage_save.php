@@ -8,7 +8,15 @@ ob_start();
 // Set JSON header
 header('Content-Type: application/json');
 
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/session.php';
+
 try {
+    if (!isLoggedIn() || !in_array(getUserRole(), ['teacher', 'admin'], true)) {
+        http_response_code(401);
+        throw new Exception('Please sign in as a teacher or administrator and try again.');
+    }
+
     // Check if this is a passage save request
     if (!isset($_POST['action']) || $_POST['action'] !== 'save_passage') {
         throw new Exception('Invalid action');
@@ -35,16 +43,11 @@ try {
         throw new Exception('Invalid question range');
     }
     
-    // Database configuration
-    $host = 'localhost';
-    $user = 'root';
-    $pass = '';
-    $dbname = 'cbt_exam_system';
-    
-    // Create PDO connection
-    $dsn = "mysql:host=$host;dbname=$dbname;charset=utf8mb4";
-    $pdo = new PDO($dsn, $user, $pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // Use the same centrally configured connection as the rest of the app.
+    $pdo = getPDOConnection();
+    if (!$pdo) {
+        throw new Exception('Database connection failed. Check the server database configuration.');
+    }
     
     // Save passage
     if ($passage_id > 0) {
@@ -53,7 +56,7 @@ try {
         $result = $stmt->execute([$passage_title, $passage_content, $start_question, $end_question, $passage_id, $exam_subject_id]);
     } else {
         // Insert new passage
-        $user_id = 1; // Default user ID for now
+        $user_id = (int)getUserId();
         $stmt = $pdo->prepare("INSERT INTO comprehension_passages (exam_subject_id, passage_title, passage_content, start_question_number, end_question_number, created_by) VALUES (?, ?, ?, ?, ?, ?)");
         $result = $stmt->execute([$exam_subject_id, $passage_title, $passage_content, $start_question, $end_question, $user_id]);
         $passage_id = $pdo->lastInsertId();
