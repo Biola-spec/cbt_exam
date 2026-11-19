@@ -695,7 +695,9 @@ function parseQuestionsFromFile($content, $import_type = 'objective', &$issues =
         
         // Check if this is an explicit answer line (e.g., "ANSWER: B")
         $plain_line = strip_tags($trimmed_line);
-        if (preg_match('/^\s*(?:ans(?:wer)?|correct(?:\s+ans(?:wer)?)?)\s*[:\-]?\s*(?:is\s+)?([A-F])\b/i', $plain_line, $ans_match)) {
+        // Accept common answer separators, including the period used in files
+        // like "Answer.D" (as well as Answer: D, Answer - D, and Answer D).
+        if (preg_match('/^\s*(?:ans(?:wer)?|correct(?:\s+ans(?:wer)?)?)\s*[:.\-]?\s*(?:is\s+)?([A-F])\b/i', $plain_line, $ans_match)) {
             $current_question['answer'] = strtoupper($ans_match[1]);
             error_log("Detected answer via explicit line: " . $current_question['answer']);
             $in_options = false;
@@ -816,13 +818,10 @@ function processQuestionLines($question_lines, $option_lines, &$current_question
     // First, flatten all option lines into one searchable text, preserving line breaks
     $full_options_text = implode("\n", $option_lines);
     
-    // Pattern to find option markers (A-F followed by . or ))
-    // We look for them globally. They should be preceded by start of string, newline, or whitespace
-    // Updated pattern to consume trailing spaces after the marker to prevent "far right" content issues
-    $tag_gap = '(?:\s|<[^>]+>)*';
-    // Require a non-letter boundary before labels so the C) in "(PVC)" is
-    // not mistaken for a second option C marker. Trailing whitespace is optional.
-    $option_marker_pattern = '/(?:\[ANSWER_MARKER\])?(?:\s|<[^>]+>)*?((?:<[^>]+>)*)\s*(?<![A-Za-z])([A-F])' . $tag_gap . '[\.\)](?:<\/[^>]+>)*\s*/iu';
+    // Option labels begin at a line or HTML block boundary. Searching for
+    // markers after any whitespace mistakes text such as "A.C Pigou" inside
+    // option D for two additional options and can erase valid choices.
+    $option_marker_pattern = '/(?:^|\n|<\/(?:p|div|li|tr)>)[\t ]*(?:\[ANSWER_MARKER\])?((?:<[^>]+>)*)[\t ]*([A-F])[\t ]*[\.\)](?:<\/[^>]+>)*[\t ]*/iu';
     
     $options_data = [];
     
