@@ -15,9 +15,26 @@ $questions = [];
 $exam_subject = null;
 $comprehension_passages = []; // Changed to array to store multiple passages
 
+// Rich question text is sent in an encoded payload because some shared hosts'
+// ModSecurity rules reject legitimate HTML/editor markup in ordinary form
+// fields before this page can process it. Decode only the known editor fields.
+if (isset($_POST['question_payload']) && is_string($_POST['question_payload'])) {
+    $payload_json = base64_decode($_POST['question_payload'], true);
+    $payload = $payload_json !== false ? json_decode($payload_json, true) : null;
+    if (is_array($payload)) {
+        foreach (['question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f', 'marking_scheme'] as $field) {
+            if (isset($payload[$field]) && is_string($payload[$field])) {
+                $_POST[$field] = $payload[$field];
+            }
+        }
+    }
+}
+
 try {
     $mysqli = getDBConnection();
-    ensureTheoryExamSchema($mysqli);
+    // Schema upgrades belong in deployment migrations. Running ALTER TABLE here
+    // makes ordinary teacher page loads fail on hosted databases where the app
+    // user correctly has no DDL privileges ("access denied").
     
     // Get parameters
     $exam_id = isset($_GET['exam_id']) ? (int)$_GET['exam_id'] : 0;
@@ -46,6 +63,32 @@ try {
     if (!$exam_subject) {
         header('Location: my_exams.php');
         exit();
+    }
+
+    // Match the access rule used by my_exams.php. Previously any teacher who
+    // guessed an exam/class/subject URL could reach the editor, while some valid
+    // teacher links were rejected by the entrance-only check below.
+    if (getUserRole() === 'teacher') {
+        $allocationCheck = $mysqli->prepare("SELECT 1 FROM teacher_allocations WHERE teacher_id = ? AND class_id = ? AND subject_id = ? LIMIT 1");
+        $teacher_id = (int)getUserId();
+        $allocationCheck->bind_param('iii', $teacher_id, $class_id, $subject_id);
+        $allocationCheck->execute();
+        $hasAllocation = (bool)$allocationCheck->get_result()->fetch_row();
+        $allocationCheck->close();
+        if (!$hasAllocation) {
+            // Entrance exams can be assigned directly without a regular
+            // class/subject allocation.
+            $entranceAssignmentCheck = $mysqli->prepare("SELECT 1 FROM entrance_exams WHERE exam_subject_id = ? AND teacher_id = ? LIMIT 1");
+            $entrance_subject_id = (int)$exam_subject['exam_subject_id'];
+            $entranceAssignmentCheck->bind_param('ii', $entrance_subject_id, $teacher_id);
+            $entranceAssignmentCheck->execute();
+            $hasAllocation = (bool)$entranceAssignmentCheck->get_result()->fetch_row();
+            $entranceAssignmentCheck->close();
+        }
+        if (!$hasAllocation) {
+            http_response_code(403);
+            exit('You are not assigned to this class and subject.');
+        }
     }
 
     // Entrance exam questions are editable only by their assigned teacher (or an admin).
@@ -354,39 +397,6 @@ try {
                         }
                         
                         // If we have content, process it
-                        // If clear existing is selected, delete all questions first
-                        if ($clear_existing) {
-                            try {
-                                $stmt = $mysqli->prepare("DELETE FROM questions WHERE exam_subject_id = ?");
-                                $stmt->bind_param("i", $exam_subject['exam_subject_id']);
-                                if (!$stmt->execute()) {
-                                    throw new Exception("Failed to delete questions: " . $stmt->error);
-                                }
-                                $stmt->close();
-                                
-                                // Also clear comprehension passages for a full reset
-                                $stmt = $mysqli->prepare("DELETE FROM comprehension_passages WHERE exam_subject_id = ?");
-                                $stmt->bind_param("i", $exam_subject['exam_subject_id']);
-                                $stmt->execute();
-                                $stmt->close();
-
-                                // Clear all existing attempts for this exam subject
-                                $stmt = $mysqli->prepare("DELETE FROM exam_attempts WHERE exam_subject_id = ?");
-                                $stmt->bind_param("i", $exam_subject['exam_subject_id']);
-                                $stmt->execute();
-                                $stmt->close();
-                                
-                                // Refresh questions list (should be empty now)
-                                $questions = [];
-                            } catch (Exception $e) {
-                                $message = 'Error clearing existing questions: ' . $e->getMessage();
-                                // Clean up temporary file
-                                unlink($temp_file);
-                                // Continue to show the form again
-                                return;
-                            }
-                        }
-                        
                         if (isset($content) && $content !== false) {
                             // Ensure proper UTF-8 encoding for all content
                             $content = ensureUtf8Encoding($content);
@@ -397,21 +407,48 @@ try {
                             // Clean content from WPS or other rich text editors
                             $content = cleanWpsContent($content);
                             
-                            // Add debug information
-                            file_put_contents('../scratch/raw_import_content.txt', $content);
-                            error_log("Import file content length: " . strlen($content));
-                            error_log("First 500 characters of content: " . substr($content, 0, 500));
-                            
                             // Parse questions
                             $import_issues = [];
                             $imported_questions = parseQuestionsFromFile($content, $import_type, $import_issues);
                             error_log("Imported questions count: " . count($imported_questions));
                             
                             if (!empty($imported_questions)) {
+                                // Never remove existing questions until the file has
+                                // parsed into at least one valid question.
+                                if ($clear_existing) {
+                                    try {
+                                        $exam_subject_id = (int)$exam_subject['exam_subject_id'];
+                                        foreach ([
+                                            'DELETE FROM questions WHERE exam_subject_id = ?',
+                                            'DELETE FROM comprehension_passages WHERE exam_subject_id = ?',
+                                            'DELETE FROM exam_attempts WHERE exam_subject_id = ?'
+                                        ] as $delete_sql) {
+                                            $delete_stmt = $mysqli->prepare($delete_sql);
+                                            if (!$delete_stmt) throw new Exception($mysqli->error);
+                                            $delete_stmt->bind_param('i', $exam_subject_id);
+                                            if (!$delete_stmt->execute()) throw new Exception($delete_stmt->error);
+                                            $delete_stmt->close();
+                                        }
+                                        $questions = [];
+                                    } catch (Throwable $e) {
+                                        $message = 'Could not clear existing exam data: ' . $e->getMessage();
+                                        if (is_file($temp_file)) unlink($temp_file);
+                                        throw $e;
+                                    }
+                                }
+
                                 $imported_count = 0;
                                 $detected_count = count($imported_questions) + count($import_issues);
                                 $user_id = getUserId();
                                 $failed_count = count($import_issues);
+                                $next_order_position = 1;
+                                if (!$clear_existing) {
+                                    $position_stmt = $mysqli->prepare("SELECT COALESCE(MAX(order_position), 0) + 1 AS next_position FROM questions WHERE exam_subject_id = ?");
+                                    $position_stmt->bind_param('i', $exam_subject['exam_subject_id']);
+                                    $position_stmt->execute();
+                                    $next_order_position = (int)$position_stmt->get_result()->fetch_assoc()['next_position'];
+                                    $position_stmt->close();
+                                }
                                 
                                 // Define null variables to avoid pass by reference error
                                 $null_value = null;
@@ -443,7 +480,8 @@ try {
                                         $correct_answer = $question_type === 'objective' ? ($q['answer'] ?? null) : null;
                                         $theory_marks = $question_type === 'theory' ? (float)($q['theory_marks'] ?? 0) : null;
                                         $marking_scheme = $question_type === 'theory' ? ($q['marking_scheme'] ?? null) : null;
-                                        $stmt->bind_param("iisssssssssdsi", $exam_subject['exam_subject_id'], $index, $question_type, $q['question'], $option_a, $option_b, $option_c, $option_d, $opt_e, $opt_f, $correct_answer, $theory_marks, $marking_scheme, $user_id);
+                                        $order_position = $next_order_position + (int)$index;
+                                        $stmt->bind_param("iisssssssssdsi", $exam_subject['exam_subject_id'], $order_position, $question_type, $q['question'], $option_a, $option_b, $option_c, $option_d, $opt_e, $opt_f, $correct_answer, $theory_marks, $marking_scheme, $user_id);
                                         
                                         if ($stmt->execute()) {
                                             $imported_count++;
@@ -1883,10 +1921,11 @@ function sanitizeHtml($text) {
                         <form method="POST" id="questionForm">
                             <input type="hidden" name="action" id="question_action" value="add">
                             <input type="hidden" name="question_id" id="form_question_id" value="">
+                            <input type="hidden" name="question_payload" id="question_payload" value="">
                             
                             <div class="mb-3">
                                 <label class="form-label">Question Text</label>
-                                <textarea class="form-control" name="question_text" id="question_text" rows="4" data-cke-auto-init></textarea>
+                                <textarea class="form-control" id="question_text" rows="4" data-cke-auto-init></textarea>
                             </div>
 
                             <div class="row g-3 mb-3">
@@ -1906,33 +1945,33 @@ function sanitizeHtml($text) {
                             <div class="row g-3 mb-3 objective-only">
                                 <div class="col-md-6">
                                     <label class="form-label">Option A</label>
-                                    <textarea class="form-control" name="option_a" id="option_a" rows="2" data-cke-auto-init></textarea>
+                                    <textarea class="form-control" id="option_a" rows="2" data-cke-auto-init></textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Option B</label>
-                                    <textarea class="form-control" name="option_b" id="option_b" rows="2" data-cke-auto-init></textarea>
+                                    <textarea class="form-control" id="option_b" rows="2" data-cke-auto-init></textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Option C</label>
-                                    <textarea class="form-control" name="option_c" id="option_c" rows="2" data-cke-auto-init></textarea>
+                                    <textarea class="form-control" id="option_c" rows="2" data-cke-auto-init></textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Option D</label>
-                                    <textarea class="form-control" name="option_d" id="option_d" rows="2" data-cke-auto-init></textarea>
+                                    <textarea class="form-control" id="option_d" rows="2" data-cke-auto-init></textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Option E (Optional)</label>
-                                    <textarea class="form-control" name="option_e" id="option_e" rows="2" data-cke-auto-init></textarea>
+                                    <textarea class="form-control" id="option_e" rows="2" data-cke-auto-init></textarea>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Option F (Optional)</label>
-                                    <textarea class="form-control" name="option_f" id="option_f" rows="2" data-cke-auto-init></textarea>
+                                    <textarea class="form-control" id="option_f" rows="2" data-cke-auto-init></textarea>
                                 </div>
                             </div>
 
                             <div class="mb-3 theory-only d-none">
                                 <label class="form-label">Marking Guide / Steps (Optional)</label>
-                                <textarea class="form-control" name="marking_scheme" id="marking_scheme" rows="4" data-cke-auto-init></textarea>
+                                <textarea class="form-control" id="marking_scheme" rows="4" data-cke-auto-init></textarea>
                             </div>
 
                             <div class="row align-items-end">
@@ -2196,6 +2235,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const questionTypeSelect = document.getElementById('question_type');
     const correctAnswerSelect = document.getElementById('correct_answer');
     const theoryMarksInput = document.getElementById('theory_marks');
+
+    if (questionForm) {
+        questionForm.addEventListener('submit', function() {
+            // TinyMCE keeps edited content outside the textarea until save().
+            if (window.tinymce) tinymce.triggerSave();
+            const richFields = ['question_text', 'option_a', 'option_b', 'option_c', 'option_d', 'option_e', 'option_f', 'marking_scheme'];
+            const payload = {};
+            richFields.forEach(id => {
+                const editor = window.tinymce && tinymce.get(id);
+                const field = document.getElementById(id);
+                payload[id] = editor ? editor.getContent() : (field ? field.value : '');
+            });
+            document.getElementById('question_payload').value = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+        });
+    }
 
     function syncQuestionTypeFields() {
         const isTheory = questionTypeSelect && questionTypeSelect.value === 'theory';
