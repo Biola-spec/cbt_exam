@@ -7,6 +7,7 @@ $teachers = [];
 $staff_members = [];
 $classes = [];
 $subjects = [];
+$class_subjects = [];
 $allocations = [];
 $editing_allocation = null;
 
@@ -52,35 +53,75 @@ try {
     // Handle form submission for adding allocation
     if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] == 'add') {
         $teacher_id = (int)$_POST['teacher_id'];
-        $class_id = (int)$_POST['class_id'];
-        $subject_id = (int)$_POST['subject_id'];
-        
-        if ($teacher_id && $class_id && $subject_id) {
-            // Check if allocation already exists
-            $stmt = $mysqli->prepare("SELECT id FROM teacher_allocations WHERE teacher_id = ? AND class_id = ? AND subject_id = ?");
-            $stmt->bind_param("iii", $teacher_id, $class_id, $subject_id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $message = 'This allocation already exists.';
-            } else {
-                // Get current user ID for allocated_by
-                $current_user_id = getUserId();
-                
-                // Insert new allocation
-                $stmt = $mysqli->prepare("INSERT INTO teacher_allocations (teacher_id, class_id, subject_id, allocated_by) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param("iiii", $teacher_id, $class_id, $subject_id, $current_user_id);
-                
-                if ($stmt->execute()) {
-                    $message = 'Teacher allocated successfully.';
-                } else {
-                    $message = 'Error allocating teacher: ' . $stmt->error;
+        $pairs = [];
+        $invalid_row = false;
+        if (isset($_POST['selected_allocations'])) {
+            $selected = is_array($_POST['selected_allocations']) ? $_POST['selected_allocations'] : [];
+            foreach ($selected as $selection) {
+                if (!is_string($selection) || !preg_match('/^(\d+):(\d+)$/', $selection, $match)) {
+                    $invalid_row = true;
+                    break;
                 }
-                $stmt->close();
+                $class_id = (int)$match[1];
+                $subject_id = (int)$match[2];
+                $pairs[$class_id . ':' . $subject_id] = [$class_id, $subject_id];
             }
         } else {
-            $message = 'Please select all fields.';
+            // Continue to accept the prior row-based form while deployments roll forward.
+            $class_ids = $_POST['class_id'] ?? [];
+            $subject_ids = $_POST['subject_id'] ?? [];
+            if (!is_array($class_ids)) $class_ids = [$class_ids];
+            if (!is_array($subject_ids)) $subject_ids = [$subject_ids];
+            $row_count = max(count($class_ids), count($subject_ids));
+            for ($i = 0; $i < $row_count; $i++) {
+                $class_id = (int)($class_ids[$i] ?? 0);
+                $subject_id = (int)($subject_ids[$i] ?? 0);
+                if (!$class_id && !$subject_id) continue;
+                if (!$class_id || !$subject_id) {
+                    $invalid_row = true;
+                    break;
+                }
+                $pairs[$class_id . ':' . $subject_id] = [$class_id, $subject_id];
+            }
+        }
+
+        if (!$teacher_id || $invalid_row || !$pairs) {
+            $message = 'Select a teacher and choose both a class and subject for every allocation row.';
+        } else {
+            $transaction_started = false;
+            try {
+                // Reject invalid class/subject combinations before inserting any rows.
+                $linkCheck = $mysqli->prepare("SELECT 1 FROM subject_class_link WHERE class_id = ? AND subject_id = ? LIMIT 1");
+                foreach ($pairs as [$class_id, $subject_id]) {
+                    $linkCheck->bind_param('ii', $class_id, $subject_id);
+                    $linkCheck->execute();
+                    if (!$linkCheck->get_result()->fetch_row()) {
+                        throw new Exception('One or more selected subjects are not available for their selected classes.');
+                    }
+                }
+                $linkCheck->close();
+
+                $current_user_id = (int)getUserId();
+                $insert = $mysqli->prepare("INSERT IGNORE INTO teacher_allocations (teacher_id, class_id, subject_id, allocated_by) VALUES (?, ?, ?, ?)");
+                $mysqli->begin_transaction();
+                $transaction_started = true;
+                $added = 0;
+                $already_assigned = 0;
+                foreach ($pairs as [$class_id, $subject_id]) {
+                    $insert->bind_param('iiii', $teacher_id, $class_id, $subject_id, $current_user_id);
+                    if (!$insert->execute()) throw new Exception($insert->error);
+                    if ($insert->affected_rows === 1) $added++;
+                    else $already_assigned++;
+                }
+                $mysqli->commit();
+                $transaction_started = false;
+                $insert->close();
+                $message = $added . ' allocation' . ($added === 1 ? '' : 's') . ' added successfully.';
+                if ($already_assigned) $message .= ' ' . $already_assigned . ' already existed and were skipped.';
+            } catch (Throwable $e) {
+                if ($transaction_started) $mysqli->rollback();
+                $message = 'Error allocating teacher: ' . $e->getMessage();
+            }
         }
     }
     
@@ -297,6 +338,19 @@ try {
     } else {
         throw new Exception("Failed to prepare statement for loading classes: " . $mysqli->error);
     }
+
+    // Preload class/subject pairs so the multi-allocation selector is instant.
+    $stmt = $mysqli->prepare("SELECT scl.class_id, scl.subject_id, s.name AS subject_name FROM subject_class_link scl JOIN subjects s ON s.id = scl.subject_id ORDER BY s.name");
+    if ($stmt) {
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $class_subjects[(int)$row['class_id']][] = $row;
+        }
+        $stmt->close();
+    } else {
+        throw new Exception("Failed to load class subjects: " . $mysqli->error);
+    }
     
     // Load all subjects (initial load)
     $stmt = $mysqli->prepare("SELECT id, name, description, created_at FROM subjects ORDER BY name");
@@ -440,67 +494,71 @@ try {
                 </section>
                 <section aria-label="New teacher allocation" <?php echo $section !== 'allocate' ? 'hidden' : ''; ?>>
                 <div class="row">
-                    <!-- Allocation Form -->
-                    <div class="col-md-4">
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <h2 class="teacher-section-heading mb-3"><?php echo $editing_allocation ? 'Edit Allocation' : 'New Allocation'; ?></h2>
+                    <?php if ($editing_allocation): ?>
+                        <div class="col-md-4">
+                            <div class="card bg-light"><div class="card-body">
+                                <h2 class="teacher-section-heading mb-3">Edit Allocation</h2>
                                 <form method="POST">
-                                    <input type="hidden" name="action" value="<?php echo $editing_allocation ? 'edit' : 'add'; ?>">
-                                    <?php if ($editing_allocation): ?>
-                                        <input type="hidden" name="allocation_id" value="<?php echo $editing_allocation['id']; ?>">
-                                    <?php endif; ?>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label">Teacher</label>
-                                        <select class="form-select" name="teacher_id" required>
-                                            <option value="">Select Teacher</option>
-                                            <?php foreach ($teachers as $teacher): ?>
-                                                <option value="<?php echo $teacher['id']; ?>" <?php echo ($editing_allocation && $editing_allocation['teacher_id'] == $teacher['id']) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($teacher['full_name']); ?> (<?php echo ucfirst($teacher['role']); ?>)
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Class</label>
-                                        <select class="form-select" id="class_id" name="class_id" required>
-                                            <option value="">Select Class</option>
-                                            <?php foreach ($classes as $class): ?>
-                                                <option value="<?php echo $class['id']; ?>" <?php echo ($editing_allocation && $editing_allocation['class_id'] == $class['id']) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($class['name']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Subject</label>
-                                        <select class="form-select" id="subject_id" name="subject_id" required>
-                                            <option value="">Select Subject</option>
-                                            <?php foreach ($subjects as $subject): ?>
-                                                <option value="<?php echo $subject['id']; ?>" <?php echo ($editing_allocation && $editing_allocation['subject_id'] == $subject['id']) ? 'selected' : ''; ?>>
-                                                    <?php echo htmlspecialchars($subject['name']); ?>
-                                                </option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-
-                                    <div class="d-grid gap-2">
-                                        <button type="submit" class="btn btn-primary">
-                                            <?php echo $editing_allocation ? 'Update Allocation' : 'Add Allocation'; ?>
-                                        </button>
-                                        <?php if ($editing_allocation): ?>
-                                            <a href="dashboard.php?tab=teachers&amp;section=allocate" class="btn btn-secondary">Cancel</a>
-                                        <?php endif; ?>
-                                    </div>
+                                    <input type="hidden" name="action" value="edit">
+                                    <input type="hidden" name="allocation_id" value="<?php echo (int)$editing_allocation['id']; ?>">
+                                    <div class="mb-3"><label class="form-label">Teacher</label><select class="form-select" name="teacher_id" required>
+                                        <option value="">Select Teacher</option>
+                                        <?php foreach ($teachers as $teacher): ?><option value="<?php echo (int)$teacher['id']; ?>" <?php echo ((int)$editing_allocation['teacher_id'] === (int)$teacher['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($teacher['full_name']); ?> (<?php echo ucfirst($teacher['role']); ?>)</option><?php endforeach; ?>
+                                    </select></div>
+                                    <div class="mb-3"><label class="form-label">Class</label><select class="form-select" id="class_id" name="class_id" required>
+                                        <option value="">Select Class</option>
+                                        <?php foreach ($classes as $class): ?><option value="<?php echo (int)$class['id']; ?>" <?php echo ((int)$editing_allocation['class_id'] === (int)$class['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($class['name']); ?></option><?php endforeach; ?>
+                                    </select></div>
+                                    <div class="mb-3"><label class="form-label">Subject</label><select class="form-select" id="subject_id" name="subject_id" required>
+                                        <option value="">Select Subject</option>
+                                        <?php foreach ($subjects as $subject): ?><option value="<?php echo (int)$subject['id']; ?>" <?php echo ((int)$editing_allocation['subject_id'] === (int)$subject['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($subject['name']); ?></option><?php endforeach; ?>
+                                    </select></div>
+                                    <div class="d-grid gap-2"><button type="submit" class="btn btn-primary">Update Allocation</button><a href="dashboard.php?tab=teachers&amp;section=allocate" class="btn btn-secondary">Cancel</a></div>
                                 </form>
-                            </div>
+                            </div></div>
                         </div>
-                    </div>
-
-                    </div>
+                    <?php else: ?>
+                        <form method="POST" id="multiAllocationForm" class="row g-3">
+                            <input type="hidden" name="action" value="add">
+                            <div class="col-lg-4">
+                                <div class="card bg-light h-100"><div class="card-body">
+                                    <h2 class="teacher-section-heading mb-3">New Allocation</h2>
+                                    <label class="form-label" for="multi_teacher_id">Teacher</label>
+                                    <select class="form-select mb-3" id="multi_teacher_id" name="teacher_id" required>
+                                        <option value="">Select Teacher</option>
+                                        <?php foreach ($teachers as $teacher): ?><option value="<?php echo (int)$teacher['id']; ?>"><?php echo htmlspecialchars($teacher['full_name']); ?> (<?php echo ucfirst($teacher['role']); ?>)</option><?php endforeach; ?>
+                                    </select>
+                                    <p class="text-muted small">Choose a teacher, then click every subject to assign. You can select subjects from several classes.</p>
+                                    <div class="d-grid"><button type="submit" class="btn btn-primary"><i class="fas fa-user-plus me-1"></i>Save Selected Allocations <span class="badge text-bg-light ms-1" id="allocationSelectionCount">0</span></button></div>
+                                </div></div>
+                            </div>
+                            <div class="col-lg-8">
+                                <div class="card h-100"><div class="card-header"><h2 class="teacher-section-heading mb-0">Choose Classes and Subjects</h2></div>
+                                    <div class="card-body"><div class="row g-3">
+                                        <?php foreach ($classes as $class): ?>
+                                            <div class="col-md-6">
+                                                <div class="border rounded h-100 p-3">
+                                                    <h3 class="h6 fw-bold mb-2"><?php echo htmlspecialchars($class['name']); ?></h3>
+                                                    <?php $class_options = $class_subjects[(int)$class['id']] ?? []; ?>
+                                                    <?php if ($class_options): ?>
+                                                        <?php foreach ($class_options as $class_option): ?>
+                                                            <label class="d-flex align-items-center gap-2 py-1 mb-0">
+                                                                <input class="form-check-input allocation-choice m-0" type="checkbox" name="selected_allocations[]" value="<?php echo (int)$class['id']; ?>:<?php echo (int)$class_option['subject_id']; ?>">
+                                                                <span><?php echo htmlspecialchars($class_option['subject_name']); ?></span>
+                                                            </label>
+                                                        <?php endforeach; ?>
+                                                    <?php else: ?>
+                                                        <span class="text-muted small">No subjects linked to this class.</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div></div>
+                                </div>
+                            </div>
+                        </form>
+                    <?php endif; ?>
+                </div>
                 </section>
 
                 <!-- Current Allocations Table -->
@@ -559,52 +617,59 @@ try {
                 </div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const classSelect = document.getElementById('class_id');
-    const subjectSelect = document.getElementById('subject_id');
-    
-    // Store the editing subject ID if present
-    let editingSubjectId = <?php echo $editing_allocation ? (int)$editing_allocation['subject_id'] : 'null'; ?>;
-
-    classSelect.addEventListener('change', function() {
-        const classId = this.value;
-        
-        if (classId) {
-            subjectSelect.innerHTML = '<option value="">Loading subjects...</option>';
-            subjectSelect.disabled = true;
-            
-            fetch('teacher_allocation.php?action=get_subjects&class_id=' + encodeURIComponent(classId))
-                .then(response => response.json())
-                .then(subjects => {
-                    subjectSelect.innerHTML = '<option value="">Select Subject</option>';
-                    subjects.forEach(subject => {
-                        const option = document.createElement('option');
-                        option.value = subject.id;
-                        option.textContent = subject.name;
-                        if (editingSubjectId !== null && subject.id == editingSubjectId) {
-                            option.selected = true;
-                        }
-                        subjectSelect.appendChild(option);
-                    });
-                    subjectSelect.disabled = false;
-                    
-                    // Clear the editing subject ID after first load to allow normal changes
-                    editingSubjectId = null;
-                })
-                .catch(error => {
-                    console.error('Error fetching subjects:', error);
-                    subjectSelect.innerHTML = '<option value="">Error loading subjects</option>';
-                    subjectSelect.disabled = false;
+    const subjectUrl = 'teacher_allocation.php?action=get_subjects&class_id=';
+    function loadSubjects(classSelect, subjectSelect, selectedId = null) {
+        const classId = classSelect.value;
+        subjectSelect.innerHTML = '<option value="">' + (classId ? 'Loading subjects...' : 'Select class first') + '</option>';
+        subjectSelect.disabled = true;
+        if (!classId) return;
+        fetch(subjectUrl + encodeURIComponent(classId))
+            .then(response => {
+                if (!response.ok) throw new Error('Request failed');
+                return response.json();
+            })
+            .then(subjects => {
+                subjectSelect.innerHTML = '<option value="">Select Subject</option>';
+                subjects.forEach(subject => {
+                    const option = document.createElement('option');
+                    option.value = subject.id;
+                    option.textContent = subject.name;
+                    if (selectedId !== null && subject.id == selectedId) option.selected = true;
+                    subjectSelect.appendChild(option);
                 });
-        } else {
-            subjectSelect.innerHTML = '<option value="">Select Class First</option>';
-            subjectSelect.disabled = true;
-        }
-    });
+                subjectSelect.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error fetching subjects:', error);
+                subjectSelect.innerHTML = '<option value="">Could not load subjects</option>';
+                subjectSelect.disabled = false;
+            });
+    }
 
-    <?php if ($editing_allocation): ?>
-    // Trigger the change event to fetch and populate class subjects on load
-    const event = new Event('change');
-    classSelect.dispatchEvent(event);
-    <?php endif; ?>
+    const editClass = document.getElementById('class_id');
+    const editSubject = document.getElementById('subject_id');
+    if (editClass && editSubject) {
+        const editingSubjectId = <?php echo $editing_allocation ? (int)$editing_allocation['subject_id'] : 'null'; ?>;
+        editClass.addEventListener('change', () => loadSubjects(editClass, editSubject));
+        <?php if ($editing_allocation): ?>
+        loadSubjects(editClass, editSubject, editingSubjectId);
+        <?php endif; ?>
+    }
+
+    const multiAllocationForm = document.getElementById('multiAllocationForm');
+    if (multiAllocationForm) {
+        const choices = multiAllocationForm.querySelectorAll('.allocation-choice');
+        const countBadge = document.getElementById('allocationSelectionCount');
+        function updateSelectionCount() {
+            countBadge.textContent = multiAllocationForm.querySelectorAll('.allocation-choice:checked').length;
+        }
+        choices.forEach(choice => choice.addEventListener('change', updateSelectionCount));
+        multiAllocationForm.addEventListener('submit', function(event) {
+            if (!multiAllocationForm.querySelector('.allocation-choice:checked')) {
+                event.preventDefault();
+                alert('Click at least one subject on the right before saving.');
+            }
+        });
+    }
 });
 </script>

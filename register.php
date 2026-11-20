@@ -1,6 +1,7 @@
 <?php
 require_once 'config/database.php';
 require_once 'config/session.php';
+require_once 'includes/user_identity.php';
 
 // If already logged in, redirect to appropriate dashboard
 if (isLoggedIn()) {
@@ -11,7 +12,7 @@ $error = '';
 $success = '';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = trim($_POST['email']);
+    $email = strtolower(trim($_POST['email']));
     $password = $_POST['password'];
     $full_name = trim($_POST['full_name']);
     $role = $_POST['role'];
@@ -28,14 +29,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         try {
             $mysqli = getDBConnection();
             
-            // Check if email already exists
-            $stmt = $mysqli->prepare("SELECT id FROM users WHERE email = ?");
-            $stmt->bind_param("s", $email);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $error = 'Email already registered';
+            $duplicate = findDuplicateAccountIdentity($mysqli, $email, $full_name, 0, in_array($role, ['teacher', 'student'], true));
+            if ($duplicate) {
+                $error = duplicateAccountMessage($duplicate);
             } else {
                 // Hash password
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -71,7 +67,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     }
                 }
             }
-            $stmt->close();
         } catch (Exception $e) {
             $error = 'Registration failed: ' . $e->getMessage();
         }

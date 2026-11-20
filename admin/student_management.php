@@ -1,6 +1,7 @@
 <?php
 require_once '../config/database.php';
 require_once '../config/session.php';
+require_once '../includes/user_identity.php';
 
 requireLogin();
 if (getUserRole() !== 'admin') {
@@ -68,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
             foreach ($names as $student_id => $raw_name) {
                 $student_id = (int)$student_id;
                 $name = trim((string)$raw_name);
-                $email = trim((string)($emails[$student_id] ?? ''));
+                $email = strtolower(trim((string)($emails[$student_id] ?? '')));
                 $admission = trim((string)($admissions[$student_id] ?? ''));
                 if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !preg_match('/@(gmail\.com|famaiis\.sch\.ng)$/i', $email)) {
                     $error = 'Every student needs a name and a valid Gmail or Famaiis school email address.';
@@ -102,12 +103,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
                 $email_key = strtolower($row['email']);
                 if (isset($seen_emails[$email_key])) { $error = 'Two students cannot use the same email address.'; break; }
                 $seen_emails[$email_key] = true;
-                $duplicate = $mysqli->prepare('SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1');
-                $duplicate->bind_param('si', $row['email'], $student_id);
-                $duplicate->execute();
-                $duplicate_result = $duplicate->get_result();
-                if ($duplicate_result && $duplicate_result->num_rows > 0) { $error = 'An email address is already used by another account.'; $duplicate->close(); break; }
-                $duplicate->close();
+                $duplicate = findDuplicateAccountIdentity($mysqli, $row['email'], $row['name'], $student_id, true);
+                if ($duplicate) { $error = duplicateAccountMessage($duplicate); break; }
             }
         }
         $photo_uploads = [];
@@ -216,7 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $message = 'Invalid session token. Please refresh and try again.';
     } else {
         $full_name = trim($_POST['full_name'] ?? '');
-        $email = trim($_POST['email'] ?? '');
+        $email = strtolower(trim($_POST['email'] ?? ''));
         $admission_number = trim($_POST['admission_number'] ?? '');
         if ($admission_number === '') $admission_number = null;
         $class_id = intval($_POST['class_id'] ?? 0);
@@ -232,15 +229,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         } elseif (!$has_class_id) {
             $message = 'Database missing users.class_id. See migration instructions below.';
         } else {
-            // Check duplicate email
-            $stmt = $mysqli->prepare('SELECT id FROM users WHERE email = ?');
-            if ($stmt) {
-                $stmt->bind_param('s', $email);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                if ($res && $res->num_rows > 0) {
-                    $message = 'A user with this email already exists.';
-                } else {
+            $duplicate = findDuplicateAccountIdentity($mysqli, $email, $full_name, 0, true);
+            if ($duplicate) {
+                $message = duplicateAccountMessage($duplicate);
+            } else {
                     // Store only a password hash; the admin shares the chosen password with the student.
                     $hash = password_hash($password, PASSWORD_DEFAULT);
                     
@@ -271,10 +263,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     } else {
                         $message = 'Error preparing insert: ' . $mysqli->error;
                     }
-                }
-                $stmt->close();
-            } else {
-                $message = 'Error preparing email check: ' . $mysqli->error;
             }
         }
     }
@@ -287,7 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } else {
         $sid = intval($_POST['student_id'] ?? 0);
         $full_name = trim($_POST['edit_full_name'] ?? '');
-        $email = trim($_POST['edit_email'] ?? '');
+        $email = strtolower(trim($_POST['edit_email'] ?? ''));
         $admission_number = trim($_POST['edit_admission_number'] ?? '');
         if ($admission_number === '') $admission_number = null;
         $class_id = intval($_POST['edit_class_id'] ?? 0);
@@ -302,15 +290,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         } elseif ($new_password !== '' && strlen($new_password) < 8) {
             $message = 'Student password must be at least 8 characters.';
         } else {
-            // Ensure email uniqueness (excluding current student)
-            $stmt = $mysqli->prepare('SELECT id FROM users WHERE email = ? AND id <> ?');
-            if ($stmt) {
-                $stmt->bind_param('si', $email, $sid);
-                $stmt->execute();
-                $res = $stmt->get_result();
-                if ($res && $res->num_rows > 0) {
-                    $message = 'Another user with this email already exists.';
-                } else {
+            $duplicate = findDuplicateAccountIdentity($mysqli, $email, $full_name, $sid, true);
+            if ($duplicate) {
+                $message = duplicateAccountMessage($duplicate);
+            } else {
                     // Handle passport upload for edit
                     $passport_path = null;
                     if (isset($_FILES['edit_passport']) && $_FILES['edit_passport']['error'] == UPLOAD_ERR_OK) {
@@ -361,10 +344,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         $mysqli->rollback();
                         $message = 'Error updating student: ' . $ex->getMessage();
                     }
-                }
-                $stmt->close();
-            } else {
-                $message = 'Error preparing email uniqueness check.';
             }
         }
     }

@@ -1,6 +1,7 @@
 <?php
 require_once '../config/session.php';
 require_once '../config/database.php';
+require_once '../includes/user_identity.php';
 
 // Check if user is logged in and is admin
 requireLogin();
@@ -12,7 +13,7 @@ if (getUserRole() !== 'admin') {
 $message = '';
 $success = false;
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $email = trim($_POST['email']);
+    $email = strtolower(trim($_POST['email']));
     $full_name = trim($_POST['full_name']);
     $password = $_POST['password'];
     $submitted_roles = isset($_POST['roles']) && is_array($_POST['roles']) ? $_POST['roles'] : [];
@@ -56,12 +57,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Load existing users
             $users = [];
             if (file_exists('../users.json')) {
-                $users = json_decode(file_get_contents('../users.json'), true);
+                $users = json_decode(file_get_contents('../users.json'), true) ?: [];
             }
             
-            // Check if user already exists
-            if (isset($users[$email])) {
-                $message = 'A user with this email already exists';
+            $mysqli = getDBConnection();
+            if (!$mysqli) {
+                $message = 'Could not check for duplicate accounts because the database is unavailable.';
+            } elseif ($duplicate = findDuplicateAccountIdentity($mysqli, $email, $full_name, 0, in_array($role, ['teacher', 'admin_teacher'], true))) {
+                $message = duplicateAccountMessage($duplicate);
+            } elseif (count(array_filter(array_keys($users), function ($storedEmail) use ($email) { return strtolower(trim($storedEmail)) === $email; })) > 0) {
+                $message = 'This Gmail/email address is already used by another account.';
+            } elseif (in_array($role, ['teacher', 'admin_teacher'], true) && count(array_filter($users, function ($storedUser) use ($full_name) {
+                return is_array($storedUser)
+                    && in_array($storedUser['role'] ?? '', ['teacher', 'student', 'admin_teacher'], true)
+                    && normalizeAccountFullName($storedUser['full_name'] ?? '') === normalizeAccountFullName($full_name);
+            })) > 0) {
+                $message = 'A teacher or student already has this full name. Add the correct middle name or other distinguishing part, then try again.';
             } else {
                 // Add new teacher/admin
                 $users[$email] = [
@@ -77,11 +88,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     // Try to add to database
                     $db_success = false;
                     try {
-                        $mysqli = getDBConnection();
-                        if ($mysqli) {
-                            if ($role === 'admin_teacher' && !ensureCombinedStaffRoleSupport($mysqli)) {
-                                throw new RuntimeException('Database role upgrade failed. Apply database/upgrade_multi_role.sql and try again.');
-                            }
+                        if ($role === 'admin_teacher' && !ensureCombinedStaffRoleSupport($mysqli)) {
+                            throw new RuntimeException('Database role upgrade failed. Apply database/upgrade_multi_role.sql and try again.');
+                        }
                             $stmt = $mysqli->prepare("INSERT INTO users (email, password, full_name, role, passport) VALUES (?, ?, ?, ?, ?)");
                             if ($stmt) {
                                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -93,7 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 }
                                 $stmt->close();
                             }
-                        }
                     } catch (Exception $e) {
                         $message = 'Failed to add user to database: ' . htmlspecialchars($e->getMessage());
                     }

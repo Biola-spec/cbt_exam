@@ -39,9 +39,9 @@ include '../includes/header.php';
                 <section class="teacher-section-card normal">
                     <div class="teacher-section-card-body">
                         <div class="teacher-section-icon"><i class="fas fa-user-graduate" aria-hidden="true"></i></div>
-                        <h2>Normal Sections</h2>
+                        <h2>Primary and Secondary Section</h2>
                         <p>Manage exams, questions, class performance, term scores, and other school activities.</p>
-                        <a class="btn btn-primary" href="dashboard.php?tab=exams">Open Normal Sections <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></a>
+                        <a class="btn btn-primary" href="dashboard.php?tab=exams">Open Primary and Secondary Section <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></a>
                     </div>
                 </section>
             </div>
@@ -49,9 +49,9 @@ include '../includes/header.php';
                 <section class="teacher-section-card early">
                     <div class="teacher-section-card-body">
                         <div class="teacher-section-icon"><i class="fas fa-child" aria-hidden="true"></i></div>
-                        <h2>Early Years</h2>
+                        <h2>Early Years Section</h2>
                         <p>Open your assigned Early Years classes and enter pupil progress reports.</p>
-                        <a class="btn btn-success" href="early_years.php">Open Early Years <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></a>
+                        <a class="btn btn-success" href="early_years.php">Open Early Years Section <i class="fas fa-arrow-right ms-2" aria-hidden="true"></i></a>
                     </div>
                 </section>
             </div>
