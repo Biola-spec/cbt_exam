@@ -1722,6 +1722,13 @@ function sanitizeHtml($text) {
     return $text;
 }
 
+$active_tab = 'list';
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $posted_action = (string)($_POST['action'] ?? '');
+    if ($posted_action === 'import') $active_tab = 'import';
+    elseif (in_array($posted_action, ['save_passage', 'delete_passage'], true)) $active_tab = 'passages';
+    elseif (in_array($posted_action, ['add', 'edit'], true)) $active_tab = 'add';
+}
 
 
 ?>
@@ -1813,22 +1820,22 @@ function sanitizeHtml($text) {
 
         <ul class="nav nav-tabs mb-4" id="managementTabs" role="tablist">
             <li class="nav-item">
-                <a class="nav-link active" id="list-tab" data-bs-toggle="tab" href="#list" role="tab">Questions List</a>
+                <a class="nav-link <?php echo $active_tab === 'list' ? 'active' : ''; ?>" id="list-tab" href="#list" role="tab" aria-selected="<?php echo $active_tab === 'list' ? 'true' : 'false'; ?>">Questions List</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="add-tab" data-bs-toggle="tab" href="#add" role="tab">Add Question</a>
+                <a class="nav-link <?php echo $active_tab === 'add' ? 'active' : ''; ?>" id="add-tab" href="#add" role="tab" aria-selected="<?php echo $active_tab === 'add' ? 'true' : 'false'; ?>">Add Question</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="passages-tab" data-bs-toggle="tab" href="#passages" role="tab">Comprehension Passages</a>
+                <a class="nav-link <?php echo $active_tab === 'passages' ? 'active' : ''; ?>" id="passages-tab" href="#passages" role="tab" aria-selected="<?php echo $active_tab === 'passages' ? 'true' : 'false'; ?>">Comprehension Passages</a>
             </li>
             <li class="nav-item">
-                <a class="nav-link" id="import-tab" data-bs-toggle="tab" href="#import" role="tab">Import Questions</a>
+                <a class="nav-link <?php echo $active_tab === 'import' ? 'active' : ''; ?>" id="import-tab" href="#import" role="tab" aria-selected="<?php echo $active_tab === 'import' ? 'true' : 'false'; ?>">Import Questions</a>
             </li>
         </ul>
 
-        <div class="tab-content">
+        <div class="tab-content" id="managementTabsContent">
             <!-- Questions List Tab -->
-            <div class="tab-pane fade show active" id="list" role="tabpanel">
+            <div class="tab-pane <?php echo $active_tab === 'list' ? 'active' : ''; ?>" id="list" role="tabpanel" style="display:<?php echo $active_tab === 'list' ? 'block' : 'none'; ?>">
                 <?php if (count($questions) > 0): ?>
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5>Question Bank (<?php echo count($questions); ?>)</h5>
@@ -1911,7 +1918,7 @@ function sanitizeHtml($text) {
             </div>
 
             <!-- Add/Edit Question Tab -->
-            <div class="tab-pane fade" id="add" role="tabpanel">
+            <div class="tab-pane <?php echo $active_tab === 'add' ? 'active' : ''; ?>" id="add" role="tabpanel" style="display:<?php echo $active_tab === 'add' ? 'block' : 'none'; ?>">
                 <div class="card" id="questionFormCard">
                     <div class="card-header">
                         <h5 class="mb-0" id="questionFormTitle">Add New Question</h5>
@@ -1997,7 +2004,7 @@ function sanitizeHtml($text) {
             </div>
 
             <!-- Passages Tab -->
-            <div class="tab-pane fade" id="passages" role="tabpanel">
+            <div class="tab-pane <?php echo $active_tab === 'passages' ? 'active' : ''; ?>" id="passages" role="tabpanel" style="display:<?php echo $active_tab === 'passages' ? 'block' : 'none'; ?>">
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">Manage Comprehension Passages</h5>
@@ -2081,7 +2088,7 @@ function sanitizeHtml($text) {
             </div>
 
             <!-- Import Tab -->
-            <div class="tab-pane fade" id="import" role="tabpanel">
+            <div class="tab-pane <?php echo $active_tab === 'import' ? 'active' : ''; ?>" id="import" role="tabpanel" style="display:<?php echo $active_tab === 'import' ? 'block' : 'none'; ?>">
                 <div class="card">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">Bulk Import Questions</h5>
@@ -2190,6 +2197,25 @@ MARKING SCHEME: Award 2 marks for each correct cause explained.</pre>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    window.activateManagementTab = function(tabId) {
+        document.querySelectorAll('#managementTabs .nav-link').forEach(function(link) {
+            const selected = link.getAttribute('href') === '#' + tabId;
+            link.classList.toggle('active', selected);
+            link.setAttribute('aria-selected', selected ? 'true' : 'false');
+        });
+        document.querySelectorAll('#managementTabsContent .tab-pane').forEach(function(pane) {
+            const selected = pane.id === tabId;
+            pane.classList.toggle('active', selected);
+            pane.style.display = selected ? 'block' : 'none';
+        });
+    };
+    document.querySelectorAll('#managementTabs .nav-link').forEach(function(link) {
+        link.addEventListener('click', function(event) {
+            event.preventDefault();
+            window.activateManagementTab(link.getAttribute('href').slice(1));
+        });
+    });
+
     // Shared Robust Base64 Decoding for UTF-8
     const decodeBase64 = (str) => {
         if (!str) return '';
@@ -2282,14 +2308,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const scheme = btn.dataset.scheme ? decodeBase64(btn.dataset.scheme) : '';
 
         // Switch to the Add/Edit tab IMMEDIATELY
-        const addTabLink = document.getElementById('add-tab');
-        if (addTabLink) {
-            if (typeof bootstrap !== 'undefined' && bootstrap.Tab) {
-                bootstrap.Tab.getOrCreateInstance(addTabLink).show();
-            } else {
-                addTabLink.click();
-            }
-        }
+        window.activateManagementTab?.('add');
 
         // Set form to edit mode
         setTimeout(() => {
