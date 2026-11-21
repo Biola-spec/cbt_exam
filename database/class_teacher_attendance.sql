@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS class_student_attendance_summary (
 
 CREATE TABLE IF NOT EXISTS class_report_categories (
     id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    domain ENUM('psychomotor','locomotor') NOT NULL,
+    domain ENUM('affective','psychomotor','locomotor') NOT NULL,
     label VARCHAR(80) NOT NULL,
     sort_order SMALLINT NOT NULL DEFAULT 0,
     is_active TINYINT(1) NOT NULL DEFAULT 1,

@@ -88,6 +88,10 @@ function fullyDecodeHtml($content) {
 function cleanOptionDisplay($text) {
     $text = fullyDecodeHtml($text);
     $text = ensureUtf8Encoding($text);
+    // Option labels are rendered separately as styled A/B/C badges below.
+    $text = preg_replace('/^\s*\*{0,2}[A-F]\.\*{0,2}\s*/iu', '', $text);
+    // Support simple bold notation sometimes included when options are pasted in.
+    $text = preg_replace('/\*\*(.+?)\*\*/u', '<strong>$1</strong>', $text);
     $text = sanitizeHtml($text);
     // Aggressive Unicode-aware trim and whitespace collapse
     $text = preg_replace('/[\r\n\x{00A0}\x{200B}-\x{200D}\x{FEFF}]+/u', ' ', $text);
@@ -274,17 +278,30 @@ try {
         $all_questions[] = $row;
     }
 
-    // Seed with attempt ID for consistency
-    mt_srand($attempt['id']);
-    $questions = $all_questions;
-    if (!empty($questions)) {
-        for ($i = count($questions) - 1; $i > 0; $i--) {
-            $j = mt_rand(0, $i);
-            $tmp = $questions[$i];
-            $questions[$i] = $questions[$j];
-            $questions[$j] = $tmp;
+    // Shuffle question blocks per attempt. Questions attached to the same
+    // comprehension passage stay together and retain their authored order.
+    mt_srand((int)$attempt['id']);
+    $question_units = [];
+    foreach ($all_questions as $question) {
+        $unit_key = null;
+        foreach ($comprehension_passages as $passage) {
+            if ((int)$question['original_number'] >= (int)$passage['start_question_number'] &&
+                (int)$question['original_number'] <= (int)$passage['end_question_number']) {
+                $unit_key = 'passage_' . (int)$passage['id'];
+                break;
+            }
         }
+        if ($unit_key === null) $unit_key = 'question_' . (int)$question['id'];
+        if (!isset($question_units[$unit_key])) $question_units[$unit_key] = [];
+        $question_units[$unit_key][] = $question;
     }
+    $question_units = array_values($question_units);
+    for ($i = count($question_units) - 1; $i > 0; $i--) {
+        $j = mt_rand(0, $i);
+        [$question_units[$i], $question_units[$j]] = [$question_units[$j], $question_units[$i]];
+    }
+    $questions = [];
+    foreach ($question_units as $unit) foreach ($unit as $question) $questions[] = $question;
 
     // --- GET ANSWERS ---
     $stmt = $mysqli->prepare("SELECT question_id, selected_answer, answer_text FROM student_answers WHERE attempt_id = ?");
@@ -463,6 +480,13 @@ try {
             // If no answer was submitted but we're navigating, check if there's already an answer saved
             // We already have the answers loaded, so just use the existing value
             // No database query needed here
+        }
+
+        // Save answer clicks in the background without refreshing or moving the page.
+        if (isset($_POST['save_answer_ajax'])) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['saved' => $answer_to_save !== null && $answer_to_save !== '']);
+            exit();
         }
         
         // Handle navigation to specific question
@@ -647,16 +671,20 @@ if (!empty($questions)) {
             margin: 2px;
             border-radius: 4px;
             font-weight: bold;
+            color: #334155;
+            background: #eef2f7;
+            border: 1px solid #cbd5e1;
         }
         .q-nav-btn.answered {
-            background-color: #5cb85c;
-            color: white;
-            border-color: #4cae4c;
+            background-color: #087f5b;
+            color: #fff;
+            border-color: #087f5b;
         }
         .q-nav-btn.current {
-            background-color: #0275d8;
-            color: white;
-            border-color: #025aa5;
+            background-color: #174ea6;
+            color: #fff;
+            border: 2px solid #0d3270;
+            box-shadow: 0 0 0 3px rgba(23,78,166,.18);
         }
         #calcContainer {
             display: none;
@@ -778,6 +806,54 @@ if (!empty($questions)) {
         }
     </style>
     <link href="../assets/css/style.css?v=<?php echo filemtime(__DIR__ . '/../assets/css/style.css'); ?>" rel="stylesheet">
+    <style>
+        body { background: #f4f7fc; color: #172b4d; }
+        .exam-header { position: sticky; top: 0; z-index: 1020; padding: .8rem 0; margin-bottom: 1.25rem; background: rgba(255,255,255,.96); backdrop-filter: blur(12px); box-shadow: 0 4px 18px rgba(31,55,90,.07); }
+        .exam-header h4 { color: #173b67; font-size: 1.05rem; font-weight: 750; }
+        .exam-header p { font-size: .82rem; }
+        .timer-box { font-size: 1.05rem; color: #b5473b; }
+        .question-card, .exam-sidebar-card, .passage-card { border: 1px solid #e1e8f1; border-radius: 16px; box-shadow: 0 10px 28px rgba(33,58,92,.08); overflow: hidden; }
+        .question-card { margin-bottom: 1.25rem; }
+        .question-card .card-body { padding: clamp(1rem, 3vw, 2rem) !important; }
+        .question-card h5 { font-size: .95rem; font-weight: 750; }
+        .question-text { color: #203754; font-size: 1.05rem; line-height: 1.7; }
+        .option-container { margin-bottom: .7rem; }
+        .option-label { position: relative; display: flex; align-items: center; gap: .8rem; padding: .75rem .9rem; border: 1px solid #dce5ef; border-radius: 12px; background: #fff; line-height: 1.5; }
+        .option-label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+        .option-key { display: inline-flex; flex: 0 0 34px; width: 34px; height: 34px; align-items: center; justify-content: center; border: 1px solid #cbd5e1; border-radius: 10px; background: #f1f5f9; color: #334155; font-size: .84rem; font-weight: 800; }
+        .option-copy { flex: 1; color: #253b56; font-size: .95rem; }
+        .option-label:hover { border-color: #8bb7e0; background: #f7fbff; }
+        .option-label:focus-within { outline: 3px solid rgba(40,119,183,.24); outline-offset: 2px; }
+        .option-label.active { border-color: #2877b7; background: #edf6ff; color: #123e67; box-shadow: 0 0 0 2px rgba(40,119,183,.1); }
+        .option-label.active .option-key { border-color: #175c9f; background: #175c9f; color: #fff; }
+        .option-label.active::after { content: '✓'; display: inline-flex; width: 23px; height: 23px; align-items: center; justify-content: center; border-radius: 50%; background: #d9f2e5; color: #087f5b; font-weight: 900; }
+        #answerSaveStatus { min-height: 1rem; font-size: .72rem; text-align: right; color: #64748b; }
+        .exam-sidebar-card { position: sticky; top: 100px; }
+        .exam-sidebar-card .card-header { padding: .6rem .8rem; font-size: .85rem; font-weight: 700; }
+        .exam-sidebar-card .card-body { padding: .7rem; }
+        .exam-sidebar-card img { width: 68px !important; height: 68px !important; margin-bottom: .55rem !important; }
+        .exam-sidebar-card h6 { font-size: .82rem; }
+        .exam-sidebar-card .card-header { background: #174ea6 !important; color: #fff !important; }
+        .question-nav { display: grid; grid-template-columns: repeat(6, 34px); justify-content: start; gap: .35rem; max-height: 205px; overflow-y: auto; padding: .15rem; }
+        .q-nav-btn { width: 34px; height: 34px; min-height: 34px; aspect-ratio: auto; margin: 0; padding: 0; border-radius: 8px; font-size: .74rem; font-weight: 750; transition: transform .12s ease, box-shadow .12s ease; }
+        .q-nav-btn:hover { color: #102e5e; background: #dbeafe; border-color: #5b8bd3; transform: translateY(-1px); }
+        .q-nav-btn.answered:hover, .q-nav-btn.current:hover { color: #fff; filter: brightness(.92); }
+        .question-nav-legend { display: flex; flex-wrap: wrap; gap: .4rem .8rem; margin-top: .85rem; color: #475569; font-size: .7rem; }
+        .question-nav-legend span { display: inline-flex; align-items: center; gap: .3rem; }
+        .question-nav-legend i { width: 10px; height: 10px; border-radius: 3px; background: #eef2f7; border: 1px solid #cbd5e1; }
+        .question-nav-legend .legend-answered { background: #087f5b; border-color: #087f5b; }
+        .question-nav-legend .legend-current { background: #174ea6; border-color: #174ea6; }
+        .passage-card .card-header { background: #eaf4fb !important; color: #174e78 !important; padding: .85rem 1rem; }
+        .passage-card .card-body { max-height: min(42vh, 360px) !important; overflow-y: auto; line-height: 1.7; }
+        @media (max-width: 767.98px) {
+            .exam-header { margin-bottom: .75rem; }
+            .exam-header .text-end { text-align: left !important; margin-top: .5rem; }
+            .exam-sidebar-card { position: static; }
+            .exam-header .container, body > .container { padding-left: .8rem; padding-right: .8rem; }
+            .question-text { font-size: .98rem; }
+            .option-label { padding: .75rem; }
+        }
+    </style>
     
     <script>
         // Prevent back button after submission by forcing a reload if loaded from cache
@@ -823,7 +899,7 @@ if (!empty($questions)) {
         <div class="row">
             <!-- Left Sidebar -->
             <div class="col-md-3 order-2 order-md-1">
-                <div class="card mb-4">
+                <div class="card mb-4 exam-sidebar-card">
                     <div class="card-header bg-primary text-white">
                         <h5 class="mb-0">Candidate Info</h5>
                     </div>
@@ -837,17 +913,18 @@ if (!empty($questions)) {
                             <?php foreach ($questions as $index => $q): 
                                 $is_answered = isset($answers[$q['id']]) && !empty($answers[$q['id']]);
                                 $is_current = $index == $current_question_index;
-                                $btn_class = 'btn-outline-secondary';
-                                if ($is_current) $btn_class = 'btn-primary';
-                                elseif ($is_answered) $btn_class = 'btn-success';
+                                $btn_class = $is_current ? 'current' : ($is_answered ? 'answered' : 'unanswered');
                             ?>
                                 <button type="button" 
-                                        class="btn btn-sm <?php echo $btn_class; ?> q-nav-btn"
+                                        class="btn q-nav-btn <?php echo $btn_class; ?>"
+                                        aria-current="<?php echo $is_current ? 'true' : 'false'; ?>"
+                                        aria-label="Question <?php echo $index + 1; ?>, <?php echo $is_current ? 'current' : ($is_answered ? 'answered' : 'not answered'); ?>"
                                         onclick="navigateToQuestion(<?php echo $index; ?>)">
                                     <?php echo $index + 1; ?>
                                 </button>
                             <?php endforeach; ?>
                         </div>
+                        <div class="question-nav-legend" aria-label="Question status key"><span><i class="legend-current"></i>Current</span><span><i class="legend-answered"></i>Answered</span><span><i></i>Not answered</span></div>
                         <hr>
                         <button type="button" class="btn btn-danger w-100" onclick="confirmFinishExam()">
                             Submit Exam
@@ -863,7 +940,7 @@ if (!empty($questions)) {
                     if ($current_question): ?>
                     
                     <?php if ($current_passage): ?>
-                        <div class="card mb-4">
+                        <div class="card mb-4 passage-card">
                             <div class="card-header bg-info text-white">
                                 <h5 class="mb-0"><?php echo htmlspecialchars($current_passage['passage_title'] ?: 'Comprehension Passage'); ?></h5>
                             </div>
@@ -893,6 +970,7 @@ if (!empty($questions)) {
                                         <div class="form-text">This theory answer will be marked by your teacher after submission.</div>
                                     </div>
                                 <?php else: ?>
+                                    <div id="answerSaveStatus" class="mb-2" aria-live="polite"></div>
                                     <div class="options-list">
                                         <?php 
                                         $options = [
@@ -910,8 +988,9 @@ if (!empty($questions)) {
                                         ?>
                                             <div class="option-container">
                                                 <label class="option-label <?php echo $is_selected ? 'active' : ''; ?>">
-                                                    <input type="radio" name="answer" value="<?php echo $key; ?>" <?php echo $is_selected ? 'checked' : ''; ?> onchange="this.form.submit()">
-                                                    <span class="ms-2"><strong><?php echo $key; ?>.</strong> <?php echo cleanOptionDisplay($val); ?></span>
+                                                    <input type="radio" name="answer" value="<?php echo $key; ?>" <?php echo $is_selected ? 'checked' : ''; ?>>
+                                                    <span class="option-key"><?php echo $key; ?></span>
+                                                    <span class="option-copy"><?php echo cleanOptionDisplay($val); ?></span>
                                                 </label>
                                             </div>
                                         <?php endforeach; ?>
@@ -1317,6 +1396,24 @@ document.addEventListener('DOMContentLoaded', function() {
     var previousButton = document.querySelector('button[name="previous"]');
     var submitButton = document.querySelector('button[name="submit_exam"]');
     var form = document.getElementById('questionForm');
+
+    document.querySelectorAll('.option-label input[type="radio"]').forEach(function(option) {
+        option.addEventListener('change', function() {
+            document.querySelectorAll('.option-label').forEach(function(label) { label.classList.remove('active'); });
+            option.closest('.option-label')?.classList.add('active');
+            var answerForm = option.form;
+            var status = document.getElementById('answerSaveStatus');
+            if (!answerForm) return;
+            var payload = new FormData(answerForm);
+            payload.set('answer', option.value);
+            payload.set('save_answer_ajax', '1');
+            if (status) status.textContent = 'Saving answer…';
+            fetch(window.location.href, { method: 'POST', body: payload, credentials: 'same-origin' })
+                .then(function(response) { if (!response.ok) throw new Error('save failed'); return response.json(); })
+                .then(function(result) { if (status) status.textContent = result.saved ? 'Answer saved' : 'Could not save answer'; })
+                .catch(function() { if (status) status.textContent = 'Answer will save when you continue'; });
+        });
+    });
     
     if (nextButton) {
         nextButton.addEventListener('click', function(e) {

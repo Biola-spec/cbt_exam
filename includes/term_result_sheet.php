@@ -219,7 +219,7 @@ function termResultSheetLoad(mysqli $mysqli, int $studentId, int $periodId): ?ar
         }
     }
 
-    $ratings = ['psychomotor' => [], 'locomotor' => []];
+    $ratings = ['affective' => [], 'psychomotor' => [], 'locomotor' => []];
     $stmt = $mysqli->prepare('SELECT crc.domain, crc.label, csr.score FROM class_student_ratings csr JOIN class_report_categories crc ON crc.id=csr.category_id WHERE csr.class_id=? AND csr.session_id=? AND csr.term=? AND csr.student_id=? ORDER BY crc.domain, crc.sort_order, crc.label');
     $stmt->bind_param('iiii', $report['class_id'], $report['session_id'], $report['term'], $studentId);
     $stmt->execute();
