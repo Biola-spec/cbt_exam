@@ -288,6 +288,10 @@ footer .text-muted { color: #91a4b5 !important; }
 .q-nav-btn.current { background: var(--brand-navy) !important; border-color: var(--brand-navy) !important; color: #fff !important; }
 #toggleCalc { background: #1479ad !important; box-shadow: 0 4px 12px rgba(20,121,173,.2) !important; }
 
+.question-bank-content {
+    white-space: pre-wrap;
+}
+
 @media (max-width: 767.98px) {
     body > .container, body > div.container { padding: 1rem 1rem 2rem; }
     .dashboard-header { padding: 1.25rem; border-radius: 13px; }

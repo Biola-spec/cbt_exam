@@ -133,7 +133,7 @@ try {
 function formatMathematicalContent($content) {
     // First, preserve line breaks and ensure proper UTF-8 encoding
     // Allow safe HTML tags including img for images
-    $allowed_tags = '<p><br><strong><em><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6>';
+    $allowed_tags = '<p><br><strong><em><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6><table><thead><tbody><tfoot><tr><th><td><caption>';
     $content = strip_tags($content, $allowed_tags);
     
     // Additional security: Remove any javascript or on* attributes except for image src
@@ -403,7 +403,7 @@ function ensureProperEncoding($content) {
                                             <div id="collapse<?php echo $question['id']; ?>" class="accordion-collapse collapse <?php echo $index == 0 ? 'show' : ''; ?>"
                                                  data-bs-parent="#questionsAccordion">
                                                 <div class="accordion-body">
-                                                    <div class="mb-3">
+                                                        <div class="mb-3 question-bank-content">
                                                         <h6>Question:</h6>
                                                         <div class="bg-light p-3 rounded">
                                                             <?php echo formatMathematicalContent(ensureProperEncoding($question['question_text'])); ?>

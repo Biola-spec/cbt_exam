@@ -1403,6 +1403,7 @@ function extractTextFromWordDocument($file_path, $extension) {
             $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
             $xpath->registerNamespace('m', 'http://schemas.openxmlformats.org/officeDocument/2006/math');
             $xpath->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            $xpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
             $xpath->registerNamespace('wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing');
             $xpath->registerNamespace('v', 'urn:schemas-microsoft-com:vml');
 
@@ -1708,7 +1709,7 @@ function fullyDecodeHtml($content) {
 function sanitizeHtml($text) {
     // Allow only safe HTML tags (like img, p, br, strong, em, b, i, u)
     // Added MathML tags support
-    $allowed_tags = '<p><br><strong><em><b><i><u><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6><math><mfrac><mi><mn><mo><msup><msub><mrow><msqrt><mroot><annotation><mstyle><merror><mpadded><mphantom><mfenced><menclose><mtext><munderover><munder><mover><msubsup><mmultiscripts><mtable><mtr><mtd>';
+    $allowed_tags = '<p><br><strong><em><b><i><u><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6><table><thead><tbody><tfoot><tr><th><td><caption><math><mfrac><mi><mn><mo><msup><msub><mrow><msqrt><mroot><annotation><mstyle><merror><mpadded><mphantom><mfenced><menclose><mtext><munderover><munder><mover><msubsup><mmultiscripts><mtable><mtr><mtd>';
     $text = strip_tags($text, $allowed_tags);
     
     // Additional security: Remove any javascript or on* attributes
@@ -1877,7 +1878,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
                                 </div>
                             </div>
                             <div class="card-body">
-                                <div class="question-text mb-3">
+                                <div class="question-text question-bank-content mb-3">
                                     <?php echo formatMathematicalContent($question['question_text']); ?>
                                 </div>
                                 <?php if (($question['question_type'] ?? 'objective') === 'theory'): ?>
