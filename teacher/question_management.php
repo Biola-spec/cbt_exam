@@ -415,6 +415,7 @@ try {
                             
                             // Clean content from WPS or other rich text editors
                             $content = cleanWpsContent($content);
+                            $upload_passage = extractComprehensionPassageFromUpload($content);
                             
                             // Parse questions
                             $import_issues = [];
@@ -450,13 +451,22 @@ try {
                                 $detected_count = count($imported_questions) + count($import_issues);
                                 $user_id = getUserId();
                                 $failed_count = count($import_issues);
+                                $saved_display_numbers = [];
                                 $next_order_position = 1;
+                                $next_display_number = 1;
+                                $upload_passage_saved = false;
+                                $upload_passage_save_error = false;
                                 if (!$clear_existing) {
                                     $position_stmt = $mysqli->prepare("SELECT COALESCE(MAX(order_position), 0) + 1 AS next_position FROM questions WHERE exam_subject_id = ?");
                                     $position_stmt->bind_param('i', $exam_subject['exam_subject_id']);
                                     $position_stmt->execute();
                                     $next_order_position = (int)$position_stmt->get_result()->fetch_assoc()['next_position'];
                                     $position_stmt->close();
+                                    $count_stmt = $mysqli->prepare("SELECT COUNT(*) AS question_count FROM questions WHERE exam_subject_id = ?");
+                                    $count_stmt->bind_param('i', $exam_subject['exam_subject_id']);
+                                    $count_stmt->execute();
+                                    $next_display_number = (int)$count_stmt->get_result()->fetch_assoc()['question_count'] + 1;
+                                    $count_stmt->close();
                                 }
                                 
                                 // Define null variables to avoid pass by reference error
@@ -494,6 +504,7 @@ try {
                                         
                                         if ($stmt->execute()) {
                                             $imported_count++;
+                                            $saved_display_numbers[] = $next_display_number + $imported_count - 1;
                                         } else {
                                             error_log("Failed to execute statement for question " . ($index + 1) . ": " . $stmt->error);
                                             $failed_count++;
@@ -516,6 +527,24 @@ try {
                                     }
                                 }
 
+                                // Save a labeled passage that appears before the first
+                                // numbered question in the uploaded document.
+                                if ($upload_passage && $saved_display_numbers) {
+                                    try {
+                                        $passage_start = min($saved_display_numbers);
+                                        $passage_end = max($saved_display_numbers);
+                                        $passage_stmt = $mysqli->prepare("INSERT INTO comprehension_passages (exam_subject_id, passage_title, passage_content, start_question_number, end_question_number, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                                        if (!$passage_stmt) throw new Exception($mysqli->error);
+                                        $passage_stmt->bind_param('issiii', $exam_subject['exam_subject_id'], $upload_passage['title'], $upload_passage['content'], $passage_start, $passage_end, $user_id);
+                                        if (!$passage_stmt->execute()) throw new Exception($passage_stmt->error);
+                                        $passage_stmt->close();
+                                        $upload_passage_saved = true;
+                                    } catch (Throwable $e) {
+                                        error_log('Unable to save comprehension passage from upload: ' . $e->getMessage());
+                                        $upload_passage_save_error = true;
+                                    }
+                                }
+
                                 $import_report = [
                                     'type' => $import_type,
                                     'detected' => $detected_count,
@@ -531,6 +560,8 @@ try {
                                         $message = 'Cleared all existing questions. ' . $message;
                                     }
                                 }
+                                if ($upload_passage_saved) $message .= ' Comprehension passage imported and linked to these questions.';
+                                if ($upload_passage_save_error) $message .= ' The questions imported, but the comprehension passage could not be saved.';
                                 
                                 // Refresh questions list
                                 $stmt = $mysqli->prepare("SELECT id, exam_subject_id, question_text, question_type, option_a, option_b, option_c, option_d, option_e, option_f, correct_answer, theory_marks, marking_scheme, created_by, created_at 
@@ -608,6 +639,28 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') ==
 }
 
 // Function to parse questions from file content
+function extractComprehensionPassageFromUpload($content) {
+    if (!preg_match('/^[ \t]*(?:<[^>]+>)*\d+[ \t]*[\.)]/mu', $content, $questionMatch, PREG_OFFSET_CAPTURE)) {
+        return null;
+    }
+    $preamble = substr($content, 0, $questionMatch[0][1]);
+    $lines = preg_split('/\n/', $preamble);
+    $headingIndex = null;
+    $title = 'Comprehension Passage';
+    foreach ($lines as $index => $line) {
+        $plain = trim(preg_replace('/\s+/u', ' ', strip_tags($line)));
+        if (preg_match('/^(?:comprehension\s+)?passage(?:\s*[:\-]\s*(.*))?$/iu', $plain, $heading)) {
+            $headingIndex = $index;
+            if (!empty($heading[1])) $title = trim($heading[1]);
+            break;
+        }
+    }
+    if ($headingIndex === null) return null;
+    $passageContent = trim(implode("\n", array_slice($lines, $headingIndex + 1)));
+    if ($passageContent === '') return null;
+    return ['title' => $title, 'content' => $passageContent];
+}
+
 function parseQuestionsFromFile($content, $import_type = 'objective', &$issues = null) {
     $questions = [];
     if (!is_array($issues)) $issues = [];
@@ -2219,6 +2272,7 @@ C. Berlin
 D. Madrid
 ANSWER: B</pre>
                                         <div class="small text-muted mt-2">Four unlabelled choices on separate lines are also accepted. Extra spaces around question numbers, option labels, and answers are okay.</div>
+                                        <div class="small text-muted mt-2"><strong>Importing a passage:</strong> put a <code>Comprehension Passage: Title</code> heading and its text before Question 1. The passage will be linked to the questions in that upload.</div>
                                     </div>
                                 </div>
                             </div>
