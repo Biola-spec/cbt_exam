@@ -272,9 +272,12 @@ try {
     $stmt->bind_param("i", $exam_subject_id);
     $stmt->execute();
     $res = $stmt->get_result();
+    $original_question_number = 1;
     while ($row = $res->fetch_assoc()) {
-        // Use order_position + 1 as the original question number (since order_position is 0-indexed)
-        $row['original_number'] = (int)$row['order_position'] + 1;
+        // Passage ranges use the question numbers teachers see (starting at 1).
+        // order_position is already stored as a 1-based value for new questions,
+        // so adding one here shifted every passage range and hid the first question.
+        $row['original_number'] = $original_question_number++;
         $all_questions[] = $row;
     }
 
