@@ -48,5 +48,10 @@ if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fileName)) {
     respondImageUploadError('The image could not be saved.', 500);
 }
 
-// TinyMCE requires the uploaded image URL in the `location` response field.
-echo json_encode(['location' => '/cbt_exam/uploads/questions/' . $fileName]);
+// Build the URL from this endpoint's location so installations in a subfolder
+// and installations at the domain root both resolve the uploaded image.
+$scriptDirectory = str_replace('\\', '/', dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/teacher/upload_image.php')));
+$appBasePath = rtrim($scriptDirectory, '/');
+if ($appBasePath === '.' || $appBasePath === '/') $appBasePath = '';
+$imageUrl = $appBasePath . '/uploads/questions/' . rawurlencode($fileName);
+echo json_encode(['location' => $imageUrl]);

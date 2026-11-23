@@ -1,7 +1,6 @@
 <?php
 // Enhanced TinyMCE Initialization Script
 // Replaces the legacy CKEditor integration
-$base_url = '/cbt_exam'; 
 ?>
 <!-- Load TinyMCE from the cloud -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/5.10.7/tinymce.min.js"></script>

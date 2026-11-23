@@ -191,8 +191,12 @@ if (!file_exists($targetPath)) {
     jsonResponse(false, [], 'Failed to save image file');
 }
 
-// Return URL (relative to site root)
-$imageUrl = '/cbt_exam/uploads/' . $fileName;
+// Build the public URL from this endpoint's actual install path. This works
+// whether the application is served from /, /cbt_exam, or another subfolder.
+$scriptDirectory = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/upload_image.php'));
+$appBasePath = rtrim($scriptDirectory, '/');
+if ($appBasePath === '.' || $appBasePath === '/') $appBasePath = '';
+$imageUrl = $appBasePath . '/uploads/' . rawurlencode($fileName);
 
 // Return response based on request type
 if ($isCKEditorRequest) {
