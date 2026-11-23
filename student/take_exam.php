@@ -38,7 +38,7 @@ $current_passage = null; // Store the current passage for this question
 // Function to sanitize HTML content while allowing safe tags like images
 function sanitizeHtml($text) {
     // Allow only safe HTML tags (like img, p, br, strong, em, b, i, u)
-    $allowed_tags = '<p><br><strong><em><b><i><u><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6>';
+    $allowed_tags = '<p><br><strong><em><b><i><u><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6><svg><g><rect><ellipse><circle><line><polygon><polyline><path><text><tspan>';
     $text = strip_tags($text, $allowed_tags);
     
     // Additional security: Remove any javascript or on* attributes

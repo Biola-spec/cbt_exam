@@ -15,6 +15,15 @@ $questions = [];
 $exam_subject = null;
 $comprehension_passages = []; // Changed to array to store multiple passages
 
+// Import uses POST/Redirect/GET so refreshing the result page cannot submit
+// the uploaded file and insert the same questions again.
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_SESSION['question_import_flash'])) {
+    $flash = $_SESSION['question_import_flash'];
+    unset($_SESSION['question_import_flash']);
+    $message = $flash['message'] ?? '';
+    $import_report = $flash['report'] ?? null;
+}
+
 // Rich question text is sent in an encoded payload because some shared hosts'
 // ModSecurity rules reject legitimate HTML/editor markup in ordinary form
 // fields before this page can process it. Decode only the known editor fields.
@@ -592,6 +601,12 @@ try {
     $message = 'Error loading data: ' . $e->getMessage();
 }
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['action'] ?? '') === 'import') {
+    $_SESSION['question_import_flash'] = ['message' => $message, 'report' => $import_report];
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '#'));
+    exit();
+}
+
 // Function to parse questions from file content
 function parseQuestionsFromFile($content, $import_type = 'objective', &$issues = null) {
     $questions = [];
@@ -604,6 +619,18 @@ function parseQuestionsFromFile($content, $import_type = 'objective', &$issues =
     
     // Normalize line endings
     $content = str_replace(["\r\n", "\r"], "\n", $content);
+
+    // Word can place the question, image, choices, and answer in one paragraph.
+    // Split only explicit choice/answer markers, including labels joined directly
+    // to the preceding choice text (for example, "SolomonD. PrinceE. Ahmad").
+    $content = preg_replace_callback('/^(.*)$/mu', function ($match) {
+        $line = $match[1];
+        if (!preg_match('/^\s*\d+[\.)]/u', $line) && !preg_match('/\b(?:ANSWER|ANS)\b/i', $line)) {
+            return $line;
+        }
+        $line = preg_replace('/[ \t]*(?=(?:[A-F][ \t]*[\.)]|(?:ANSWER|ANS)[ \t]*[:.\-]))/iu', "\n", $line);
+        return $line;
+    }, $content);
 
     // Some Word documents store the question, choices, and answer in one
     // paragraph. Expand the common compact A-D + ANSWER layout before parsing.
@@ -1379,6 +1406,41 @@ function convertOMMLtoMathML($node) {
     return $mathml;
 }
 
+// Render common Office DrawingML shapes as self-contained SVG diagrams.
+function wordDrawingShapeToSvg($shape, $xpath) {
+    $presetNode = $xpath->query('.//a:prstGeom/@prst', $shape)->item(0);
+    $preset = $presetNode ? $presetNode->nodeValue : 'rect';
+    $extent = $xpath->query('ancestor::wp:inline/wp:extent | ancestor::wp:anchor/wp:extent', $shape)->item(0);
+    $width = $extent ? (int)round((int)$extent->getAttribute('cx') / 9525) : 240;
+    $height = $extent ? (int)round((int)$extent->getAttribute('cy') / 9525) : 120;
+    $width = max(20, min(1200, $width));
+    $height = max(20, min(800, $height));
+    $fillNode = $xpath->query('.//a:solidFill/a:srgbClr/@val', $shape)->item(0);
+    $lineNode = $xpath->query('.//a:ln/a:solidFill/a:srgbClr/@val', $shape)->item(0);
+    $fill = $fillNode ? '#' . preg_replace('/[^0-9A-Fa-f]/', '', $fillNode->nodeValue) : '#ffffff';
+    $stroke = $lineNode ? '#' . preg_replace('/[^0-9A-Fa-f]/', '', $lineNode->nodeValue) : '#222222';
+    $simple = ['rect', 'roundRect', 'ellipse', 'triangle', 'rtTriangle', 'diamond', 'parallelogram', 'hexagon', 'pentagon', 'line'];
+    if (!in_array($preset, $simple, true)) return '';
+    if ($preset === 'ellipse') {
+        $geometry = '<ellipse cx="' . (int)($width / 2) . '" cy="' . (int)($height / 2) . '" rx="' . max(1, (int)($width / 2 - 2)) . '" ry="' . max(1, (int)($height / 2 - 2)) . '" fill="' . $fill . '" stroke="' . $stroke . '" stroke-width="2"/>';
+    } elseif ($preset === 'line') {
+        $geometry = '<line x1="2" y1="2" x2="' . ($width - 2) . '" y2="' . ($height - 2) . '" stroke="' . $stroke . '" stroke-width="3"/>';
+    } elseif (in_array($preset, ['triangle', 'rtTriangle', 'diamond', 'parallelogram', 'hexagon', 'pentagon'], true)) {
+        $points = $preset === 'diamond' ? "$width," . ($height / 2) . ' ' . ($width / 2) . ",2 2," . ($height / 2) . ' ' . ($width / 2) . ',' . ($height - 2)
+            : ($preset === 'triangle' ? ($width / 2) . ',2 ' . ($width - 2) . ',' . ($height - 2) . ' 2,' . ($height - 2) : '2,2 ' . ($width - 2) . ',2 ' . ($width - 2) . ',' . ($height - 2) . ' 2,' . ($height - 2));
+        $geometry = '<polygon points="' . $points . '" fill="' . $fill . '" stroke="' . $stroke . '" stroke-width="2"/>';
+    } else {
+        $geometry = '<rect x="2" y="2" width="' . ($width - 4) . '" height="' . ($height - 4) . '"' . ($preset === 'roundRect' ? ' rx="10"' : '') . ' fill="' . $fill . '" stroke="' . $stroke . '" stroke-width="2"/>';
+    }
+    $label = '';
+    foreach ($xpath->query('.//a:t | .//w:t', $shape) as $textNode) $label .= $textNode->nodeValue;
+    if (trim($label) !== '') {
+        $label = htmlspecialchars($label, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $geometry .= '<text x="' . (int)($width / 2) . '" y="' . (int)($height / 2) . '" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-size="16" fill="#111111">' . $label . '</text>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height . '" viewBox="0 0 ' . $width . ' ' . $height . '" role="img" aria-label="Question diagram">' . $geometry . '</svg>';
+}
+
 // Function to extract text from Word documents with formatting preservation
 function extractTextFromWordDocument($file_path, $extension) {
     if ($extension === 'docx') {
@@ -1405,6 +1467,7 @@ function extractTextFromWordDocument($file_path, $extension) {
             $xpath->registerNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
             $xpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
             $xpath->registerNamespace('wp', 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing');
+            $xpath->registerNamespace('wps', 'http://schemas.microsoft.com/office/word/2010/wordprocessingShape');
             $xpath->registerNamespace('v', 'urn:schemas-microsoft-com:vml');
 
             // Load relationships to map image IDs to filenames
@@ -1493,6 +1556,10 @@ function extractTextFromWordDocument($file_path, $extension) {
                                         $p_text .= '<img src="../uploads/questions/' . $filename . '" class="img-fluid my-2 d-block" alt="Question Image">';
                                     }
                                 }
+                            }
+                        } else {
+                            foreach ($xpath->query('.//a:sp | .//wps:wsp', $r) as $shape) {
+                                $p_text .= wordDrawingShapeToSvg($shape, $xpath);
                             }
                         }
                         continue;
@@ -1709,7 +1776,7 @@ function fullyDecodeHtml($content) {
 function sanitizeHtml($text) {
     // Allow only safe HTML tags (like img, p, br, strong, em, b, i, u)
     // Added MathML tags support
-    $allowed_tags = '<p><br><strong><em><b><i><u><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6><table><thead><tbody><tfoot><tr><th><td><caption><math><mfrac><mi><mn><mo><msup><msub><mrow><msqrt><mroot><annotation><mstyle><merror><mpadded><mphantom><mfenced><menclose><mtext><munderover><munder><mover><msubsup><mmultiscripts><mtable><mtr><mtd>';
+    $allowed_tags = '<p><br><strong><em><b><i><u><img><span><div><ul><ol><li><h1><h2><h3><h4><h5><h6><table><thead><tbody><tfoot><tr><th><td><caption><math><mfrac><mi><mn><mo><msup><msub><mrow><msqrt><mroot><annotation><mstyle><merror><mpadded><mphantom><mfenced><menclose><mtext><munderover><munder><mover><msubsup><mmultiscripts><mtable><mtr><mtd><svg><g><rect><ellipse><circle><line><polygon><polyline><path><text><tspan>';
     $text = strip_tags($text, $allowed_tags);
     
     // Additional security: Remove any javascript or on* attributes
