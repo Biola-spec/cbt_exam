@@ -1407,7 +1407,7 @@ function convertOMMLtoMathML($node) {
 }
 
 // Render common Office DrawingML shapes as self-contained SVG diagrams.
-function wordDrawingShapeToSvg($shape, $xpath) {
+function wordDrawingShapeToSvg($shape, $xpath, $themeColors = []) {
     $presetNode = $xpath->query('.//a:prstGeom/@prst', $shape)->item(0);
     $preset = $presetNode ? $presetNode->nodeValue : 'rect';
     $extent = $xpath->query('ancestor::wp:inline/wp:extent | ancestor::wp:anchor/wp:extent', $shape)->item(0);
@@ -1415,10 +1415,8 @@ function wordDrawingShapeToSvg($shape, $xpath) {
     $height = $extent ? (int)round((int)$extent->getAttribute('cy') / 9525) : 120;
     $width = max(20, min(1200, $width));
     $height = max(20, min(800, $height));
-    $fillNode = $xpath->query('.//a:solidFill/a:srgbClr/@val', $shape)->item(0);
-    $lineNode = $xpath->query('.//a:ln/a:solidFill/a:srgbClr/@val', $shape)->item(0);
-    $fill = $fillNode ? '#' . preg_replace('/[^0-9A-Fa-f]/', '', $fillNode->nodeValue) : '#ffffff';
-    $stroke = $lineNode ? '#' . preg_replace('/[^0-9A-Fa-f]/', '', $lineNode->nodeValue) : '#222222';
+    $fill = wordDrawingColor($xpath, './/a:solidFill/*', $shape, $themeColors) ?: '#ffffff';
+    $stroke = wordDrawingColor($xpath, './/a:ln/a:solidFill/*', $shape, $themeColors) ?: '#222222';
     $simple = ['rect', 'roundRect', 'ellipse', 'triangle', 'rtTriangle', 'diamond', 'parallelogram', 'hexagon', 'pentagon', 'line'];
     if (!in_array($preset, $simple, true)) return '';
     if ($preset === 'ellipse') {
@@ -1441,6 +1439,34 @@ function wordDrawingShapeToSvg($shape, $xpath) {
     return '<svg xmlns="http://www.w3.org/2000/svg" width="' . $width . '" height="' . $height . '" viewBox="0 0 ' . $width . ' ' . $height . '" role="img" aria-label="Question diagram">' . $geometry . '</svg>';
 }
 
+function wordDrawingColor($xpath, $query, $shape, $themeColors) {
+    $colorNode = $xpath->query($query, $shape)->item(0);
+    if (!$colorNode) return null;
+    $value = $colorNode->getAttribute('val');
+    if ($colorNode->localName === 'schemeClr') {
+        $value = $themeColors[$value] ?? null;
+    } elseif ($colorNode->localName === 'sysClr') {
+        $value = $colorNode->getAttribute('lastClr') ?: $value;
+    }
+    $value = preg_replace('/[^0-9A-Fa-f]/', '', (string)$value);
+    return strlen($value) === 6 ? '#' . $value : null;
+}
+
+function wordThemeColorMap($zip) {
+    $themeXml = $zip->getFromName('word/theme/theme1.xml');
+    if (!$themeXml) return [];
+    $themeDom = new DOMDocument();
+    if (!@$themeDom->loadXML($themeXml)) return [];
+    $themeXpath = new DOMXPath($themeDom);
+    $themeXpath->registerNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+    $colors = [];
+    foreach ($themeXpath->query('//a:clrScheme/*') as $entry) {
+        $color = $themeXpath->query('./a:srgbClr/@val | ./a:sysClr/@lastClr', $entry)->item(0);
+        if ($color) $colors[$entry->localName] = $color->nodeValue;
+    }
+    return $colors;
+}
+
 // Function to extract text from Word documents with formatting preservation
 function extractTextFromWordDocument($file_path, $extension) {
     if ($extension === 'docx') {
@@ -1451,6 +1477,7 @@ function extractTextFromWordDocument($file_path, $extension) {
         
         $zip = new ZipArchive();
         if ($zip->open($file_path) === TRUE) {
+            $theme_colors = wordThemeColorMap($zip);
             $xml_content = $zip->getFromName('word/document.xml');
             
             if ($xml_content === false) {
@@ -1559,7 +1586,7 @@ function extractTextFromWordDocument($file_path, $extension) {
                             }
                         } else {
                             foreach ($xpath->query('.//a:sp | .//wps:wsp', $r) as $shape) {
-                                $p_text .= wordDrawingShapeToSvg($shape, $xpath);
+                                $p_text .= wordDrawingShapeToSvg($shape, $xpath, $theme_colors);
                             }
                         }
                         continue;
