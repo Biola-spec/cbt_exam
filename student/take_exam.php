@@ -817,6 +817,12 @@ if (!empty($questions)) {
         .question-card .card-body { padding: clamp(1rem, 3vw, 2rem) !important; }
         .question-card h5 { font-size: .95rem; font-weight: 750; }
         .question-text { color: #203754; font-size: 1.05rem; line-height: 1.7; }
+        .student-question-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); gap: clamp(1rem, 2vw, 1.75rem); align-items: start; }
+        .student-question-layout .question-text { min-width: 0; }
+        .student-question-layout .question-answer-panel { min-width: 0; }
+        .student-question-layout .question-text img,
+        .student-question-layout .question-text svg { float: left; display: block; max-width: min(48%, 320px); height: auto; margin: .15rem 1rem .65rem 0; }
+        .student-question-layout .question-text::after { content: ""; display: block; clear: both; }
         .option-container { margin-bottom: .7rem; }
         .option-label { position: relative; display: flex; align-items: center; gap: .8rem; padding: .75rem .9rem; border: 1px solid #dce5ef; border-radius: 12px; background: #fff; line-height: 1.5; }
         .option-label input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -851,6 +857,9 @@ if (!empty($questions)) {
             .exam-sidebar-card { position: static; }
             .exam-header .container, body > .container { padding-left: .8rem; padding-right: .8rem; }
             .question-text { font-size: .98rem; }
+            .student-question-layout { grid-template-columns: minmax(0, 1fr); }
+            .student-question-layout .question-text img,
+            .student-question-layout .question-text svg { max-width: min(46%, 240px); }
             .option-label { padding: .75rem; }
         }
     </style>
@@ -956,11 +965,12 @@ if (!empty($questions)) {
                                 <h5 class="text-primary">Question <?php echo $current_question_index + 1; ?></h5>
                             </div>
 
-                            <div class="question-text mb-4">
+                            <div class="student-question-layout">
+                            <div class="question-text">
                                 <?php echo fullyDecodeHtml($current_question['question_text']); ?>
                             </div>
 
-                            <form id="questionForm" method="POST">
+                            <form id="questionForm" class="question-answer-panel" method="POST">
                                 <input type="hidden" name="question_id" value="<?php echo $current_question['id']; ?>">
                                 
                                 <?php if (($current_question['question_type'] ?? 'objective') === 'theory'): ?>
@@ -1018,6 +1028,7 @@ if (!empty($questions)) {
                                 </div>
                                 <input type="hidden" name="submit_exam" id="finalSubmitInput" value="0">
                             </form>
+                            </div>
                         </div>
                     </div>
                     <?php endif; ?>
