@@ -854,6 +854,7 @@ if (!empty($questions)) {
         .question-nav-legend .legend-current { background: #174ea6; border-color: #174ea6; }
         .passage-card .card-header { background: #eaf4fb !important; color: #174e78 !important; padding: .85rem 1rem; }
         .passage-card .card-body { max-height: min(42vh, 360px) !important; overflow-y: auto; line-height: 1.7; }
+        .passage-card .card-body img, .passage-card .card-body svg { max-width: 100%; height: auto; }
         @media (max-width: 767.98px) {
             .exam-header { margin-bottom: .75rem; }
             .exam-header .text-end { text-align: left !important; margin-top: .5rem; }

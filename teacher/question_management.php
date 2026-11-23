@@ -1623,17 +1623,21 @@ function extractTextFromWordDocument($file_path, $extension) {
                         if ($blip) {
                             $rId = $blip->nodeValue;
                             if (isset($image_map[$rId])) {
-                                $image_path = 'word/' . $image_map[$rId];
+                                $image_path = resolveWordDocumentPartPath($image_map[$rId]);
                                 $image_data = $zip->getFromName($image_path);
                                 if ($image_data) {
                                     $ext = pathinfo($image_map[$rId], PATHINFO_EXTENSION);
                                     // Only support web-safe images
                                     if (in_array(strtolower($ext), ['png', 'jpg', 'jpeg', 'gif', 'svg'])) {
                                         $filename = 'img_' . uniqid() . '.' . $ext;
-                                        $upload_dir = '../uploads/questions/';
-                                        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-                                        file_put_contents($upload_dir . $filename, $image_data);
-                                        $p_text .= '<img src="../uploads/questions/' . $filename . '" class="img-fluid my-2 d-block" alt="Question Image">';
+                                        $upload_dir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'questions' . DIRECTORY_SEPARATOR;
+                                        if (!is_dir($upload_dir) && !mkdir($upload_dir, 0755, true) && !is_dir($upload_dir)) {
+                                            error_log('Could not create question image directory: ' . $upload_dir);
+                                        } elseif (file_put_contents($upload_dir . $filename, $image_data) !== false) {
+                                            $p_text .= '<img src="../uploads/questions/' . $filename . '" class="img-fluid my-2 d-block" alt="Question Image">';
+                                        } else {
+                                            error_log('Could not save embedded Word image: ' . $filename);
+                                        }
                                     }
                                 }
                             }
@@ -1814,6 +1818,21 @@ function extractTextFromWordDocument($file_path, $extension) {
     }
     
     return file_get_contents($file_path);
+}
+
+function resolveWordDocumentPartPath($target) {
+    $target = str_replace('\\', '/', (string)$target);
+    $parts = explode('/', (isset($target[0]) && $target[0] === '/') ? ltrim($target, '/') : 'word/' . $target);
+    $normalized = [];
+    foreach ($parts as $part) {
+        if ($part === '' || $part === '.') continue;
+        if ($part === '..') {
+            if ($normalized) array_pop($normalized);
+            continue;
+        }
+        $normalized[] = $part;
+    }
+    return implode('/', $normalized);
 }
 
 // Function to ensure content is in UTF-8 encoding
