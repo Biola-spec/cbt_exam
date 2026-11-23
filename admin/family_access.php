@@ -16,7 +16,10 @@ if ($familySchemaReady && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'create') {
             $label = trim($_POST['family_label'] ?? '');
             $next = (int)($db->query("SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(access_code,'-',-1) AS UNSIGNED)),0)+1 n FROM early_years_family_codes")->fetch_assoc()['n'] ?? 1);
-            $code = 'FAMAIIS-' . str_pad((string)$next, 6, '0', STR_PAD_LEFT);
+            $namePrefix = preg_replace('/\\s+FAMILY$/i', '', $label);
+            $namePrefix = strtoupper(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $namePrefix), '-'));
+            $namePrefix = substr($namePrefix, 0, 32);
+            $code = ($namePrefix !== '' ? $namePrefix . '-' : '') . 'FAMAIIS-FAMILY-' . str_pad((string)$next, 5, '0', STR_PAD_LEFT);
             $createdBy = (int)getUserId();
             $stmt = $db->prepare('INSERT INTO early_years_family_codes(access_code,family_label,created_by) VALUES(?,?,?)');
             $stmt->bind_param('ssi', $code, $label, $createdBy); $stmt->execute(); $stmt->close();
@@ -40,18 +43,61 @@ if ($familySchemaReady && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $insert->close(); $db->commit();
             } catch (Throwable $e) { $db->rollback(); throw $e; }
             $message = count($studentIds) . ' student' . (count($studentIds) === 1 ? ' linked' : 's linked') . ' to the family code.';
+        } elseif ($action === 'edit_family_code') {
+            $familyId = (int)($_POST['family_id'] ?? 0);
+            $label = trim($_POST['family_label'] ?? '');
+            $code = strtoupper(trim($_POST['access_code'] ?? ''));
+            if (!$familyId || $label === '') throw new RuntimeException('Enter a family name.');
+            if (!preg_match('/^(?:FAMAIIS(?:-EY)?-[0-9]+|[A-Z0-9]+(?:-[A-Z0-9]+)*-FAMAIIS-FAMILY-[0-9]+)$/', $code)) throw new RuntimeException('Enter a valid family code.');
+            $stmt = $db->prepare('UPDATE early_years_family_codes SET family_label=?,access_code=? WHERE id=?');
+            $stmt->bind_param('ssi', $label, $code, $familyId); $stmt->execute(); $stmt->close();
+            $message = 'Family code updated.';
+        } elseif ($action === 'delete_family_code') {
+            $familyId = (int)($_POST['family_id'] ?? 0);
+            if (!$familyId) throw new RuntimeException('Choose a valid family code.');
+            $stmt = $db->prepare('DELETE FROM early_years_family_codes WHERE id=?');
+            $stmt->bind_param('i', $familyId); $stmt->execute(); $deleted = $stmt->affected_rows; $stmt->close();
+            if (!$deleted) throw new RuntimeException('Family code not found.');
+            $message = 'Family code and its linked student access were deleted.';
         } elseif ($action === 'unlink') {
             $familyId = (int)($_POST['family_id'] ?? 0); $studentId = (int)($_POST['student_id'] ?? 0);
             $stmt = $db->prepare("DELETE FROM family_student_links WHERE family_id=? AND student_type='student' AND student_id=?");
             $stmt->bind_param('ii', $familyId, $studentId); $stmt->execute(); $stmt->close(); $message = 'Student unlinked.';
         }
-    } catch (Throwable $e) { $message = $e instanceof mysqli_sql_exception ? 'Could not save. Check that the all sections family access migration has been applied.' : $e->getMessage(); }
+    } catch (Throwable $e) { $message = $e instanceof mysqli_sql_exception ? ($e->getCode() === 1062 ? 'That family code is already in use.' : 'Could not save. Check that the all sections family access migration has been applied.') : $e->getMessage(); }
 }
 $families = $familySchemaReady ? $db->query('SELECT id,access_code,family_label FROM early_years_family_codes ORDER BY id DESC')->fetch_all(MYSQLI_ASSOC) : [];
 $classes = $familySchemaReady ? $db->query("SELECT DISTINCT c.id,c.name FROM classes c JOIN users u ON u.class_id=c.id AND u.role='student' ORDER BY c.name")->fetch_all(MYSQLI_ASSOC) : [];
 $students = $familySchemaReady ? $db->query("SELECT u.id,u.full_name,u.admission_number,u.class_id,c.name class_name FROM users u LEFT JOIN classes c ON c.id=u.class_id WHERE u.role='student' ORDER BY c.name,u.full_name")->fetch_all(MYSQLI_ASSOC) : [];
 $links = $familySchemaReady ? $db->query("SELECT fsl.family_id,fsl.student_id,fc.access_code,fc.family_label,u.full_name,u.admission_number,c.name class_name FROM family_student_links fsl JOIN early_years_family_codes fc ON fc.id=fsl.family_id JOIN users u ON u.id=fsl.student_id AND u.role='student' LEFT JOIN classes c ON c.id=u.class_id WHERE fsl.student_type='student' ORDER BY fc.id DESC,c.name,u.full_name")->fetch_all(MYSQLI_ASSOC) : [];
-$activeTab = ($_POST['action'] ?? $_GET['tab'] ?? '') === 'create' ? 'create' : ((in_array($_POST['action'] ?? $_GET['tab'] ?? '', ['link'], true) ? 'link' : 'linked'));
+$familyRegister = [];
+foreach ($families as $family) $familyRegister[(int)$family['id']] = $family + ['students' => []];
+if ($familySchemaReady) {
+    $registerRows = $db->query("SELECT fc.id family_id,fc.access_code,fc.family_label,fsl.student_id,fsl.student_type,u.full_name student_name,c.name class_name FROM early_years_family_codes fc LEFT JOIN family_student_links fsl ON fsl.family_id=fc.id AND fsl.student_type='student' LEFT JOIN users u ON u.id=fsl.student_id AND u.role='student' LEFT JOIN classes c ON c.id=u.class_id
+        UNION ALL
+        SELECT fc.id family_id,fc.access_code,fc.family_label,fsl.student_id,fsl.student_type,s.full_name student_name,c.name class_name FROM early_years_family_codes fc LEFT JOIN family_student_links fsl ON fsl.family_id=fc.id AND fsl.student_type='early_years' LEFT JOIN early_years_students s ON s.id=fsl.student_id LEFT JOIN early_years_classes c ON c.id=s.class_id
+        ORDER BY family_label,access_code,student_name")->fetch_all(MYSQLI_ASSOC);
+    foreach ($registerRows as $row) {
+        $familyId = (int)$row['family_id'];
+        if (!isset($familyRegister[$familyId])) $familyRegister[$familyId] = ['id' => $familyId, 'access_code' => $row['access_code'], 'family_label' => $row['family_label'], 'students' => []];
+        if ($row['student_name'] !== null) $familyRegister[$familyId]['students'][] = ['id' => (int)$row['student_id'], 'type' => $row['student_type'] ?? '', 'name' => $row['student_name'], 'class' => $row['class_name']];
+    }
+}
+$schoolName = getSchoolName();
+$schoolLogo = getSchoolLogo();
+$schoolLogoSrc = '';
+if ($schoolLogo) {
+    $logoPath = str_replace('\\', '/', trim($schoolLogo));
+    if (preg_match('~^(?:https?:)?//|^data:~i', $logoPath)) {
+        $schoolLogoSrc = $logoPath;
+    } else {
+        while (strpos($logoPath, '../') === 0) $logoPath = substr($logoPath, 3);
+        $logoFile = __DIR__ . '/../' . ltrim($logoPath, '/');
+        if (is_file($logoFile)) $schoolLogoSrc = (strpos($logoPath, '/') === 0 ? '' : '../') . ltrim($logoPath, '/');
+    }
+}
+$tabRequest = $_POST['action'] ?? $_GET['tab'] ?? '';
+$activeTab = in_array($tabRequest, ['edit_family_code','delete_family_code','register'], true) ? 'register' : ($tabRequest === 'create' ? 'create' : ($tabRequest === 'link' ? 'link' : 'linked'));
 include '../includes/header.php';
 ?>
 <main class="container py-4">
@@ -71,15 +117,18 @@ include '../includes/header.php';
 @keyframes familyPanelIn{from{opacity:.55;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:600px){.family-tabs{gap:.15rem}.family-tabs .nav-link{flex-direction:column;justify-content:center;gap:.3rem;padding:.65rem .25rem;font-size:.76rem}.family-tabs .nav-link i{width:32px;height:32px}}
 @media(prefers-reduced-motion:reduce){.family-panel,.family-tabs .nav-link{animation:none;transition:none}}
+.family-register-head{display:flex;align-items:center;justify-content:center;gap:1rem;text-align:center;padding:1rem 0 1.25rem;border-bottom:2px solid #24364d;margin-bottom:1rem}.family-register-head img{width:76px;height:76px;object-fit:contain}.family-register-head h2{font-size:1.35rem;font-weight:800;margin:0}.family-register-head p{margin:.25rem 0 0;color:#58677c}.family-register-table{font-size:.9rem}.family-register-table th{background:#edf2f8!important;color:#26384e!important}.family-register-code{font-family:monospace;overflow-wrap:anywhere}.family-register-students{margin:0;padding-left:1.1rem}.family-register-students li+li{margin-top:.2rem}
+@media print{@page{size:A4 portrait;margin:12mm}body *{visibility:hidden!important}.family-tabs,.family-register-toolbar,.family-panel:not(#family-register-panel){display:none!important}#family-register-panel,#family-register-panel *{visibility:visible!important}#family-register-panel{display:block!important;position:absolute;inset:0;width:100%;margin:0!important;padding:0!important;opacity:1!important;visibility:visible!important}.family-register-head{padding:.2rem 0 .65rem;margin-bottom:.65rem}.family-register-head img{width:62px;height:62px}.family-register-head h2{font-size:16pt}.family-register-table{font-size:9pt}.family-register-table th,.family-register-table td{padding:5px!important}.family-register-table tr{break-inside:avoid}.family-register-table thead{display:table-header-group}.family-register-table th:last-child,.family-register-table td:last-child{display:none}}
 </style>
 <ul class="nav nav-pills nav-fill family-tabs" role="tablist" aria-label="Family code management">
  <li class="nav-item" role="presentation"><button class="nav-link <?=$activeTab==='create'?'active':''?>" id="create-family-tab" data-bs-toggle="tab" data-bs-target="#create-family-panel" type="button" role="tab" aria-controls="create-family-panel" aria-selected="<?=$activeTab==='create'?'true':'false'?>"><i class="fas fa-key"></i><span>Create family code</span></button></li>
  <li class="nav-item" role="presentation"><button class="nav-link <?=$activeTab==='link'?'active':''?>" id="link-students-tab" data-bs-toggle="tab" data-bs-target="#link-students-panel" type="button" role="tab" aria-controls="link-students-panel" aria-selected="<?=$activeTab==='link'?'true':'false'?>"><i class="fas fa-user-group"></i><span>Link students</span></button></li>
  <li class="nav-item" role="presentation"><button class="nav-link <?=$activeTab==='linked'?'active':''?>" id="linked-students-tab" data-bs-toggle="tab" data-bs-target="#linked-students-panel" type="button" role="tab" aria-controls="linked-students-panel" aria-selected="<?=$activeTab==='linked'?'true':'false'?>"><i class="fas fa-list-check"></i><span>Linked students</span></button></li>
+ <li class="nav-item" role="presentation"><button class="nav-link <?=$activeTab==='register'?'active':''?>" id="family-register-tab" data-bs-toggle="tab" data-bs-target="#family-register-panel" type="button" role="tab" aria-controls="family-register-panel" aria-selected="<?=$activeTab==='register'?'true':'false'?>"><i class="fas fa-print"></i><span>Family code register</span></button></li>
 </ul>
 <div class="tab-content">
  <section class="tab-pane fade <?=$activeTab==='create'?'show active':''?> family-panel" id="create-family-panel" role="tabpanel" aria-labelledby="create-family-tab" tabindex="0">
-  <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-key"></i><div><h2>Create family code</h2><p>Generate one access code that can be shared by the whole family.</p></div></div><form method="post" class="row g-3 align-items-end"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="create"><div class="col-md-7"><label class="form-label" for="family_label">Family label (optional)</label><input id="family_label" name="family_label" class="form-control" placeholder="e.g. Adewale family"></div><div class="col-md-3"><button class="btn btn-primary px-4"><i class="fas fa-wand-magic-sparkles me-1"></i>Generate code</button></div></form></div>
+  <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-key"></i><div><h2>Create family code</h2><p>Generate a family code using the family name as its prefix.</p></div></div><form method="post" class="row g-3 align-items-end"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="create"><div class="col-md-7"><label class="form-label" for="family_label">Family label (optional)</label><input id="family_label" name="family_label" class="form-control" placeholder="e.g. Muhammad Family"></div><div class="col-md-3"><button class="btn btn-primary px-4"><i class="fas fa-wand-magic-sparkles me-1"></i>Generate code</button></div></form></div>
  </section>
  <section class="tab-pane fade <?=$activeTab==='link'?'show active':''?> family-panel" id="link-students-panel" role="tabpanel" aria-labelledby="link-students-tab" tabindex="0">
   <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-user-group"></i><div><h2>Link students</h2><p>Check the classes, then tick each student to link. The selection count updates as you go.</p></div></div>
@@ -91,7 +140,12 @@ include '../includes/header.php';
   </div></form></div>
  </section>
  <section class="tab-pane fade <?=$activeTab==='linked'?'show active':''?> family-panel" id="linked-students-panel" role="tabpanel" aria-labelledby="linked-students-tab" tabindex="0">
-  <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-list-check"></i><div><h2>Linked students</h2><p>Review family access and remove a student link when needed.</p></div></div><div class="table-responsive"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Family</th><th>Code</th><th>Student</th><th>Class</th><th></th></tr></thead><tbody><?php foreach($links as $link): ?><tr><td><?=htmlspecialchars($link['family_label'] ?: 'Family')?></td><td><code><?=htmlspecialchars($link['access_code'])?></code></td><td><?=htmlspecialchars($link['full_name'])?></td><td><?=htmlspecialchars($link['class_name'] ?: 'No class assigned')?></td><td><form method="post"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="unlink"><input type="hidden" name="family_id" value="<?=$link['family_id']?>"><input type="hidden" name="student_id" value="<?=$link['student_id']?>"><button class="btn btn-sm btn-outline-danger"><i class="fas fa-link-slash me-1"></i>Unlink</button></form></td></tr><?php endforeach; ?><?php if (!$links): ?><tr><td colspan="5" class="text-muted text-center py-4">No regular students linked yet.</td></tr><?php endif; ?></tbody></table></div></div>
+  <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-list-check"></i><div><h2>Linked students</h2><p>Review family access and remove a student link when needed.</p></div></div><div class="table-responsive"><table class="table table-hover align-middle"><thead class="table-light"><tr><th>Family</th><th>Student</th><th>Class</th><th></th></tr></thead><tbody><?php foreach($links as $link): ?><tr><td><?=htmlspecialchars($link['family_label'] ?: 'Family')?></td><td><?=htmlspecialchars($link['full_name'])?></td><td><?=htmlspecialchars($link['class_name'] ?: 'No class assigned')?></td><td><form method="post"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="unlink"><input type="hidden" name="family_id" value="<?=$link['family_id']?>"><input type="hidden" name="student_id" value="<?=$link['student_id']?>"><button class="btn btn-sm btn-outline-danger"><i class="fas fa-link-slash me-1"></i>Unlink</button></form></td></tr><?php endforeach; ?><?php if (!$links): ?><tr><td colspan="4" class="text-muted text-center py-4">No regular students linked yet.</td></tr><?php endif; ?></tbody></table></div></div>
+ </section>
+ <section class="tab-pane fade <?=$activeTab==='register'?'show active':''?> family-panel" id="family-register-panel" role="tabpanel" aria-labelledby="family-register-tab" tabindex="0">
+  <div class="family-register-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div><h2 class="h5 mb-1">Family code register</h2><p class="text-muted mb-0">All family codes and their linked students.</p></div><button type="button" class="btn btn-primary" onclick="window.print()"><i class="fas fa-print me-1"></i>Print A4 register</button></div>
+  <div class="family-register-head"><?php if($schoolLogoSrc): ?><img src="<?=htmlspecialchars($schoolLogoSrc,ENT_QUOTES)?>" alt="School logo"><?php endif; ?><div><h2><?=htmlspecialchars($schoolName)?></h2><p>Family Access Code Register</p></div></div>
+  <div class="table-responsive"><table class="table table-bordered align-middle family-register-table"><thead><tr><th style="width:5%">#</th><th style="width:19%">Family</th><th style="width:25%">Access code</th><th>Linked students</th><th style="width:12%">Actions</th></tr></thead><tbody><?php $registerIndex=0; foreach($familyRegister as $family): $registerIndex++; ?><tr><td><?=$registerIndex?></td><td><?=htmlspecialchars($family['family_label'] ?: 'Family')?></td><td><a class="family-register-code" href="family_code_print.php?family_id=<?=$family['id']?>" target="_blank" rel="noopener"><code><?=htmlspecialchars($family['access_code'])?></code></a></td><td><?php if($family['students']): ?><ul class="family-register-students"><?php foreach($family['students'] as $student): ?><li><?=htmlspecialchars($student['name'])?><?=!empty($student['class'])?' - '.htmlspecialchars($student['class']):''?></li><?php endforeach; ?></ul><?php else: ?><span class="text-muted">No students linked</span><?php endif; ?></td><td><details><summary class="btn btn-sm btn-outline-primary">Edit</summary><form method="post" class="mt-2 text-start"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="edit_family_code"><input type="hidden" name="family_id" value="<?=$family['id']?>"><label class="form-label small">Family name</label><input class="form-control form-control-sm mb-2" name="family_label" value="<?=htmlspecialchars($family['family_label'] ?? '')?>" required><label class="form-label small">Family code</label><input class="form-control form-control-sm mb-2" name="access_code" value="<?=htmlspecialchars($family['access_code'])?>" required><button class="btn btn-sm btn-primary">Save</button></form></details><form method="post" class="mt-1" onsubmit="return confirm('Delete this family code and unlink all attached students?');"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="delete_family_code"><input type="hidden" name="family_id" value="<?=$family['id']?>"><button class="btn btn-sm btn-outline-danger">Delete</button></form></td></tr><?php endforeach; ?><?php if(!$familyRegister): ?><tr><td colspan="5" class="text-center text-muted">No family codes have been created.</td></tr><?php endif; ?></tbody></table></div>
  </section>
 </div>
 <script>

@@ -116,7 +116,7 @@ DEALLOCATE PREPARE ey_head_user_fk_stmt;
 -- Early Years family-code login and multiple teachers per class.
 CREATE TABLE IF NOT EXISTS early_years_family_codes (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    access_code VARCHAR(24) NOT NULL UNIQUE,
+    access_code VARCHAR(64) NOT NULL UNIQUE,
     family_label VARCHAR(120) NULL,
     created_by INT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -2,6 +2,10 @@
 /** Ensure shared family links exist and carry forward existing Early Years links. */
 function familyAccessEnsureSchema(mysqli $db): bool {
     try {
+        $column = $db->query("SELECT CHARACTER_MAXIMUM_LENGTH max_length FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='early_years_family_codes' AND COLUMN_NAME='access_code'")->fetch_assoc();
+        if ($column && (int)$column['max_length'] < 64) {
+            $db->query('ALTER TABLE early_years_family_codes MODIFY access_code VARCHAR(64) NOT NULL');
+        }
         $db->query("CREATE TABLE IF NOT EXISTS family_student_links (
             family_id INT NOT NULL,
             student_type ENUM('early_years','student') NOT NULL,
