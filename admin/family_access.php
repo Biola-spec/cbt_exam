@@ -8,22 +8,17 @@ if (getUserRole() !== 'admin') { header('Location: ../login.php'); exit; }
 $db = getDBConnection();
 $message = '';
 $familySchemaReady = $db && familyAccessEnsureSchema($db);
+$mergedFamilyCodes = $familySchemaReady ? familyAccessMergeDuplicateLabels($db) : 0;
 if (!$familySchemaReady) $message = 'Could not set up family access. Apply database/family_access_all_sections.sql or grant the database user permission to create tables.';
+elseif ($mergedFamilyCodes) $message = $mergedFamilyCodes . ' duplicate family code' . ($mergedFamilyCodes === 1 ? ' was' : 's were') . ' merged; all student links were preserved.';
 if ($familySchemaReady && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!termResultsVerifyCsrf($_POST['csrf_token'] ?? '')) $message = 'Session expired. Refresh and try again.';
     else try {
         $action = $_POST['action'] ?? '';
         if ($action === 'create') {
             $label = trim($_POST['family_label'] ?? '');
-            $next = (int)($db->query("SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(access_code,'-',-1) AS UNSIGNED)),0)+1 n FROM early_years_family_codes")->fetch_assoc()['n'] ?? 1);
-            $namePrefix = preg_replace('/\\s+FAMILY$/i', '', $label);
-            $namePrefix = strtoupper(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $namePrefix), '-'));
-            $namePrefix = substr($namePrefix, 0, 32);
-            $code = ($namePrefix !== '' ? $namePrefix . '-' : '') . 'FAMAIIS-FAMILY-' . str_pad((string)$next, 5, '0', STR_PAD_LEFT);
-            $createdBy = (int)getUserId();
-            $stmt = $db->prepare('INSERT INTO early_years_family_codes(access_code,family_label,created_by) VALUES(?,?,?)');
-            $stmt->bind_param('ssi', $code, $label, $createdBy); $stmt->execute(); $stmt->close();
-            $message = 'Family code created: ' . $code;
+            $result = familyAccessCreateOrReuseCode($db, $label, (int)getUserId());
+            $message = $result['created'] ? 'Family code created: ' . $result['code'] : 'This family already had a code. The existing code was reused: ' . $result['code'];
         } elseif ($action === 'link') {
             $familyId = (int)($_POST['family_id'] ?? 0);
             $classIds = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['class_ids'] ?? [])))));
@@ -48,6 +43,7 @@ if ($familySchemaReady && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $label = trim($_POST['family_label'] ?? '');
             $code = strtoupper(trim($_POST['access_code'] ?? ''));
             if (!$familyId || $label === '') throw new RuntimeException('Enter a family name.');
+            if (familyAccessFindCodeByLabel($db, $label, $familyId)) throw new RuntimeException('Another family code already uses this family name. Merge or rename that family first.');
             if (!preg_match('/^(?:FAMAIIS(?:-EY)?-[0-9]+|[A-Z0-9]+(?:-[A-Z0-9]+)*-FAMAIIS-FAMILY-[0-9]+)$/', $code)) throw new RuntimeException('Enter a valid family code.');
             $stmt = $db->prepare('UPDATE early_years_family_codes SET family_label=?,access_code=? WHERE id=?');
             $stmt->bind_param('ssi', $label, $code, $familyId); $stmt->execute(); $stmt->close();
@@ -131,7 +127,7 @@ include '../includes/header.php';
 </ul>
 <div class="tab-content">
  <section class="tab-pane fade <?=$activeTab==='create'?'show active':''?> family-panel" id="create-family-panel" role="tabpanel" aria-labelledby="create-family-tab" tabindex="0">
-  <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-key"></i><div><h2>Create family code</h2><p>Generate a family code using the family name as its prefix.</p></div></div><form method="post" class="row g-3 align-items-end"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="create"><div class="col-md-7"><label class="form-label" for="family_label">Family label (optional)</label><input id="family_label" name="family_label" class="form-control" placeholder="e.g. Muhammad Family"></div><div class="col-md-3"><button class="btn btn-primary px-4"><i class="fas fa-wand-magic-sparkles me-1"></i>Generate code</button></div></form></div>
+  <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-key"></i><div><h2>Create family code</h2><p>Generate a family code using the family name as its prefix.</p></div></div><form method="post" class="row g-3 align-items-end"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="create"><div class="col-md-7"><label class="form-label" for="family_label">Family label (required)</label><input id="family_label" name="family_label" class="form-control" placeholder="e.g. Muhammad Family" required></div><div class="col-md-3"><button class="btn btn-primary px-4"><i class="fas fa-wand-magic-sparkles me-1"></i>Generate code</button></div></form></div>
  </section>
  <section class="tab-pane fade <?=$activeTab==='link'?'show active':''?> family-panel" id="link-students-panel" role="tabpanel" aria-labelledby="link-students-tab" tabindex="0">
   <div class="card card-body family-panel-card"><div class="family-panel-title"><i class="fas fa-user-group"></i><div><h2>Link students</h2><p>Check the classes, then tick each student to link. The selection count updates as you go.</p></div></div>
