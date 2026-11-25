@@ -97,6 +97,13 @@
                                 <a class="nav-link" href="<?php echo $base_url; ?>student/dashboard.php">Student Dashboard</a>
                             </li>
                         <?php endif; ?>
+                        <?php if (($_SESSION['role'] ?? null) === 'admin_teacher'): ?>
+                            <li class="nav-item">
+                                <a class="nav-link" href="<?php echo $base_url; ?>portal_switch.php?portal=<?php echo getUserRole() === 'admin' ? 'teacher' : 'admin'; ?>">
+                                    Switch to <?php echo getUserRole() === 'admin' ? 'Teacher' : 'Admin'; ?> Portal
+                                </a>
+                            </li>
+                        <?php endif; ?>
                         
                         <li class="nav-item d-lg-none">
                             <span class="nav-link text-light border-bottom pb-2 mb-2 d-flex align-items-center gap-2">

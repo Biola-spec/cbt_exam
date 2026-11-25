@@ -189,13 +189,13 @@ try {
             </div>
         </div>
 
-        <?php if ($has_allocations): ?>
+        <?php if ($has_allocations || (($_SESSION['role'] ?? null) === 'admin_teacher')): ?>
             <div class="card mt-4">
                 <div class="card-body text-center">
-                    <h6 class="fw-bold mb-1">Teaching Duties</h6>
-                    <p class="small text-muted mb-3">You have active class allocations</p>
-                    <a href="../teacher/dashboard.php" class="btn btn-primary btn-sm w-100">
-                        Open Teacher Portal
+                    <h6 class="fw-bold mb-1"><?php echo (($_SESSION['role'] ?? null) === 'admin_teacher') ? 'Teacher Portal' : 'Teaching Duties'; ?></h6>
+                    <p class="small text-muted mb-3"><?php echo (($_SESSION['role'] ?? null) === 'admin_teacher') ? 'Open your teacher workspace' : 'You have active class allocations'; ?></p>
+                    <a href="<?php echo (($_SESSION['role'] ?? null) === 'admin_teacher') ? '../portal_switch.php?portal=teacher' : '../teacher/dashboard.php'; ?>" class="btn btn-primary btn-sm w-100">
+                        <?php echo (($_SESSION['role'] ?? null) === 'admin_teacher') ? 'Switch to Teacher Portal' : 'Open Teacher Portal'; ?>
                     </a>
                 </div>
             </div>

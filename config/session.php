@@ -86,9 +86,12 @@ function isLoggedIn() {
 
 // Get current user role
 function getUserRole() {
-    // Combined staff accounts inherit administrator scope; admin accounts are
-    // already permitted through the teacher tools and teacher assignment flows.
-    return ($_SESSION['role'] ?? null) === 'admin_teacher' ? 'admin' : ($_SESSION['role'] ?? null);
+    $role = $_SESSION['role'] ?? null;
+    if ($role === 'admin_teacher') {
+        $portal = $_SESSION['active_portal'] ?? 'admin';
+        return in_array($portal, ['admin', 'teacher'], true) ? $portal : 'admin';
+    }
+    return $role;
 }
 
 // Get current user name
