@@ -1,6 +1,13 @@
 <?php
 // Start session only if not already started
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    // Use an app-specific cookie so another PHP app on the same host (common
+    // with localhost installations) cannot replace this exam session.
+    session_name('CBTEXAMSESSID');
+    // Subject-code exam access is valid for eight hours; keep PHP's session
+    // storage alive for at least the same period so the session isn't
+    // collected while that access window is still active.
+    ini_set('session.gc_maxlifetime', '28800');
     session_start();
 }
 
