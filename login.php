@@ -42,6 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif ($subject_code !== '') {
             $user = authenticateStudentWithSubjectCode($email, $subject_code);
             if ($user) {
+                // A shared browser may still contain the previous student's
+                // completed-exam markers. Start a clean identity session.
+                $_SESSION = [];
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = (int)$user['id'];
                 $_SESSION['email'] = $user['email'];
@@ -58,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif ($password !== '') {
             $user = authenticateStudentWithPassword($email, $password);
             if ($user) {
+                $_SESSION = [];
                 session_regenerate_id(true);
-                unset($_SESSION['public_exam_access'], $_SESSION['public_exam_access_expires_at'], $_SESSION['subject_code']);
                 $_SESSION['user_id'] = (int)$user['id'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['full_name'] = $user['full_name'];
@@ -83,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if ($user && in_array($user['role'], ['admin', 'teacher', 'admin_teacher'], true)) {
                 // Set session variables
+                $_SESSION = [];
                 session_regenerate_id(true);
-                unset($_SESSION['public_exam_access'], $_SESSION['public_exam_access_expires_at'], $_SESSION['subject_code']);
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['full_name'] = $user['full_name'];
