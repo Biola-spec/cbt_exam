@@ -39,11 +39,13 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
 .results-brand .school-contact{font-size:.82rem;line-height:1.35;color:#526273;margin-top:.35rem}
 .results-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.5rem 1.25rem;margin:1rem 0 1.25rem}
 .results-meta div{border-bottom:1px solid #dce1e6;padding:.45rem 0}.results-meta strong{display:block;color:#526273;font-size:.76rem;text-transform:uppercase;letter-spacing:.04em}
+.student-email{font-size:16px}
+.student-name{font-size:28px;font-weight:700;line-height:1.2}
 .results-table{width:100%;border-collapse:collapse}.results-table th,.results-table td{border:1px solid #aeb8c2;padding:.55rem .6rem}.results-table thead th{background:#eaf0f6;color:#203b5b}.results-table td.numeric{text-align:right;font-variant-numeric:tabular-nums}
 .results-summary{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;padding:1rem;margin-top:1rem;background:#f4f7fa;border:1px solid #dce1e6}
 .results-actions{display:flex;gap:.5rem;justify-content:flex-end;max-width:980px;margin:1.5rem auto 0}.status-pending{font-weight:600}
 @page{size:A4 portrait;margin:14mm}
-@media print{body{background:#fff!important}.results-paper{max-width:none;margin:0;padding:0;border:0}.results-actions,.dashboard-header,.container>.row>.col-md-3,header,nav,footer{display:none!important}.container,.container-fluid{max-width:none!important;width:100%!important;padding:0!important}.results-brand,.results-meta,.results-summary{break-inside:avoid}.results-table{font-size:10pt}.results-table thead{display:table-header-group}.results-table tr{break-inside:avoid}.results-table th,.results-table td{padding:5px}.card,.card-body{border:0!important;box-shadow:none!important;padding:0!important}}
+@media print{body{background:#fff!important}.results-paper{max-width:none;margin:0;padding:0;border:0}.results-actions,.dashboard-header,.container>.row>.col-md-3,header,nav,footer{display:none!important}.container,.container-fluid{max-width:none!important;width:100%!important;padding:0!important}.results-brand,.results-meta,.results-summary{break-inside:avoid}.student-name{font-size:22pt!important}.results-table{font-size:10pt}.results-table thead{display:table-header-group}.results-table tr{break-inside:avoid}.results-table th,.results-table td{padding:5px}.card,.card-body{border:0!important;box-shadow:none!important;padding:0!important}}
 @media(max-width:650px){.results-paper{margin:1rem .25rem;padding:1rem}.results-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.results-actions{margin:.75rem .25rem;justify-content:flex-start}}
 </style>
  </head>
@@ -65,7 +67,8 @@ $logoUrl = $logoPath !== '' ? '../' . ltrim(preg_replace('#^\.\./#', '', $logoPa
         </div><?php endif; ?>
     </div>
     <section class="results-meta" aria-label="Student and examination details">
-        <div><strong>Student Name</strong><?php echo htmlspecialchars($exam['full_name']); ?></div>
+        <div class="student-name"><strong>Student Name</strong><?php echo htmlspecialchars($exam['full_name']); ?></div>
+        <div class="student-email"><strong>Email</strong><?php echo htmlspecialchars($exam['email']); ?></div>
         <div><strong>Admission Number</strong><?php echo htmlspecialchars($exam['admission_number'] ?: 'Not recorded'); ?></div>
         <div><strong>Class</strong><?php echo htmlspecialchars($exam['class_name']); ?></div>
         <div><strong>Examination</strong><?php echo htmlspecialchars($exam['title']); ?></div>

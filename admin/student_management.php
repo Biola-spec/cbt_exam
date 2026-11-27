@@ -640,6 +640,7 @@ try {
             #student-directory-print .card-header { min-height: 7mm; padding: 1mm 0 !important; }
             #student-directory-print .card-body { padding: 0 !important; }
             #student-directory-print table { table-layout: fixed !important; width: 100% !important; font-size: 7pt !important; }
+            #student-directory-print td.student-email { font-size: 16px !important; line-height: 1.2 !important; }
             #student-directory-print col.no-print { display: none !important; }
             #student-directory-print th, #student-directory-print td { padding: 1px 2px !important; line-height: 1.1 !important; vertical-align: middle !important; overflow-wrap: anywhere !important; }
             #student-directory-print tbody tr { height: 17mm !important; break-inside: avoid !important; page-break-inside: avoid !important; }
@@ -710,7 +711,7 @@ try {
                                         </td>
                                         <td><strong><?php echo htmlspecialchars($s['full_name']); ?></strong></td>
                                         <td><?php echo htmlspecialchars($s['admission_number'] ?? ''); ?></td>
-                                        <td><?php echo htmlspecialchars($s['email']); ?></td>
+                                        <td class="student-email"><?php echo htmlspecialchars($s['email']); ?></td>
                                         <td><?php echo htmlspecialchars($s['class_name'] ?? 'Unassigned'); ?></td>
                                         <td class="text-center no-print">
                                             <button type="button" class="btn btn-sm btn-info text-white" 

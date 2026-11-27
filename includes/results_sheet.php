@@ -44,7 +44,7 @@ function resultSheetExamList(mysqli $mysqli, int $studentId): array {
 function resultSheetLoad(mysqli $mysqli, int $studentId, int $examId): ?array {
     // Resolve the exam through a published subject in the student's current class
     // and an actual submitted attempt. This prevents URL-only access to arbitrary exams.
-    $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, u.full_name, u.admission_number,
+    $stmt = $mysqli->prepare("SELECT e.id, e.title, e.academic_session, u.full_name, u.email, u.admission_number,
                 c.id AS class_id, c.name AS class_name, sc.school_name, sc.school_address, sc.school_phone
             FROM exams e
             JOIN exam_subjects access_es ON access_es.exam_id = e.id
