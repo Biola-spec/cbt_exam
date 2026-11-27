@@ -51,6 +51,31 @@ function eyAssignTeachers(mysqli $db, int $classId, array $teacherIds): void {
     $stmt->close();
 }
 
+function eyEnsureUniquePupilNames(mysqli $db, int $classId, array $names, array $excludeIds = []): void {
+    $excluded = array_fill_keys(array_map('intval', $excludeIds), true);
+    $existing = [];
+    $stmt = $db->prepare('SELECT id, full_name FROM early_years_students WHERE class_id=?');
+    $stmt->bind_param('i', $classId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        if (!isset($excluded[(int)$row['id']])) {
+            $normalized = strtolower((string)preg_replace('/\s+/u', ' ', trim($row['full_name'])));
+            $existing[$normalized] = true;
+        }
+    }
+    $stmt->close();
+
+    $submitted = [];
+    foreach ($names as $name) {
+        $normalized = strtolower((string)preg_replace('/\s+/u', ' ', trim((string)$name)));
+        if (isset($existing[$normalized]) || isset($submitted[$normalized])) {
+            throw new RuntimeException('A pupil with the name “' . trim((string)$name) . '” already exists in this class. Add a distinguishing name or correct the existing record.');
+        }
+        $submitted[$normalized] = true;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!termResultsVerifyCsrf($_POST['csrf_token'] ?? '')) $message = 'Session expired. Refresh and try again.';
     else try {
@@ -110,6 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $rows[]=[$i,$name,$admission,$dob,$gender];
             }
             if (!$rows) throw new RuntimeException('Enter at least one pupil name.');
+            eyEnsureUniquePupilNames($db, $classId, array_column($rows, 1));
             $db->begin_transaction();
             try {
                 $insert=$db->prepare('INSERT INTO early_years_students(class_id,full_name,admission_number,date_of_birth,gender,passport_path) VALUES(?,?,?,?,?,?)');
@@ -147,6 +173,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $classId=(int)($_POST['class_id']??0); $ids=$_POST['student_ids']??[]; $names=$_POST['full_names']??[]; $admissions=$_POST['admission_numbers']??[]; $dates=$_POST['date_of_births']??[]; $genders=$_POST['genders']??[]; $familyIds=$_POST['family_ids']??[];
             if(!$classId || !is_array($ids) || !$ids) throw new RuntimeException('Choose a class with pupils to edit.');
             $valid=[]; $check=$db->prepare('SELECT id FROM early_years_students WHERE class_id=?'); $check->bind_param('i',$classId); $check->execute(); $checkResult=$check->get_result(); while($row=$checkResult->fetch_assoc())$valid[(int)$row['id']]=true; $check->close();
+            if (count($names) !== count($ids)) throw new RuntimeException('Refresh the page and try saving the class again.');
+            eyEnsureUniquePupilNames($db, $classId, array_map('trim', $names), array_map('intval', $ids));
             $db->begin_transaction();
             try {
                 $update=$db->prepare('UPDATE early_years_students SET full_name=?,admission_number=?,date_of_birth=?,gender=? WHERE id=? AND class_id=?');
@@ -168,12 +196,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'student' || $action === 'edit_student') {
             $classId=(int)($_POST['class_id']??0); $name=trim($_POST['full_name']??''); $admission=trim($_POST['admission_number']??''); $dob=trim($_POST['date_of_birth']??'') ?: null; $gender=trim($_POST['gender']??''); $familyId=(int)($_POST['family_id']??0);
             if (!$classId || !$name) throw new RuntimeException('Choose a class and enter the pupil name.');
+            $studentId = $action === 'edit_student' ? (int)($_POST['student_id'] ?? 0) : 0;
+            if ($action === 'edit_student' && !$studentId) throw new RuntimeException('Choose a valid pupil.');
+            eyEnsureUniquePupilNames($db, $classId, [$name], $studentId ? [$studentId] : []);
             $photo=eyUpload('pupil_photo','pupil');
             if ($action === 'student') {
                 $stmt=$db->prepare('INSERT INTO early_years_students(class_id,full_name,admission_number,date_of_birth,gender,passport_path) VALUES(?,?,?,?,?,?)');
                 $stmt->bind_param('isssss',$classId,$name,$admission,$dob,$gender,$photo); $stmt->execute(); $studentId=(int)$db->insert_id; $stmt->close();
             } else {
-                $studentId=(int)($_POST['student_id']??0); if (!$studentId) throw new RuntimeException('Choose a valid pupil.');
                 if ($photo) { $stmt=$db->prepare('UPDATE early_years_students SET class_id=?,full_name=?,admission_number=?,date_of_birth=?,gender=?,passport_path=? WHERE id=?'); $stmt->bind_param('isssssi',$classId,$name,$admission,$dob,$gender,$photo,$studentId); }
                 else { $stmt=$db->prepare('UPDATE early_years_students SET class_id=?,full_name=?,admission_number=?,date_of_birth=?,gender=? WHERE id=?'); $stmt->bind_param('issssi',$classId,$name,$admission,$dob,$gender,$studentId); }
                 $stmt->execute(); $stmt->close();
@@ -235,6 +265,8 @@ include '../includes/header.php';
 <form method="post" enctype="multipart/form-data" class="card card-body border-primary-subtle mb-3"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="bulk_photo_upload"><input type="hidden" name="class_id" value="<?=$bulkEditClassId?>"><input type="hidden" name="tab" value="bulk_edit"><strong>Upload multiple pupil photos</strong><p class="form-text mt-1 mb-2">Use the pupil ID displayed beside each name as the image filename, with or without an extension (for example, <code>42</code>, <code>42.jpg</code> or <code>42.webp</code>). The image format is detected automatically.</p><div class="d-flex flex-wrap align-items-center gap-2 mb-3"><?php foreach($classStudents as $pupil):?><span class="badge text-bg-light border text-dark">ID <?= (int)$pupil["id"] ?></span><?php endforeach;?></div><div class="d-flex flex-wrap align-items-center gap-2"><input class="form-control form-control-sm" style="max-width:360px" type="file" name="bulk_pupil_photos[]" accept="image/*" multiple required aria-label="Choose multiple pupil photos"><button class="btn btn-success btn-sm"><i class="fas fa-cloud-arrow-up me-1"></i>Upload all</button></div><small class="form-text">Supported formats: JPG, PNG, GIF, WebP, BMP, AVIF and TIFF. Photos are assigned by pupil ID.</small></form><form method="post" class="card card-body mb-4"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="bulk_edit_students"><input type="hidden" name="class_id" value="<?=$bulkEditClassId?>"><h3 class="h6">Edit pupils in <?=htmlspecialchars($classStudents[0]['class_name'])?></h3><div class="table-responsive"><table class="table table-sm table-bordered align-middle"><thead><tr><th>Name</th><th>Admission number</th><th>Date of birth</th><th>Gender</th><th>Family code</th></tr></thead><tbody><?php foreach($classStudents as $pupil):?><tr><td><input type="hidden" name="student_ids[]" value="<?=$pupil['id']?>"><div class="small text-muted mb-1">ID <?=$pupil['id']?></div><input class="form-control" name="full_names[]" value="<?=htmlspecialchars($pupil['full_name'])?>" required></td><td><input class="form-control" name="admission_numbers[]" value="<?=htmlspecialchars($pupil['admission_number']??'')?>"></td><td><input class="form-control" type="date" name="date_of_births[]" value="<?=htmlspecialchars($pupil['date_of_birth']??'')?>"></td><td><select class="form-select" name="genders[]"><option value="">—</option><option value="Male" <?=$pupil['gender']==='Male'||$pupil['gender']==='M'?'selected':''?>>M · Male</option><option value="Female" <?=$pupil['gender']==='Female'||$pupil['gender']==='F'?'selected':''?>>F · Female</option></select></td><td><select class="form-select" name="family_ids[]"><option value="0">No family code</option><?php foreach($familyCodes as $fc):?><option value="<?=$fc['id']?>" <?=$pupil['family_id']==$fc['id']?'selected':''?>><?=htmlspecialchars(($fc['family_label']?:'Family').' · '.$fc['access_code'])?></option><?php endforeach;?></select></td></tr><?php endforeach;?></tbody></table></div><div class="text-end"><button class="btn btn-primary">Save all pupil changes</button></div></form><?php else:?><div class="alert alert-info">No pupils are registered in this class.</div><?php endif;?><?php endif;?></section></div><div class="tab-pane fade ey-admin-panel <?=$activeTab==='pupil_list'?'show active':''?>" id="ey-tab-pupil-list" role="tabpanel"><section class="ey-pupil-list"><div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3"><div><div class="small text-uppercase text-primary fw-bold">Student records</div><h2 class="h5 mb-0">Early Years pupils</h2></div><span class="badge rounded-pill bg-primary-subtle text-primary px-3 py-2"><?=count($listedStudents)?> pupils</span></div><form method="get" class="ey-pupil-filter card card-body mb-3"><input type="hidden" name="tab" value="pupil_list"><div class="row g-2 align-items-end"><div class="col-md-5"><label class="form-label mb-1" for="pupil-list-class">Filter by class</label><select class="form-select" id="pupil-list-class" name="pupil_list_class_id"><option value="0">All classes</option><?php foreach($classes as $c):?><option value="<?=$c['id']?>" <?=$pupilListClassId===(int)$c['id']?'selected':''?>><?=htmlspecialchars($c['name'])?></option><?php endforeach;?></select></div><div class="col-auto"><button class="btn btn-primary"><i class="fas fa-filter me-1"></i>Show pupils</button></div><?php if($pupilListClassId):?><div class="col-auto"><a class="btn btn-outline-secondary" href="early_years.php?tab=pupil_list">Clear filter</a></div><?php endif;?></div></form><div class="table-responsive ey-pupil-table-wrap"><table class="table table-hover align-middle mb-0 ey-pupil-table"><thead><tr><th>Photo</th><th>Pupil</th><th>Admission no.</th><th>Class</th><th>DOB</th><th></th></tr></thead><tbody><?php foreach($listedStudents as $s):?><tr><td><?php if($s['passport_path']):?><img src="../<?=htmlspecialchars($s['passport_path'])?>" alt="" style="width:52px;height:60px;object-fit:cover"><?php endif;?></td><td><?=htmlspecialchars($s['full_name'])?></td><td><?=htmlspecialchars($s['admission_number']??'')?></td><td><?=htmlspecialchars($s['class_name'])?></td><td><?=htmlspecialchars($s['date_of_birth']??'')?></td><td><details><summary class="btn btn-sm btn-outline-primary">Edit</summary><form method="post" enctype="multipart/form-data" class="ey-edit-form mt-2"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="edit_student"><input type="hidden" name="student_id" value="<?=$s['id']?>"><label class="form-label">Name</label><input class="form-control mb-2" name="full_name" value="<?=htmlspecialchars($s['full_name'])?>" required><label class="form-label">Class</label><select class="form-select mb-2" name="class_id"><?php foreach($classes as $c):?><option value="<?=$c['id']?>" <?=$s['class_id']==$c['id']?'selected':''?>><?=htmlspecialchars($c['name'])?></option><?php endforeach;?></select><label class="form-label">Admission number</label><input class="form-control mb-2" name="admission_number" value="<?=htmlspecialchars($s['admission_number']??'')?>"><label class="form-label">Date of birth</label><input class="form-control mb-2" type="date" name="date_of_birth" value="<?=htmlspecialchars($s['date_of_birth']??'')?>"><label class="form-label">Gender</label><input class="form-control mb-2" name="gender" value="<?=htmlspecialchars($s['gender']??'')?>"><label class="form-label">Family access code</label><select class="form-select mb-2" name="family_id"><option value="0">No family code</option><?php foreach($familyCodes as $fc):?><option value="<?=$fc['id']?>" <?=$s['family_id']==$fc['id']?'selected':''?>><?=htmlspecialchars(($fc['family_label']?:'Family').' · '.$fc['access_code'])?></option><?php endforeach;?></select><label class="form-label">Replace pupil photo (optional)</label><input class="form-control mb-2" type="file" name="pupil_photo" accept="image/jpeg,image/png,image/webp"><button class="btn btn-sm btn-primary">Save changes</button></form></details><form method="post" class="mt-1" onsubmit="return confirm('Delete this pupil and their reports?')"><input type="hidden" name="csrf_token" value="<?=htmlspecialchars(termResultsCsrfToken())?>"><input type="hidden" name="action" value="delete_student"><input type="hidden" name="student_id" value="<?=$s['id']?>"><button class="btn btn-sm btn-outline-danger">Delete</button></form></td></tr><?php endforeach;?></tbody></table></div></section>
 </section></div></div></main><style>@media print{@page{size:A4 portrait;margin:14mm}body *{visibility:hidden!important}#ey-family-codes,#ey-family-codes *{visibility:visible!important}#ey-family-codes{position:absolute;inset:0;width:100%;border:0!important;box-shadow:none!important}#ey-family-codes .no-print{display:none!important}#ey-family-codes table{width:100%;font-size:12pt}#ey-family-codes td,#ey-family-codes th{padding:8px;border:1px solid #444!important}.ey-code{font-size:14pt!important}}</style><script>
 const bulkStudentRows=document.getElementById('ey-bulk-student-rows');
+const bulkEditForm=document.querySelector('form input[name="action"][value="bulk_edit_students"]')?.form;
+if(bulkEditForm){const heading=bulkEditForm.querySelector('h3');if(heading){const saveRow=document.createElement('div');saveRow.className='text-center mb-3';const saveButton=document.createElement('button');saveButton.type='submit';saveButton.className='btn btn-primary px-4';saveButton.innerHTML='<i class="fas fa-save me-1"></i>Save all pupil changes';saveRow.appendChild(saveButton);heading.insertAdjacentElement('afterend',saveRow);}}
 let bulkStudentRowIndex=bulkStudentRows?.rows.length||0;
 document.getElementById('ey-add-student-row')?.addEventListener('click',()=>{
  const row=bulkStudentRows.querySelector('tr').cloneNode(true);
